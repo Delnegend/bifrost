@@ -2016,6 +2016,13 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 			}
 		}
 
+		// An update that leaves per_user_discovery unset keeps the stored value,
+		// the same rule the store applies.
+		perUserDiscovery := updatedConfig.PerUserDiscovery
+		if perUserDiscovery == nil {
+			perUserDiscovery = client.ExecutionConfig.PerUserDiscovery
+		}
+
 		// Create a new config struct (immutable pattern) to avoid race conditions
 		// with concurrent reads. Any snapshot holding the old ExecutionConfig pointer
 		// will continue to see consistent data.
@@ -2044,6 +2051,7 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 			AllowedExtraHeaders:    slices.Clone(updatedConfig.AllowedExtraHeaders),
 			IsPingAvailable:        updatedConfig.IsPingAvailable,
 			NeedsSessionStickiness: updatedConfig.NeedsSessionStickiness,
+			PerUserDiscovery:       perUserDiscovery,
 			ToolSyncInterval:       updatedConfig.ToolSyncInterval,
 			ToolExecutionTimeout:   updatedConfig.ToolExecutionTimeout,
 			MaxInstructionsLength:  updatedConfig.MaxInstructionsLength,

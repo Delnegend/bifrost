@@ -694,6 +694,7 @@ func (h *MCPHandler) verifyMCPClientHeaders(ctx *fasthttp.RequestCtx) {
 		AllowedExtraHeaders:       clientConfig.AllowedExtraHeaders,
 		IsPingAvailable:           clientConfig.IsPingAvailable,
 		NeedsSessionStickiness:    clientConfig.NeedsSessionStickiness,
+		PerUserDiscovery:          clientConfig.PerUserDiscovery,
 		ToolPricing:               clientConfig.ToolPricing,
 		ToolSyncInterval:          int(clientConfig.ToolSyncInterval / time.Second),
 		ToolExecutionTimeout:      int(clientConfig.ToolExecutionTimeout / time.Second),
@@ -879,6 +880,7 @@ func (h *MCPHandler) verifyMCPClientExchange(ctx *fasthttp.RequestCtx) {
 		AllowedExtraHeaders:       clientConfig.AllowedExtraHeaders,
 		IsPingAvailable:           clientConfig.IsPingAvailable,
 		NeedsSessionStickiness:    clientConfig.NeedsSessionStickiness,
+		PerUserDiscovery:          clientConfig.PerUserDiscovery,
 		ToolPricing:               clientConfig.ToolPricing,
 		ToolSyncInterval:          int(clientConfig.ToolSyncInterval / time.Second),
 		ToolExecutionTimeout:      int(clientConfig.ToolExecutionTimeout / time.Second),
@@ -1713,6 +1715,7 @@ func (h *MCPHandler) getMCPClientsPaginated(ctx *fasthttp.RequestCtx, params con
 			IsPingAvailable:        &isPingAvailable,
 			NeedsSessionStickiness: dbClient.NeedsSessionStickiness,
 			RequirePublicTarget:    dbClient.RequirePublicTarget,
+			PerUserDiscovery:       dbClient.PerUserDiscovery,
 			ToolSyncInterval:       time.Duration(dbClient.ToolSyncInterval) * time.Second,
 			ToolExecutionTimeout:   time.Duration(dbClient.ToolExecutionTimeout) * time.Second,
 			ToolPricing:            dbClient.ToolPricing,
@@ -3450,6 +3453,9 @@ func (h *MCPHandler) updateMCPClient(ctx *fasthttp.RequestCtx) {
 		TokenExchange:          tokenExchange,
 		TLSConfig:              tlsConfig,
 		OpenAPIConfig:          resolvedOpenAPIConfig,
+		// Not yet editable over the API; carry the stored value so
+		// UpdateMCPClientConfig's unconditional column write cannot zero it.
+		PerUserDiscovery: existingConfig.PerUserDiscovery,
 	}
 	// Rebind persisted discovered tool keys (and inner Function.Name) to the current
 	// client name so a restart restores them under the right prefix.
@@ -3513,6 +3519,7 @@ func (h *MCPHandler) updateMCPClient(ctx *fasthttp.RequestCtx) {
 		PerUserHeaderKeys:      perUserHeaderKeys,
 		TokenExchange:          tokenExchange,
 		OpenAPIConfig:          resolvedOpenAPIConfig,
+		PerUserDiscovery:       existingConfig.PerUserDiscovery,
 	}
 
 	// Compare per-call-ness before/after so the response can tell the admin
@@ -4134,6 +4141,7 @@ func (h *MCPHandler) completePerUserOAuthAdminRepair(ctx *fasthttp.RequestCtx, b
 		AllowedExtraHeaders:       clientConfig.AllowedExtraHeaders,
 		IsPingAvailable:           clientConfig.IsPingAvailable,
 		NeedsSessionStickiness:    clientConfig.NeedsSessionStickiness,
+		PerUserDiscovery:          clientConfig.PerUserDiscovery,
 		ToolPricing:               clientConfig.ToolPricing,
 		ToolSyncInterval:          int(clientConfig.ToolSyncInterval / time.Second),
 		ToolExecutionTimeout:      int(clientConfig.ToolExecutionTimeout / time.Second),
@@ -4404,6 +4412,7 @@ func (h *MCPHandler) completeMCPClientOAuth(ctx *fasthttp.RequestCtx) {
 				AllowedExtraHeaders:       mcpClientConfig.AllowedExtraHeaders,
 				IsPingAvailable:           mcpClientConfig.IsPingAvailable,
 				NeedsSessionStickiness:    mcpClientConfig.NeedsSessionStickiness,
+				PerUserDiscovery:          mcpClientConfig.PerUserDiscovery,
 				ToolPricing:               mcpClientConfig.ToolPricing,
 				ToolSyncInterval:          int(mcpClientConfig.ToolSyncInterval / time.Second),
 				ToolExecutionTimeout:      int(mcpClientConfig.ToolExecutionTimeout / time.Second),

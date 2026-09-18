@@ -2395,6 +2395,46 @@ func TestMigrationAddMCPCodeModeLimitsClientColumn(t *testing.T) {
 	require.NoError(t, migrationAddMCPCodeModeLimitsClientColumn(ctx, db, testMigrationLogger))
 }
 
+// TestMigrationAddMCPPerUserDiscoveries pins the upgrade path: the per_user_discovery flag column,
+// the mcp_per_user_discoveries table with its instructions column (a discovery carries the
+// server's instructions alongside its tools), and the per-mode partial unique indexes that keep
+// one row per (identity, client) binding.
+func TestMigrationAddMCPPerUserDiscoveries(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	ctx := context.Background()
+	mg := db.Migrator()
+
+	require.NoError(t, db.Exec(`CREATE TABLE IF NOT EXISTS migrations (id VARCHAR(255) PRIMARY KEY)`).Error)
+	require.NoError(t, db.AutoMigrate(&tables.TableMCPClient{}))
+
+	// Simulate the pre-migration schema
+	require.NoError(t, mg.DropColumn(&tables.TableMCPClient{}, "per_user_discovery"))
+	require.False(t, mg.HasColumn(&tables.TableMCPClient{}, "per_user_discovery"))
+	require.False(t, mg.HasTable(&tables.TableMCPPerUserDiscovery{}))
+
+	require.NoError(t, migrationAddMCPPerUserDiscoveries(ctx, db, testMigrationLogger))
+
+	assert.True(t, mg.HasColumn(&tables.TableMCPClient{}, "per_user_discovery"))
+	require.True(t, mg.HasTable(&tables.TableMCPPerUserDiscovery{}))
+	for _, column := range []string{"tools_json", "tool_name_mapping_json", "instructions", "discovery_hash", "discovered_at"} {
+		assert.True(t, mg.HasColumn(&tables.TableMCPPerUserDiscovery{}, column), "%s column should exist after migration", column)
+	}
+	for _, index := range []string{
+		"idx_mcp_per_user_discoveries_user_mcp",
+		"idx_mcp_per_user_discoveries_vk_mcp",
+		"idx_mcp_per_user_discoveries_session_mcp",
+	} {
+		assert.True(t, mg.HasIndex(&tables.TableMCPPerUserDiscovery{}, index), "%s should exist after migration", index)
+	}
+
+	// Idempotent: a re-run on an already-migrated schema is a no-op.
+	require.NoError(t, db.Exec("DELETE FROM migrations WHERE id = ?", "add_mcp_per_user_discoveries").Error)
+	require.NoError(t, migrationAddMCPPerUserDiscoveries(ctx, db, testMigrationLogger))
+}
+
 func TestMigrationAddCompatForceReasoningOnlyModelsToResponsesColumn(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),

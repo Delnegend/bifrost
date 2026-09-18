@@ -43,6 +43,7 @@ type MCPManager struct {
 	toolsManager           *ToolsManager                      // Handler for MCP tools
 	server                 *server.MCPServer                  // Local MCP server instance for hosting tools (STDIO-based)
 	clientMap              map[string]*schemas.MCPClientState // Map of MCP client names to their configurations
+	discoveryStore         schemas.MCPDiscoveryStore          // Discoveries (tools, name mapping, instructions) keyed by client ID; the single owner of that data, which client state never carries
 	mu                     sync.RWMutex                       // Read-write mutex for thread-safe operations
 	serverRunning          bool                               // Track whether local MCP server is running
 	checkerManager         *ConnectionCheckerManager          // Manager for per-client periodic connection checkers (liveness + discovery refresh, drives Healthy/Unstable/NeedsReauth)
@@ -188,10 +189,15 @@ func NewMCPManager(ctx context.Context, config schemas.MCPConfig, credStore sche
 		}
 	}
 	// Creating new instance
+	discoveryStore := config.DiscoveryStore
+	if discoveryStore == nil {
+		discoveryStore = NewDiscoveryStore()
+	}
 	manager := &MCPManager{
 		ctx:                    ctx,
 		logger:                 logger,
 		clientMap:              make(map[string]*schemas.MCPClientState),
+		discoveryStore:         discoveryStore,
 		checkerManager:         NewConnectionCheckerManager(config.ToolSyncInterval),
 		credStore:              credStore,
 		inProcessServerFactory: config.InProcessServerFactory,
@@ -291,8 +297,6 @@ func (m *MCPManager) connectConfiguredClients(ctx context.Context) {
 						Name:            clientConfig.Name,
 						ExecutionConfig: clientConfig,
 						State:           schemas.MCPConnectionStateUnstable,
-						ToolMap:         make(map[string]schemas.ChatTool),
-						ToolNameMapping: make(map[string]string),
 						ConnectionInfo: &schemas.MCPClientConnectionInfo{
 							Type: clientConfig.ConnectionType,
 						},

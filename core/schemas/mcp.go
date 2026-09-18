@@ -267,6 +267,96 @@ type MCPConfig struct {
 	// The transport registers framework/openapimcp.Factory here; Go SDK users opt in
 	// the same way. Nil means openapi clients fail to connect with a clear error.
 	InProcessServerFactory InProcessServerFactory `json:"-"`
+
+	// DiscoveryStore, when set, replaces the manager's built-in in-memory
+	// discovery storage. Implementations may resolve a caller-specific
+	// discovery off ctx (e.g. per-identity results kept behind a cache and a
+	// database); the built-in store serves every caller the same one. Nil
+	// uses the built-in store.
+	DiscoveryStore MCPDiscoveryStore `json:"-"`
+}
+
+// MCPDiscovery is what discovering one MCP client produced, as one caller sees
+// it: the tools keyed by their prefixed "<client>-<tool>" name, the mapping
+// from sanitized names back to the upstream's own, the upstream's initialize
+// `instructions`, and when the upstream last answered tools/list for it.
+//
+// Everything here comes from one handshake under one credential, so it is
+// stored, replaced and served as a unit: a store that gives a caller its own
+// tools gives that caller the instructions that came with them. Anything else
+// a server advertises per caller belongs here for the same reason.
+//
+// Values handed out by a store are shared snapshots — callers must not
+// mutate the maps.
+type MCPDiscovery struct {
+	Tools           map[string]ChatTool
+	ToolNameMapping map[string]string
+	Instructions    string // Upstream initialize `instructions`, "" when it advertises none; replaced, never appended to
+	// DiscoveredAt is when this discovery's tools were produced by an
+	// upstream tools/list. The manager compares it against a client's tool
+	// sync interval to decide when a refresh is due. Zero means unknown (e.g.
+	// restored from persisted config), which reads as "not due".
+	DiscoveredAt time.Time
+}
+
+// GetTools returns the discovery's tools; nil-safe, so a store's "nothing
+// recorded for this client" reads as an empty tool list without branching at
+// call sites.
+func (d *MCPDiscovery) GetTools() map[string]ChatTool {
+	if d == nil {
+		return nil
+	}
+	return d.Tools
+}
+
+// GetToolNameMapping returns the discovery's sanitized-to-upstream name
+// mapping; nil-safe like GetTools.
+func (d *MCPDiscovery) GetToolNameMapping() map[string]string {
+	if d == nil {
+		return nil
+	}
+	return d.ToolNameMapping
+}
+
+// GetInstructions returns the discovery's upstream instructions; nil-safe like
+// GetTools.
+func (d *MCPDiscovery) GetInstructions() string {
+	if d == nil {
+		return ""
+	}
+	return d.Instructions
+}
+
+// MCPDiscoveryStore holds the discovery results of MCP clients, keyed by
+// client ID. It is a plain mapping: discovery, refresh, and every upstream
+// interaction stay with the caller (the MCP manager); the store only records
+// results and answers lookups.
+//
+// The ctx on reads lets an implementation answer per caller: a store keeping
+// per-identity results resolves the caller's identity off ctx and serves that
+// identity's discovery when it has one. The built-in store ignores ctx and
+// serves one discovery per client.
+//
+// Implementations must be safe for concurrent use.
+type MCPDiscoveryStore interface {
+	// GetDiscovery returns the discovery the caller on ctx should see for one
+	// client, or nil when the client has none recorded.
+	GetDiscovery(ctx context.Context, clientID string) *MCPDiscovery
+	// GetClientForTool returns the ID of the client whose discovery (as seen
+	// by the caller on ctx) contains toolName, along with that discovery.
+	// Returns ("", nil) when no client serves the tool to this caller.
+	GetClientForTool(ctx context.Context, toolName string) (string, *MCPDiscovery)
+	// SetDiscovery replaces one client's discovery wholesale. Every write
+	// carries a complete discovery result; merging would keep tools the
+	// upstream has since withdrawn. A nil discovery removes the client's
+	// entry (used when the client is removed or disabled).
+	//
+	// Writes run under the MCP manager's own lock so a discovery result and
+	// the connection state it belongs to land atomically; implementations
+	// must not block on I/O here (persist asynchronously, or from the
+	// manager's tools-change callback, instead). Reads carry no such
+	// constraint — the manager calls them outside its lock.
+	SetDiscovery(ctx context.Context, clientID string, discovery *MCPDiscovery)
 }
 
 // ErrMCPOpenAPIConfigInvalid marks a permanent failure to synthesize an openapi
@@ -1341,23 +1431,21 @@ type MCPInstanceState struct {
 	LastFailure *MCPConnectionFailure `json:"last_failure,omitempty"`
 }
 
-// MCPClientState represents a connected MCP client with its configuration and tools.
-// It is used internally by the MCP manager to track the state of a connected MCP client.
+// MCPClientState represents a connected MCP client: its configuration and
+// connection state. It is used internally by the MCP manager to track the
+// state of a connected MCP client. It carries no discovery data — a client's
+// discovered tools and instructions live in the manager's MCPDiscoveryStore,
+// fetched separately by whoever needs them.
 type MCPClientState struct {
 	Name            string                   // Unique name for this client
 	Conn            *client.Client           // Active MCP client connection
 	ExecutionConfig *MCPClientConfig         // Tool filtering settings
-	ToolMap         map[string]ChatTool      // Available tools mapped by name
-	ToolNameMapping map[string]string        // Maps sanitized_name -> original_mcp_name (e.g., "notion_search" -> "notion-search")
 	ConnectionInfo  *MCPClientConnectionInfo `json:"connection_info"` // Connection metadata for management
-	// ServerInstructions is the upstream's initialize `instructions`, as of the last handshake.
-	// Overwritten (never appended to) on reconnect, so dropping it upstream drops it here.
-	ServerInstructions string                `json:"server_instructions,omitempty"`
-	CancelFunc         context.CancelFunc    `json:"-"` // Cancel function for SSE connections (not serialized)
-	State              MCPConnectionState    // Connection state (healthy, unstable, needs_reauth, ...)
-	LastFailure        *MCPConnectionFailure `json:"last_failure,omitempty"` // Why State is not Healthy; nil while Healthy (see MCPConnectionFailure)
-	ConnGeneration     uint64                `json:"-"`                      // Counts connection swaps; late writers bound to an older Conn compare against it to detect staleness (not serialized)
-	LastToolsHash      string                `json:"-"`                      // Content hash of the last ToolMap/ToolNameMapping the tools-change callback fired for; gates the funnel to genuine changes only (not serialized)
+	CancelFunc      context.CancelFunc       `json:"-"`               // Cancel function for SSE connections (not serialized)
+	State           MCPConnectionState       // Connection state (healthy, unstable, needs_reauth, ...)
+	LastFailure     *MCPConnectionFailure    `json:"last_failure,omitempty"` // Why State is not Healthy; nil while Healthy (see MCPConnectionFailure)
+	ConnGeneration  uint64                   `json:"-"`                      // Counts connection swaps; late writers bound to an older Conn compare against it to detect staleness (not serialized)
+	LastToolsHash   string                   `json:"-"`                      // Content hash of the last discovery the tools-change callback fired for; gates the funnel to genuine changes only (not serialized)
 }
 
 // MCPClientConnectionInfo stores metadata about how a client is connected.

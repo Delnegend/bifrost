@@ -4579,8 +4579,12 @@ func (bifrost *Bifrost) GetMCPClients() ([]schemas.MCPClient, error) {
 	clientsInConfig := make([]schemas.MCPClient, 0, len(clients))
 
 	for _, client := range clients {
-		tools := make([]schemas.ChatToolFunction, 0, len(client.ToolMap))
-		for _, tool := range client.ToolMap {
+		// Client snapshots carry connection state only; tools come from the
+		// manager's discovery store. Read with the manager's own context: this is
+		// the admin surface, which always shows the client-wide baseline.
+		toolMap := bifrost.MCPManager.GetToolsForClient(bifrost.ctx, client.ExecutionConfig.ID)
+		tools := make([]schemas.ChatToolFunction, 0, len(toolMap))
+		for _, tool := range toolMap {
 			if tool.Function != nil {
 				// Create a deep copy (for name) of the tool function to avoid modifying the original
 				toolFunction := schemas.ChatToolFunction{}

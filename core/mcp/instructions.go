@@ -33,43 +33,51 @@ const (
 // a narrowed caller (x-bf-mcp-include-clients, or a /mcp/<slug> Virtual MCP) from reading
 // the guidance of a server it was never granted.
 //
+// The text is read from the caller's discovery for each client, the same one its visible
+// tools came from, so a store serving a caller its own discovery serves it its own
+// instructions with no extra wiring.
+//
 // Code mode clients are excluded: their tools are never sent, so their guidance rides in the
 // stub instead. See InstructionsCommentBlock.
 func (m *MCPManager) GetServerInstructions(ctx context.Context) []schemas.MCPServerInstructions {
 	visible := m.GetToolPerClient(ctx)
 
+	// Snapshot the clients under the lock, then read each one's text from the caller's
+	// discovery outside it: the same per-caller discovery that made the client visible, and
+	// a ctx-aware store may read through to slower backing, which must not run under m.mu.
+	type candidate struct {
+		id        string
+		maxLength int
+	}
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	instructionsByName := make(map[string]string, len(m.clientMap))
-	maxLengthByName := make(map[string]int, len(m.clientMap))
+	candidates := make(map[string]candidate, len(m.clientMap))
 	for _, client := range m.clientMap {
 		if client.ExecutionConfig.IsCodeModeClient {
 			continue
 		}
-		if client.ServerInstructions != "" {
-			instructionsByName[client.ExecutionConfig.Name] = client.ServerInstructions
-			maxLengthByName[client.ExecutionConfig.Name] = client.ExecutionConfig.MaxInstructionsLength
-		}
+		candidates[client.ExecutionConfig.Name] = candidate{id: client.ExecutionConfig.ID, maxLength: client.ExecutionConfig.MaxInstructionsLength}
 	}
+	m.mu.RUnlock()
 
-	names := make([]string, 0, len(visible))
+	result := make([]schemas.MCPServerInstructions, 0, len(visible))
 	for clientName, tools := range visible {
-		if len(tools) == 0 || instructionsByName[clientName] == "" {
+		c, ok := candidates[clientName]
+		if !ok || len(tools) == 0 {
 			continue
 		}
-		names = append(names, clientName)
-	}
-	slices.Sort(names)
-
-	result := make([]schemas.MCPServerInstructions, 0, len(names))
-	for _, name := range names {
+		instructions := m.discoveryStore.GetDiscovery(ctx, c.id).GetInstructions()
+		if instructions == "" {
+			continue
+		}
 		result = append(result, schemas.MCPServerInstructions{
-			ClientName:   name,
-			Instructions: instructionsByName[name],
-			MaxLength:    maxLengthByName[name],
+			ClientName:   clientName,
+			Instructions: instructions,
+			MaxLength:    c.maxLength,
 		})
 	}
+	slices.SortFunc(result, func(a, b schemas.MCPServerInstructions) int {
+		return strings.Compare(a.ClientName, b.ClientName)
+	})
 	return result
 }
 

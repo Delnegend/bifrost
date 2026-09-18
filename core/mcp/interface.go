@@ -60,15 +60,22 @@ type MCPManagerInterface interface {
 	ExecuteResponsesTool(ctx *schemas.BifrostContext, toolCall *schemas.ResponsesToolMessage) (*schemas.ResponsesMessage, *schemas.BifrostError)
 
 	// GetInjectedTool resolves a provider-injected tool (ProviderConfig.InjectedTools)
-	// by client name and unprefixed tool name, bypassing tool filters.
-	GetInjectedTool(clientName, toolName string) (schemas.ChatTool, error)
+	// by client name and unprefixed tool name, bypassing tool filters. The tool is
+	// read from the caller's discovery on ctx.
+	GetInjectedTool(ctx context.Context, clientName, toolName string) (schemas.ChatTool, error)
 
 	// GetMaxAgentDepth returns the configured cap on model turns in a tool loop.
 	GetMaxAgentDepth() int
 
 	// Client Management
-	// GetClients returns all MCP clients
+	// GetClients returns all MCP clients. Snapshots carry connection state
+	// only; a client's tools are read via GetToolsForClient.
 	GetClients() []schemas.MCPClientState
+
+	// GetToolsForClient returns the tools the caller on ctx should see for
+	// one client, or nil when it has none recorded. Discovery data lives in
+	// the manager's discovery store, never on client state snapshots.
+	GetToolsForClient(ctx context.Context, clientID string) map[string]schemas.ChatTool
 
 	// RequiresPerCallConnection reports whether config resolves to a
 	// per-call connection (true) or a persistent shared one (false), taking

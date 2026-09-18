@@ -123,12 +123,12 @@ func newMakeBeforeBreakConfig(id, serverURL string) *schemas.MCPClientConfig {
 // tool execution uses (GetClientForTool + AcquireClientConn + CallTool) and
 // returns any error along the way.
 func callEchoTool(m *MCPManager, toolName string) error {
-	state := m.GetClientForTool(toolName)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	state, _ := m.GetClientForTool(ctx, toolName)
 	if state == nil {
 		return fmt.Errorf("tool '%s' is not available or not permitted", toolName)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	bfCtx := schemas.NewBifrostContext(ctx, schemas.NoDeadline)
 	conn, release, err := m.AcquireClientConn(bfCtx, state)
 	if err != nil {
@@ -146,16 +146,32 @@ func callEchoTool(m *MCPManager, toolName string) error {
 	return callErr
 }
 
+// clientSnapshot is what the assertions below work with: the connection-state
+// snapshot plus the client's discovery read from the store (client state no
+// longer carries discovery data).
+type clientSnapshot struct {
+	schemas.MCPClientState
+	ToolMap         map[string]schemas.ChatTool
+	ToolNameMapping map[string]string
+}
+
 // snapshotClientState copies the fields the assertions below care about while
-// holding the manager lock.
-func snapshotClientState(m *MCPManager, id string) (state schemas.MCPClientState, exists bool) {
+// holding the manager lock, with the client's discovery read from the store.
+func snapshotClientState(m *MCPManager, id string) (state clientSnapshot, exists bool) {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
 	cs, ok := m.clientMap[id]
 	if !ok {
-		return schemas.MCPClientState{}, false
+		m.mu.RUnlock()
+		return clientSnapshot{}, false
 	}
-	return *cs, true
+	snapshot := *cs
+	m.mu.RUnlock()
+	discovery := m.discoveryStore.GetDiscovery(context.Background(), id)
+	return clientSnapshot{
+		MCPClientState:  snapshot,
+		ToolMap:         discovery.GetTools(),
+		ToolNameMapping: discovery.GetToolNameMapping(),
+	}, true
 }
 
 // =============================================================================
@@ -534,7 +550,7 @@ func TestConnectionChecker_PerformCheck_StaleGenerationWriteDropped(t *testing.T
 	markerTools := map[string]schemas.ChatTool{"marker-tool": {}}
 	m.mu.Lock()
 	m.clientMap[config.ID].ConnGeneration++
-	m.clientMap[config.ID].ToolMap = markerTools
+	m.discoveryStore.SetDiscovery(context.Background(), config.ID, &schemas.MCPDiscovery{Tools: markerTools})
 	m.mu.Unlock()
 
 	close(listRelease)
@@ -552,8 +568,9 @@ func TestConnectionChecker_PerformCheck_StaleGenerationWriteDropped(t *testing.T
 
 func TestHandleSSEConnectionLost_StaleGenerationNoOp(t *testing.T) {
 	m := &MCPManager{
-		logger:    &MockLogger{},
-		clientMap: map[string]*schemas.MCPClientState{},
+		discoveryStore: NewDiscoveryStore(),
+		logger:         &MockLogger{},
+		clientMap:      map[string]*schemas.MCPClientState{},
 	}
 	config := &schemas.MCPClientConfig{ID: "sse-client", Name: "sse-client"}
 	m.clientMap[config.ID] = &schemas.MCPClientState{

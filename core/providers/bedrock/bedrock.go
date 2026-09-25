@@ -85,7 +85,7 @@ func NewBedrockProvider(config *schemas.ProviderConfig, logger schemas.Logger) (
 	// Bedrock's runtime client is net/http, so proxy_config has to be applied here
 	// explicitly; ConfigureProxy below only covers the fasthttp Mantle clients. With
 	// no proxy configured, keep proxying from the environment as before.
-	proxy, proxyTLS, err := providerUtils.NetHTTPProxy(config.ProxyConfig)
+	proxy, proxyTLS, proxyHopTLS, err := providerUtils.NetHTTPProxyWithHopTLS(config.ProxyConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -143,6 +143,12 @@ func NewBedrockProvider(config *schemas.ProviderConfig, logger schemas.Logger) (
 		// Keep an inherited proxy's skip_tls_verify scoped to proxied traffic, now
 		// checked against the merged roots.
 		transport.TLSClientConfig = providerUtils.RescopeProxySkipVerify(proxyTLS, tlsConfig, config.NetworkConfig.InsecureSkipVerify)
+	}
+
+	// proxyTLS scopes an inherited proxy's skip_tls_verify to proxied targets, which
+	// net/http would also apply to the TLS session to an https:// proxy itself.
+	if proxyHopTLS != proxyTLS {
+		providerUtils.DialHTTPSProxyWithHopTLS(transport, proxyHopTLS)
 	}
 
 	// When HTTP/2 is enforced and a ping interval is configured, send client-initiated

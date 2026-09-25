@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	"github.com/maximhq/bifrost/core/network"
+	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
 	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
+	"github.com/valyala/fasthttp"
 )
 
 func enabledGlobalProxy() *configstoreTables.GlobalProxyConfig {
@@ -116,6 +118,47 @@ func TestInheritGlobalProxy(t *testing.T) {
 				t.Errorf("proxy.SkipTLSVerify = %v, want %v", got.proxy.SkipTLSVerify, tt.wantSkip)
 			}
 		})
+	}
+}
+
+// TestInheritGlobalProxy_BareAddressKeepsTheProxy: the settings page accepts a bare
+// host:port and takes its scheme from the type. Providers parse the URL to add credentials,
+// and a bare address does not parse, so the inherited URL must carry the scheme or the
+// provider client is left without a proxy and inference goes direct.
+func TestInheritGlobalProxy_BareAddressKeepsTheProxy(t *testing.T) {
+	cases := []struct {
+		proxyType network.GlobalProxyType
+		url       string
+		want      string
+	}{
+		{network.GlobalProxyTypeSOCKS5, "10.0.0.9:1080", "socks5://10.0.0.9:1080"},
+		{network.GlobalProxyTypeHTTP, "10.0.0.9:3128", "http://10.0.0.9:3128"},
+		{network.GlobalProxyTypeSOCKS5, "proxy.corp:1080", "socks5://proxy.corp:1080"},
+	}
+	for _, tc := range cases {
+		t.Run(string(tc.proxyType)+" "+tc.url, func(t *testing.T) {
+			global := enabledGlobalProxy()
+			global.Type = tc.proxyType
+			global.URL = tc.url
+			got, ok := inheritGlobalProxy(nil, global)
+			if !ok {
+				t.Fatal("nothing inherited")
+			}
+			if got.proxy.URL.GetValue() != tc.want {
+				t.Errorf("url = %q, want %q", got.proxy.URL.GetValue(), tc.want)
+			}
+			client := providerUtils.ConfigureProxy(&fasthttp.Client{}, got.proxy, nil)
+			if client.Dial == nil {
+				t.Errorf("the provider client got no proxy dialer for %q with credentials: inference would go direct", tc.url)
+			}
+		})
+	}
+
+	invalid := enabledGlobalProxy()
+	invalid.Type = network.GlobalProxyTypeSOCKS5
+	invalid.URL = "socks5://10.0.0.9:bad"
+	if _, ok := inheritGlobalProxy(nil, invalid); ok {
+		t.Error("an unparseable global proxy url (which the API and config.json both refuse) must not be inherited")
 	}
 }
 

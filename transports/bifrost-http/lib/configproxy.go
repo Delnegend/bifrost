@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/maximhq/bifrost/core/network"
 	"github.com/maximhq/bifrost/core/schemas"
@@ -67,8 +70,8 @@ func validateGlobalProxyConfig(c configstoreTables.GlobalProxyConfig) error {
 		return nil
 	}
 	switch c.Type {
-	case network.GlobalProxyTypeHTTP:
-	case network.GlobalProxyTypeSOCKS5, network.GlobalProxyTypeTCP:
+	case network.GlobalProxyTypeHTTP, network.GlobalProxyTypeSOCKS5:
+	case network.GlobalProxyTypeTCP:
 		return fmt.Errorf("proxy type %s is not yet supported", c.Type)
 	default:
 		return fmt.Errorf("invalid proxy type: %s", c.Type)
@@ -76,10 +79,51 @@ func validateGlobalProxyConfig(c configstoreTables.GlobalProxyConfig) error {
 	if c.URL == "" {
 		return errors.New("proxy url is required when the proxy is enabled")
 	}
+	if _, err := ValidateGlobalProxyURL(c.Type, c.URL); err != nil {
+		return err
+	}
 	if c.Timeout < 0 {
 		return errors.New("proxy timeout must be non-negative")
 	}
 	return nil
+}
+
+// ValidateGlobalProxyURL checks a global proxy URL the way the HTTP client factory will
+// read it (HTTPClientFactory.proxyURLForPurpose): a bare host:port takes the type's
+// scheme, and the URL must parse with a host and a valid port. The factory treats a URL
+// it cannot parse as no proxy at all, so accepting one would send traffic direct. A
+// socks5 proxy must be named by a socks5:// or socks5h:// URL and an http proxy by an
+// http:// or https:// one, compared case-insensitively as the parser lowercases schemes,
+// because the dialer follows the URL's scheme: it would otherwise speak the wrong
+// protocol, or refuse the scheme at runtime after the config was saved.
+func ValidateGlobalProxyURL(proxyType network.GlobalProxyType, raw string) (*url.URL, error) {
+	effective := raw
+	if !strings.Contains(raw, "://") {
+		scheme := "http"
+		if proxyType == network.GlobalProxyTypeSOCKS5 {
+			scheme = "socks5"
+		}
+		effective = scheme + "://" + raw
+	}
+	parsed, err := url.Parse(effective)
+	if err != nil {
+		return nil, fmt.Errorf("invalid proxy URL: %v", err)
+	}
+	if parsed.Hostname() == "" {
+		return nil, fmt.Errorf("proxy URL %q names no host", raw)
+	}
+	if port := parsed.Port(); port != "" {
+		if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
+			return nil, fmt.Errorf("proxy URL %q has an invalid port", raw)
+		}
+	}
+	if proxyType == network.GlobalProxyTypeSOCKS5 && parsed.Scheme != "socks5" && parsed.Scheme != "socks5h" {
+		return nil, fmt.Errorf("a socks5 proxy URL must use the socks5:// or socks5h:// scheme")
+	}
+	if proxyType == network.GlobalProxyTypeHTTP && parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return nil, fmt.Errorf("an http proxy URL must use the http:// or https:// scheme")
+	}
+	return parsed, nil
 }
 
 // generateGlobalProxyConfigHash hashes a resolved declaration, so a rotated credential behind an

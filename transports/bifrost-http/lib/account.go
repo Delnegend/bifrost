@@ -157,10 +157,17 @@ func inheritGlobalProxy(own *schemas.ProxyConfig, global *configstoreTables.Glob
 		// "tcp" has no provider-level equivalent (the UI does not offer it).
 		return inheritedProxy{}, false
 	}
+	// A bare host:port takes the type's scheme, as the settings page reads it. Providers
+	// parse the URL to add credentials and fall back to no proxy when it does not parse, so
+	// they get the normalized URL, and a URL that cannot be normalized is not inherited.
+	proxyURL, err := ValidateGlobalProxyURL(global.Type, strings.TrimSpace(global.URL))
+	if err != nil {
+		return inheritedProxy{}, false
+	}
 	return inheritedProxy{
 		proxy: &schemas.ProxyConfig{
 			Type:     proxyType,
-			URL:      plainSecret(global.URL),
+			URL:      plainSecret(proxyURL.String()),
 			Username: plainSecret(global.Username),
 			Password: plainSecret(global.Password),
 			NoProxy:  global.NoProxy,

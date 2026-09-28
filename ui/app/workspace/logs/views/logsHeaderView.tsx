@@ -18,13 +18,7 @@ import { getErrorMessage } from "@/lib/store";
 import { useCancelRecalculateCostJobMutation, useGetRecalculateCostStatusQuery } from "@/lib/store/apis/logsApi";
 import { getActiveTempToken } from "@/lib/store/apis/tempToken";
 import type { LogEntry, LogFilters as LogFiltersType, RecalcJobStatus } from "@/lib/types/logs";
-import {
-	formatLogSearchInput,
-	isLogIdSearch,
-	LOG_SEARCH_MODE_LABELS,
-	type LogSearchMode,
-	parseLogSearchInput,
-} from "@/lib/utils/logSearch";
+import { formatLogSearchInput, isLogIdSearch, type LogSearchMode, parseLogSearchInput } from "@/lib/utils/logSearch";
 import { getApiBaseUrl } from "@/lib/utils/port";
 import { getRangeForPeriod, TIME_PERIODS, withPeriodTimezone } from "@/lib/utils/timeRange";
 import { Calculator, ChevronDown, Download, ListTree, MoreVertical, Radio, RefreshCw, Search } from "lucide-react";
@@ -398,7 +392,7 @@ export function LogsHeaderView({
 							</Badge>
 						</TooltipTrigger>
 						<TooltipContent sideOffset={6} className="max-w-64">
-							Looking up this request ID exactly. The selected time range is ignored so the request is found wherever it falls.
+							{t("logs.exactIdSearchHint")}
 						</TooltipContent>
 					</Tooltip>
 				)}
@@ -408,23 +402,23 @@ export function LogsHeaderView({
 							variant="ghost"
 							size="sm"
 							className="text-muted-foreground h-7 shrink-0 rounded-none text-xs"
-							title="Choose whether the box searches log content or looks up a request ID"
+							title={t("logs.searchModeHint")}
 							data-testid="logs-search-mode-trigger"
 						>
-							{LOG_SEARCH_MODE_LABELS[searchMode]}
+							{t(`logs.searchModes.${searchMode}`)}
 							<ChevronDown className="size-3" />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="w-44">
 						<DropdownMenuRadioGroup value={searchMode} onValueChange={(value) => handleSearchModeChange(value as LogSearchMode)}>
 							<DropdownMenuRadioItem value="auto" className="text-xs" data-testid="logs-search-mode-auto">
-								Auto detect
+								{t("logs.searchModeOptions.auto")}
 							</DropdownMenuRadioItem>
 							<DropdownMenuRadioItem value="content" className="text-xs" data-testid="logs-search-mode-content">
-								Content search
+								{t("logs.searchModeOptions.content")}
 							</DropdownMenuRadioItem>
 							<DropdownMenuRadioItem value="request_id" className="text-xs" data-testid="logs-search-mode-request-id">
-								Request ID search
+								{t("logs.searchModeOptions.request_id")}
 							</DropdownMenuRadioItem>
 						</DropdownMenuRadioGroup>
 					</DropdownMenuContent>
@@ -462,18 +456,18 @@ export function LogsHeaderView({
 						size="sm"
 						className="h-7.5"
 						onClick={() => setExportDialogOpen(true)}
-						aria-label="Export CSV"
+						aria-label={t("logs.export.exportCsv")}
 					>
 						<Download className="h-4 w-4" />
-						<span className="hidden @5xl/logs-header:inline">Export CSV</span>
+						<span className="hidden @5xl/logs-header:inline">{t("logs.export.exportCsv")}</span>
 					</Button>
 				</TooltipTrigger>
-				<TooltipContent sideOffset={6}>Export CSV</TooltipContent>
+				<TooltipContent sideOffset={6}>{t("logs.export.exportCsv")}</TooltipContent>
 			</Tooltip>
 
 			<Popover open={openMoreActionsPopover} onOpenChange={setOpenMoreActionsPopover}>
 				<PopoverTrigger asChild>
-					<Button variant="outline" size="sm" className="h-7.5 w-7.5" aria-label="More actions">
+					<Button variant="outline" size="sm" className="h-7.5 w-7.5" aria-label={t("logs.moreActions")}>
 						<MoreVertical className="h-4 w-4" aria-hidden="true" />
 					</Button>
 				</PopoverTrigger>
@@ -489,8 +483,8 @@ export function LogsHeaderView({
 							>
 								<Download className="text-muted-foreground size-4" />
 								<div className="flex flex-col">
-									<span className="text-sm">Export CSV</span>
-									<span className="text-muted-foreground text-xs">Download matching logs as CSV</span>
+									<span className="text-sm">{t("logs.export.exportCsv")}</span>
+									<span className="text-muted-foreground text-xs">{t("logs.export.menuDescription")}</span>
 								</div>
 							</CommandItem>
 							{/* While a job runs this doubles as the cancel control, so the run can

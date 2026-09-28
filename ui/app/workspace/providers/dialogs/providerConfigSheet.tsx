@@ -85,7 +85,7 @@ const availableTabs = (
 	if (hasPassthrough) {
 		tabs.push({
 			id: "passthrough",
-			label: "Passthrough",
+			label: t("providers.allowedRequests.types.passthrough"),
 		});
 	}
 	tabs.push({

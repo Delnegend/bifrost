@@ -12,5 +12,6 @@ description: "Helm v2.1.46 changelog - 2026-10-22"
 - Added `bifrost.client.skipAccessProfileUserVirtualKeyCreation` (`client.skip_access_profile_user_virtual_key_creation`), default `false`. Enterprise only: when `true`, a user's first access profile no longer issues them a virtual key.
 - Added `bifrost.client.skipAccessProfileUserVirtualKeyDeletion` (`client.skip_access_profile_user_virtual_key_deletion`), default `false`. Enterprise only: when `true`, removing a user's last access profile no longer deletes their virtual keys; they are kept as ordinary keys. Deleting the user still deletes them.
 - Added `syncAllUsers` to the Okta SCIM provider config (`bifrost.scim.config.syncAllUsers`, `scim_config.config.syncAllUsers`), default `true`. Chooses which Okta users directory sync keeps: every app-assigned user except suspended and deactivated ones, or (`false`) active users only. The chart's values schema and `config.schema.json` previously refused the key.
+- Added `bifrost.server.basePath` (`server.base_path`) to serve Bifrost under a URL path prefix behind an ingress (e.g. `https://abc.com/bifrost`). The UI, redirects and OAuth callback URLs use the prefix. Requests are accepted with or without it, so the ingress can forward or strip it and probes stay on `/health`.
 
 </Update>

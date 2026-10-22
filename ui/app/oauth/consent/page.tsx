@@ -14,6 +14,7 @@ import { getActiveTempToken } from "@/lib/store/apis/tempToken";
 import { Fingerprint, KeyRound, Loader2, LogIn, ShieldCheck, UserRound } from "lucide-react";
 import { useQueryState } from "nuqs";
 import React, { useEffect, useMemo, useState } from "react";
+import { buildLoginHref } from "@/lib/utils/loginGoto";
 
 // Mirrors handlers.TempTokenRejectedCode: a presented token was refused.
 const TEMP_TOKEN_REJECTED_CODE = "temp_token_rejected";
@@ -63,7 +64,7 @@ function ConsentView({ flowId }: { flowId: string }) {
 
 	const loginHref = useMemo(() => {
 		const returnPath = `/oauth/consent?flow=${encodeURIComponent(flowId)}`;
-		return `/login?goto=${encodeURIComponent(returnPath)}`;
+		return buildLoginHref(returnPath);
 	}, [flowId]);
 
 	const signedOut = authState?.is_auth_enabled === true && authState.has_valid_token === false;

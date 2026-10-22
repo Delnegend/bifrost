@@ -3,7 +3,9 @@ import { buildWindsurfConfig } from "../commandBuilders";
 import { HarnessCommandSection } from "../harnessCommandSection";
 import type { HarnessInstallProps } from "../types";
 import { getRegistrationLabel, getUserHomePrefix } from "../utils";
+import { withBasePath } from "@/lib/utils/basePath";
 
+/** Install panel for Windsurf: the generated config or command for the selected MCP servers. */
 export function WindsurfHarnessInstall({
 	canGenerateCommand,
 	clientConfig,
@@ -34,7 +36,7 @@ export function WindsurfHarnessInstall({
 			emptyMessage={emptyMessage}
 			harnessName="Windsurf (Devin)"
 			label="Config"
-			logoSrc="/images/harness/windsurf.svg"
+			logoSrc={withBasePath("/images/harness/windsurf.svg")}
 			registrationLabel={`${configPath} · ${getRegistrationLabel(serverScope, selectedServers)}`}
 		/>
 	);

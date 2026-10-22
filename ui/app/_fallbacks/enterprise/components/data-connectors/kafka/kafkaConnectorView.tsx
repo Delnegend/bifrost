@@ -1,10 +1,12 @@
 import ContactUsView from "../../views/contactUsView";
+import { withBasePath } from "@/lib/utils/basePath";
 
 interface KafkaConnectorViewProps {
 	onDelete?: () => void;
 	isDeleting?: boolean;
 }
 
+/** OSS fallback for the Kafka connector: an enterprise upsell card. */
 export default function KafkaConnectorView(_props: KafkaConnectorViewProps) {
 	return (
 		<div className="space-y-6">
@@ -14,7 +16,7 @@ export default function KafkaConnectorView(_props: KafkaConnectorViewProps) {
 						align="middle"
 						className="mx-auto w-full max-w-lg"
 						testIdPrefix="kafka-connector"
-						icon={<img src="/images/kafka-logo.svg" alt="Kafka" width={88} height={88} />}
+						icon={<img src={withBasePath("/images/kafka-logo.svg")} alt="Kafka" width={88} height={88} />}
 						title="Unlock native Kafka log streaming for real-time observability"
 						description="This feature is a part of the Bifrost enterprise license. Stream completed request traces as JSON to a Kafka topic for real-time analytics, alerting, and downstream processing."
 						readmeLink="https://docs.getbifrost.ai/enterprise/kafka-connector"

@@ -14,6 +14,7 @@ import { buildCSV, downloadCSV } from "@/lib/utils/csv";
 import { Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { type DashboardData, type DashboardTab, type ExportTab, getCSVSections, getExportTabLabel } from "../utils/exportUtils";
+import { withBasePath } from "@/lib/utils/basePath";
 
 interface ExportPopoverProps {
 	getData: () => DashboardData;
@@ -26,6 +27,7 @@ interface ExportPopoverProps {
 	onExportDone: () => void;
 }
 
+/** Dashboard export menu: CSV or PDF, for the active tab or every tab. */
 export function ExportPopover({ getData, activeTab, onPreloadData, onPdfExport, onExportDone }: ExportPopoverProps) {
 	const [exporting, setExporting] = useState(false);
 
@@ -69,7 +71,7 @@ export function ExportPopover({ getData, activeTab, onPreloadData, onPdfExport, 
 
 				await generatePdf(sections, fileName(scope), {
 					branding: {
-						logoSrc: "/bifrost-logo.webp",
+						logoSrc: withBasePath("/bifrost-logo.webp"),
 						text: "Powered by",
 					},
 				});

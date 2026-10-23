@@ -5395,6 +5395,1115 @@
       "description": "Bifrost MCP endpoint tests.",
       "item": [
         {
+          "name": "EP-01 initialize (2025-03-26)",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; mcp_server_auth_mode headers, enforce_auth_on_inference off.",
+          "item": [
+            {
+              "name": "EP-01 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "EP-01 setup: mcp_server_auth_mode headers, enforce_auth_on_inference off",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = \"headers\";",
+                      "cc.enforce_auth_on_inference = false;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 setup: mcp_server_auth_mode headers, enforce_auth_on_inference off: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-01 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-01 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-01 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-01 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-01 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-01-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-01 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-01-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-01 setup: read GET /api/version",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 setup: read GET /api/version: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('ep01_version', JSON.stringify(pm.response.json()));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/version"
+              }
+            },
+            {
+              "name": "EP-01 initialize with 2025-03-26",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 initialize with 2025-03-26: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-01 initialize with 2025-03-26: JSON reply; serverInfo bifrost at the server version; capabilities exactly tools.listChanged; no Mcp-Session-Id\", function () {",
+                      "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+                      "  var r = pm.response.json().result;",
+                      "  pm.expect(r.serverInfo.name, 'body: ' + pm.response.text()).to.equal('bifrost');",
+                      "  pm.expect(r.serverInfo.version).to.equal(JSON.parse(pm.collectionVariables.get('ep01_version')));",
+                      "  pm.expect(r.capabilities).to.eql({ tools: { listChanged: true } });",
+                      "  pm.expect(pm.response.headers.has('Mcp-Session-Id')).to.equal(false);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"mcp-harness\",\"version\":\"1.0.0\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-01 teardown: delete client ep-01-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 teardown: delete client ep-01-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-01-alpha"
+              }
+            },
+            {
+              "name": "EP-01 teardown: delete client ep-01-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 teardown: delete client ep-01-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-01-beta"
+              }
+            },
+            {
+              "name": "EP-01 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-01 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-02 Protocol version negotiation",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false.",
+          "item": [
+            {
+              "name": "EP-02 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-02-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-02-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 initialize asking 2024-11-05",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 initialize asking 2024-11-05: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-02 initialize asking 2024-11-05: protocolVersion is 2024-11-05\", function () {",
+                      "  pm.expect(pm.response.json().result.protocolVersion, 'body: ' + pm.response.text()).to.equal(\"2024-11-05\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"mcp-harness\",\"version\":\"1.0.0\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 initialize asking 2025-06-18",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 initialize asking 2025-06-18: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-02 initialize asking 2025-06-18: protocolVersion is 2025-06-18\", function () {",
+                      "  pm.expect(pm.response.json().result.protocolVersion, 'body: ' + pm.response.text()).to.equal(\"2025-06-18\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"mcp-harness\",\"version\":\"1.0.0\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 initialize asking 1999-01-01",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 initialize asking 1999-01-01: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-02 initialize asking 1999-01-01: protocolVersion is 2025-06-18\", function () {",
+                      "  pm.expect(pm.response.json().result.protocolVersion, 'body: ' + pm.response.text()).to.equal(\"2025-06-18\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"1999-01-01\",\"capabilities\":{},\"clientInfo\":{\"name\":\"mcp-harness\",\"version\":\"1.0.0\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 initialize asking no version",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 initialize asking no version: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-02 initialize asking no version: protocolVersion is 2025-03-26\", function () {",
+                      "  pm.expect(pm.response.json().result.protocolVersion, 'body: ' + pm.response.text()).to.equal(\"2025-03-26\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"clientInfo\":{\"name\":\"mcp-harness\",\"version\":\"1.0.0\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-02 teardown: delete client ep-02-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 teardown: delete client ep-02-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-02-alpha"
+              }
+            },
+            {
+              "name": "EP-02 teardown: delete client ep-02-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-02 teardown: delete client ep-02-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-02-beta"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-04 No upstream instructions",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; the mock servers send no instructions.",
+          "item": [
+            {
+              "name": "EP-04 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-04 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-04 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-04 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-04 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-04 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-04 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-04 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-04 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-04 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-04-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-04 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-04 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-04-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-04 initialize",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-04 initialize: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-04 initialize: result has no instructions key\", function () {",
+                      "  pm.expect(pm.response.json().result, 'body: ' + pm.response.text()).to.not.have.property('instructions');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"mcp-harness\",\"version\":\"1.0.0\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-04 teardown: delete client ep-04-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-04 teardown: delete client ep-04-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-04-alpha"
+              }
+            },
+            {
+              "name": "EP-04 teardown: delete client ep-04-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-04 teardown: delete client ep-04-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-04-beta"
+              }
+            }
+          ]
+        },
+        {
           "name": "EP-09 Instruction cap validation",
           "description": "Setup: PUT /api/config (dashboard auth on, admin credentials).",
           "item": [
@@ -5615,6 +6724,2335 @@
                   "mode": "raw",
                   "raw": "{{config_body}}"
                 }
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-12 tools/list per VK",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; mcp_server_auth_mode headers, enforce_auth_on_inference on; the full-access VK (every tool of alpha and beta), the echo-only VK (only alpha's echo) and the no-grant VK (no MCP configs).",
+          "item": [
+            {
+              "name": "EP-12 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-12-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-12-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 setup: create the full-access VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: create the full-access VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"ep-12_full_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"ep-12_full\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"EP-12 full-access VK\",\"mcp_configs\":[{\"mcp_client_name\":\"alpha\",\"tools_to_execute\":[\"*\"]},{\"mcp_client_name\":\"beta\",\"tools_to_execute\":[\"*\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 setup: create the echo-only VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: create the echo-only VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"ep-12_echo_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"ep-12_echo\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"EP-12 echo-only VK\",\"mcp_configs\":[{\"mcp_client_name\":\"alpha\",\"tools_to_execute\":[\"echo\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 setup: create the no-grant VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: create the no-grant VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"ep-12_none_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"ep-12_none\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"EP-12 no-grant VK\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "EP-12 setup: mcp_server_auth_mode headers, enforce_auth_on_inference on",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = \"headers\";",
+                      "cc.enforce_auth_on_inference = true;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 setup: mcp_server_auth_mode headers, enforce_auth_on_inference on: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 control: no credential is refused",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 control: no credential is refused: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"EP-12 control: no credential is refused: error message contains \\\"virtual key required to access mcp server\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"virtual key required to access mcp server\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 tools/list with the full-access VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 tools/list with the full-access VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-12 tools/list with the full-access VK: tools/list names are exactly [\\\"alpha-add\\\",\\\"alpha-echo\\\",\\\"beta-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"alpha-add\",\"alpha-echo\",\"beta-echo\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-12_full}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 tools/list with the echo-only VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 tools/list with the echo-only VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-12 tools/list with the echo-only VK: tools/list names are exactly [\\\"alpha-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"alpha-echo\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-12_echo}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 tools/list with the no-grant VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 tools/list with the no-grant VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-12 tools/list with the no-grant VK: tools/list names are exactly []\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-12_none}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-12 teardown: delete the full-access VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 teardown: delete the full-access VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{ep-12_full_id}}"
+              }
+            },
+            {
+              "name": "EP-12 teardown: delete the echo-only VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 teardown: delete the echo-only VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{ep-12_echo_id}}"
+              }
+            },
+            {
+              "name": "EP-12 teardown: delete the no-grant VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 teardown: delete the no-grant VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{ep-12_none_id}}"
+              }
+            },
+            {
+              "name": "EP-12 teardown: delete client ep-12-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 teardown: delete client ep-12-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-12-alpha"
+              }
+            },
+            {
+              "name": "EP-12 teardown: delete client ep-12-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-12 teardown: delete client ep-12-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-12-beta"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-13 Client tools_to_execute narrows /mcp",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false, except client alpha has tools_to_execute [\"echo\"]; the full-access VK (every tool of alpha and beta).",
+          "item": [
+            {
+              "name": "EP-13 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-13 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-13 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-13 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-13 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-13-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"echo\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-13 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-13-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-13 setup: create the full-access VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 setup: create the full-access VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"ep-13_full_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"ep-13_full\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"EP-13 full-access VK\",\"mcp_configs\":[{\"mcp_client_name\":\"alpha\",\"tools_to_execute\":[\"*\"]},{\"mcp_client_name\":\"beta\",\"tools_to_execute\":[\"*\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-13 tools/list with the full-access VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 tools/list with the full-access VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-13 tools/list with the full-access VK: tools/list names are exactly [\\\"alpha-echo\\\",\\\"beta-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"alpha-echo\",\"beta-echo\"]);",
+                      "});",
+                      "pm.test(\"EP-13 tools/list with the full-access VK: alpha-add is not listed\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.not.include('alpha-add');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-13_full}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-13 tools/call alpha-add with the full-access VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 tools/call alpha-add with the full-access VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-13 tools/call alpha-add with the full-access VK: error.code -32602, message \\\"tool 'alpha-add' not found: tool not found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.code, 'body: ' + pm.response.text()).to.equal(-32602);",
+                      "  pm.expect(b.error.message).to.equal(\"tool 'alpha-add' not found: tool not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-13_full}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"alpha-add\",\"arguments\":{\"a\":1,\"b\":2}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-13 alpha calls[add] is 0",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 alpha calls[add] is 0: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-13 alpha calls[add] is 0: calls[add] is 0\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls[\"add\"] || 0, 'body: ' + pm.response.text()).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "EP-13 teardown: delete the full-access VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 teardown: delete the full-access VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{ep-13_full_id}}"
+              }
+            },
+            {
+              "name": "EP-13 teardown: delete client ep-13-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 teardown: delete client ep-13-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-13-alpha"
+              }
+            },
+            {
+              "name": "EP-13 teardown: delete client ep-13-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-13 teardown: delete client ep-13-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-13-beta"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-14 Include headers on /mcp",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; an anonymous caller, and the echo-only VK (only alpha's echo).",
+          "item": [
+            {
+              "name": "EP-14 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-14-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-14-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 setup: create the echo-only VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 setup: create the echo-only VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"ep-14_echo_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"ep-14_echo\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"EP-14 echo-only VK\",\"mcp_configs\":[{\"mcp_client_name\":\"alpha\",\"tools_to_execute\":[\"echo\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 include-clients beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 include-clients beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-14 include-clients beta: tools/list names are exactly [\\\"beta-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"beta-echo\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-mcp-include-clients",
+                    "value": "beta"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 include-tools alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 include-tools alpha-echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-14 include-tools alpha-echo: tools/list names are exactly [\\\"alpha-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"alpha-echo\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-mcp-include-tools",
+                    "value": "alpha-echo"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 include-clients empty",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 include-clients empty: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-14 include-clients empty: tools/list names are exactly []\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-mcp-include-clients",
+                    "value": ""
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 control: the echo-only VK with include-tools alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 control: the echo-only VK with include-tools alpha-echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-14 control: the echo-only VK with include-tools alpha-echo: tools/list names are exactly [\\\"alpha-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"alpha-echo\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-14_echo}}"
+                  },
+                  {
+                    "key": "x-bf-mcp-include-tools",
+                    "value": "alpha-echo"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 the echo-only VK with include-tools beta-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 the echo-only VK with include-tools beta-echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-14 the echo-only VK with include-tools beta-echo: tools/list names are exactly []\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-14_echo}}"
+                  },
+                  {
+                    "key": "x-bf-mcp-include-tools",
+                    "value": "beta-echo"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-14 teardown: delete the echo-only VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 teardown: delete the echo-only VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{ep-14_echo_id}}"
+              }
+            },
+            {
+              "name": "EP-14 teardown: delete client ep-14-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 teardown: delete client ep-14-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-14-alpha"
+              }
+            },
+            {
+              "name": "EP-14 teardown: delete client ep-14-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-14 teardown: delete client ep-14-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-14-beta"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-15 Hyphenated upstream tool name",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; alpha also serves \"web-search\".",
+          "item": [
+            {
+              "name": "EP-15 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-15 setup: alpha serves echo, add, web-search",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 setup: alpha serves echo, add, web-search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"web-search\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-15 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-15 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-15 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-15-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-15 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-15-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-15 tools/list",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 tools/list: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-15 tools/list: alpha-web-search is listed\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.include('alpha-web-search');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-15 tools/call alpha-web-search",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 tools/call alpha-web-search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"alpha-web-search\",\"arguments\":{\"q\":\"x\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-15 alpha calls[web-search] is 1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 alpha calls[web-search] is 1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-15 alpha calls[web-search] is 1: calls[web-search] is 1\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls[\"web-search\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "EP-15 teardown: delete client ep-15-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 teardown: delete client ep-15-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-15-alpha"
+              }
+            },
+            {
+              "name": "EP-15 teardown: delete client ep-15-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-15 teardown: delete client ep-15-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-15-beta"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-17 Names with \"/\" or \"..\" are not served",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; alpha also serves \"x/y\" and \"a..b\".",
+          "item": [
+            {
+              "name": "EP-17 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-17 setup: alpha serves echo, add, x/y, a..b",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 setup: alpha serves echo, add, x/y, a..b: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"x/y\"},{\"name\":\"a..b\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-17 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-17 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-17 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-17-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-17 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-17-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-17 tools/list",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 tools/list: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-17 tools/list: tools/list names are exactly [\\\"alpha-add\\\",\\\"alpha-echo\\\",\\\"beta-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"alpha-add\",\"alpha-echo\",\"beta-echo\"]);",
+                      "});",
+                      "pm.test(\"EP-17 tools/list: neither name is listed\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.not.include('alpha-x/y');",
+                      "  pm.expect(names).to.not.include('alpha-a..b');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-17 tools/call alpha-x/y",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 tools/call alpha-x/y: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-17 tools/call alpha-x/y: error.code -32602\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.code, 'body: ' + pm.response.text()).to.equal(-32602);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"alpha-x/y\",\"arguments\":{}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-17 teardown: delete client ep-17-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 teardown: delete client ep-17-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-17-alpha"
+              }
+            },
+            {
+              "name": "EP-17 teardown: delete client ep-17-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-17 teardown: delete client ep-17-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-17-beta"
               }
             }
           ]
@@ -5924,6 +9362,322 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/ep-18-beta"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-20 Upstream fails the exchange",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; alpha fault err_rate 1, err_kind protocol.",
+          "item": [
+            {
+              "name": "EP-20 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-20 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-20 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-20 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-20 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-20-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-20 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-20-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-20 setup: alpha fails every call with a protocol error",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 setup: alpha fails every call with a protocol error: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/faults",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"faults\":{\"err_rate\":1,\"err_kind\":\"protocol\"}}"
+                }
+              }
+            },
+            {
+              "name": "EP-20 tools/call alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 tools/call alpha-echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-20 tools/call alpha-echo: isError true, text starts \\\"Tool execution failed: MCP tool call failed for alpha-echo:\\\"\", function () {",
+                      "  var r = pm.response.json().result;",
+                      "  pm.expect(r && r.isError, 'body: ' + pm.response.text()).to.equal(true);",
+                      "  var text = r.content[0].text;",
+                      "  pm.expect(text.indexOf(\"Tool execution failed: MCP tool call failed for alpha-echo:\"), 'text: ' + text).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-20 teardown: delete client ep-20-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 teardown: delete client ep-20-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-20-alpha"
+              }
+            },
+            {
+              "name": "EP-20 teardown: delete client ep-20-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-20 teardown: delete client ep-20-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-20-beta"
               }
             }
           ]
@@ -6257,6 +10011,1231 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/ep-23-beta"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-24 Listed but not granted",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; the echo-only VK (only alpha's echo) calls alpha-add, the no-grant VK (no MCP configs) calls alpha-echo.",
+          "item": [
+            {
+              "name": "EP-24 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-24-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-24-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 setup: create the echo-only VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 setup: create the echo-only VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"ep-24_echo_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"ep-24_echo\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"EP-24 echo-only VK\",\"mcp_configs\":[{\"mcp_client_name\":\"alpha\",\"tools_to_execute\":[\"echo\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 setup: create the no-grant VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 setup: create the no-grant VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"ep-24_none_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"ep-24_none\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"EP-24 no-grant VK\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 control: the echo-only VK calls alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 control: the echo-only VK calls alpha-echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-24 control: the echo-only VK calls alpha-echo: isError is not set and the content is the echo\", function () {",
+                      "  var r = pm.response.json().result;",
+                      "  pm.expect(r && r.isError, 'body: ' + pm.response.text()).to.not.equal(true);",
+                      "  pm.expect(r.content).to.eql([{ type: 'text', text: 'echo:{\"text\":\"hi\"}' }]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-24_echo}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 the echo-only VK calls alpha-add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 the echo-only VK calls alpha-add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-24 the echo-only VK calls alpha-add: isError true, text starts \\\"Tool execution failed: MCP tool 'alpha-add' is not allowed\\\"\", function () {",
+                      "  var r = pm.response.json().result;",
+                      "  pm.expect(r && r.isError, 'body: ' + pm.response.text()).to.equal(true);",
+                      "  var text = r.content[0].text;",
+                      "  pm.expect(text.indexOf(\"Tool execution failed: MCP tool 'alpha-add' is not allowed\"), 'text: ' + text).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-24_echo}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"alpha-add\",\"arguments\":{\"a\":1,\"b\":2}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 the no-grant VK calls alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 the no-grant VK calls alpha-echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-24 the no-grant VK calls alpha-echo: isError true, text starts \\\"Tool execution failed: MCP tool 'alpha-echo' is not allowed\\\"\", function () {",
+                      "  var r = pm.response.json().result;",
+                      "  pm.expect(r && r.isError, 'body: ' + pm.response.text()).to.equal(true);",
+                      "  var text = r.content[0].text;",
+                      "  pm.expect(text.indexOf(\"Tool execution failed: MCP tool 'alpha-echo' is not allowed\"), 'text: ' + text).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-24_none}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-24 alpha ran only the control call",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 alpha ran only the control call: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-24 alpha ran only the control call: calls is {echo: 1}\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls, 'body: ' + pm.response.text()).to.eql({ echo: 1 });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "EP-24 teardown: delete the echo-only VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 teardown: delete the echo-only VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{ep-24_echo_id}}"
+              }
+            },
+            {
+              "name": "EP-24 teardown: delete the no-grant VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 teardown: delete the no-grant VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{ep-24_none_id}}"
+              }
+            },
+            {
+              "name": "EP-24 teardown: delete client ep-24-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 teardown: delete client ep-24-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-24-alpha"
+              }
+            },
+            {
+              "name": "EP-24 teardown: delete client ep-24-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-24 teardown: delete client ep-24-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-24-beta"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-25 Tool hidden by include headers",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; an anonymous caller with include-clients beta calls alpha-echo.",
+          "item": [
+            {
+              "name": "EP-25 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-25 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-25 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-25 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-25 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-25-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-25 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-25-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-25 tools/call alpha-echo with include-clients beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 tools/call alpha-echo with include-clients beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-25 tools/call alpha-echo with include-clients beta: isError true, text contains \\\"is not permitted (client alpha is not in request-context include list)\\\"\", function () {",
+                      "  var r = pm.response.json().result;",
+                      "  pm.expect(r && r.isError, 'body: ' + pm.response.text()).to.equal(true);",
+                      "  var text = r.content[0].text;",
+                      "  pm.expect(text, 'text: ' + text).to.include(\"is not permitted (client alpha is not in request-context include list)\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-mcp-include-clients",
+                    "value": "beta"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-25 alpha received no tool call",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 alpha received no tool call: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-25 alpha received no tool call: calls is empty\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls, 'body: ' + pm.response.text()).to.eql({});",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "EP-25 teardown: delete client ep-25-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 teardown: delete client ep-25-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-25-alpha"
+              }
+            },
+            {
+              "name": "EP-25 teardown: delete client ep-25-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-25 teardown: delete client ep-25-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-25-beta"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EP-26 Argument handling",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; alpha's add declares numeric a and b.",
+          "item": [
+            {
+              "name": "EP-26 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-26 setup: alpha's add takes numeric a and b",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 setup: alpha's add takes numeric a and b: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"number\"},\"b\":{\"type\":\"number\"}},\"required\":[\"a\",\"b\"]}}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-26 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-26 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-26 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-26-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-26 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-26-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-26 schema-violating arguments are forwarded unchanged",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 schema-violating arguments are forwarded unchanged: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-26 schema-violating arguments are forwarded unchanged: the mock echoes the arguments as sent\", function () {",
+                      "  var r = pm.response.json().result;",
+                      "  pm.expect(r.content[0].text, 'body: ' + pm.response.text()).to.equal('add:{\"a\":\"x\",\"b\":\"y\"}');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"alpha-add\",\"arguments\":{\"a\":\"x\",\"b\":\"y\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-26 alpha calls[add] is 1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 alpha calls[add] is 1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-26 alpha calls[add] is 1: calls[add] is 1\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls[\"add\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "EP-26 params \"x\"",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 params \\\"x\\\": status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-26 params \\\"x\\\": error.code -32600, message starts \\\"unparsable tools/call request\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.code, 'body: ' + pm.response.text()).to.equal(-32600);",
+                      "  pm.expect(b.error.message.indexOf('unparsable tools/call request'), 'message: ' + b.error.message).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":\"x\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-26 no tool name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 no tool name: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-26 no tool name: error.code -32602, message contains \\\"tool '' not found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.code, 'body: ' + pm.response.text()).to.equal(-32602);",
+                      "  pm.expect(b.error.message).to.include(\"tool '' not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{}}"
+                }
+              }
+            },
+            {
+              "name": "EP-26 teardown: delete client ep-26-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 teardown: delete client ep-26-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-26-alpha"
+              }
+            },
+            {
+              "name": "EP-26 teardown: delete client ep-26-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-26 teardown: delete client ep-26-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-26-beta"
               }
             }
           ]

@@ -1,0 +1,2929 @@
+{
+  "info": {
+    "_postman_id": "bifrost-mcp-harness",
+    "name": "Bifrost MCP Harness",
+    "description": "End-to-end MCP tests for Bifrost. Each folder inside a section is one test case, named by its ID, and its requests carry that ID as a prefix. Run with `make run-mcp-harness-test`, which boots its own Bifrost and enables dashboard auth before the run.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8093"
+    },
+    {
+      "key": "admin_auth_header",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "ADM Client admin",
+      "description": "Client admin tests.",
+      "item": [
+        {
+          "name": "ADM-05 Create rejects a bad body and connection_type",
+          "description": "Setup: dashboard auth on, admin credentials.",
+          "item": [
+            {
+              "name": "ADM-05 setup: record the client count",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-05 setup: record the client count: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('adm05_total', pm.response.json().total_count);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients"
+              }
+            },
+            {
+              "name": "ADM-05 body \"x\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-05 body \\\"x\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-05 body \\\"x\\\" is rejected: error message is \\\"Invalid request payload\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Invalid request payload\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "x"
+                }
+              }
+            },
+            {
+              "name": "ADM-05 connection_type \"streamable\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-05 connection_type \\\"streamable\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-05 connection_type \\\"streamable\\\" is rejected: error message contains \\\"must be one of http, sse, stdio, openapi\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be one of http, sse, stdio, openapi\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm05_client\",\"connection_type\":\"streamable\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-05 connection_type \"inprocess\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-05 connection_type \\\"inprocess\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-05 connection_type \\\"inprocess\\\" is rejected: error message contains \\\"must be one of http, sse, stdio, openapi\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be one of http, sse, stdio, openapi\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm05_client\",\"connection_type\":\"inprocess\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-05 connection_type \"\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-05 connection_type \\\"\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-05 connection_type \\\"\\\" is rejected: error message contains \\\"must be one of http, sse, stdio, openapi\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be one of http, sse, stdio, openapi\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm05_client\",\"connection_type\":\"\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-05 no client was added",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-05 no client was added: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-05 no client was added: total_count is unchanged\", function () {",
+                      "  var before = Number(pm.collectionVariables.get('adm05_total'));",
+                      "  pm.expect(pm.response.json().total_count, 'body: ' + pm.response.text()).to.equal(before);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-06 Create rejects invalid names",
+          "description": "Setup: dashboard auth on, admin credentials; an otherwise valid http body.",
+          "item": [
+            {
+              "name": "ADM-06 name \"\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-06 name \\\"\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"\\\" is rejected: error message starts with \\\"Invalid client name: \\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid client name: \"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"\\\" is rejected: error message contains \\\"name is required\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"name is required\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-06 name \"my-srv\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-06 name \\\"my-srv\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"my-srv\\\" is rejected: error message starts with \\\"Invalid client name: \\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid client name: \"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"my-srv\\\" is rejected: error message contains \\\"cannot contain hyphens\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"cannot contain hyphens\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"my-srv\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-06 name \"my srv\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-06 name \\\"my srv\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"my srv\\\" is rejected: error message starts with \\\"Invalid client name: \\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid client name: \"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"my srv\\\" is rejected: error message contains \\\"cannot contain spaces\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"cannot contain spaces\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"my srv\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-06 name \"9srv\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-06 name \\\"9srv\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"9srv\\\" is rejected: error message starts with \\\"Invalid client name: \\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid client name: \"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"9srv\\\" is rejected: error message contains \\\"cannot start with a number\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"cannot start with a number\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"9srv\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-06 name \"srvé\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-06 name \\\"srvé\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"srvé\\\" is rejected: error message starts with \\\"Invalid client name: \\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid client name: \"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"ADM-06 name \\\"srvé\\\" is rejected: error message contains \\\"only ASCII characters\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"only ASCII characters\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"srvé\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-62 List query validation",
+          "description": "Setup: dashboard auth on, admin credentials.",
+          "item": [
+            {
+              "name": "ADM-62 limit=abc is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-62 limit=abc is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?limit=abc"
+              }
+            },
+            {
+              "name": "ADM-62 limit=-1 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-62 limit=-1 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-62 limit=-1 is rejected: error message contains \\\"must be non-negative\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be non-negative\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?limit=-1"
+              }
+            },
+            {
+              "name": "ADM-62 offset=-1 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-62 offset=-1 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-62 offset=-1 is rejected: error message contains \\\"must be non-negative\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be non-negative\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?offset=-1"
+              }
+            },
+            {
+              "name": "ADM-62 state=bogus is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-62 state=bogus is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-62 state=bogus is rejected: error message contains \\\"must be 'healthy' or 'unstable'\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be 'healthy' or 'unstable'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?state=bogus"
+              }
+            },
+            {
+              "name": "ADM-62 code_mode=maybe is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-62 code_mode=maybe is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?code_mode=maybe"
+              }
+            },
+            {
+              "name": "ADM-62 disabled=maybe is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-62 disabled=maybe is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?disabled=maybe"
+              }
+            },
+            {
+              "name": "ADM-62 limit=1000 gives 100",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-62 limit=1000 gives 100: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-62 limit=1000 gives 100: limit is 100\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"limit\"], 'body: ' + pm.response.text()).to.equal(100);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?limit=1000"
+              }
+            },
+            {
+              "name": "ADM-62 limit=0 gives 25",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-62 limit=0 gives 25: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-62 limit=0 gives 25: limit is 25\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"limit\"], 'body: ' + pm.response.text()).to.equal(25);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?limit=0"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-73 Sessions list validation",
+          "description": "Setup: dashboard auth on, admin credentials.",
+          "item": [
+            {
+              "name": "ADM-73 limit=0 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-73 limit=0 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-73 limit=0 is rejected: error message contains \\\"must be greater than zero\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be greater than zero\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/sessions?limit=0"
+              }
+            },
+            {
+              "name": "ADM-73 limit=abc is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-73 limit=abc is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/sessions?limit=abc"
+              }
+            },
+            {
+              "name": "ADM-73 offset=-1 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-73 offset=-1 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/sessions?offset=-1"
+              }
+            },
+            {
+              "name": "ADM-73 limit=600 gives 500",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-73 limit=600 gives 500: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-73 limit=600 gives 500: limit is 500\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"limit\"], 'body: ' + pm.response.text()).to.equal(500);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/sessions?limit=600"
+              }
+            },
+            {
+              "name": "ADM-73 defaults are limit 50, offset 0",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-73 defaults are limit 50, offset 0: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-73 defaults are limit 50, offset 0: limit is 50\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"limit\"], 'body: ' + pm.response.text()).to.equal(50);",
+                      "});",
+                      "pm.test(\"ADM-73 defaults are limit 50, offset 0: offset is 0\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"offset\"], 'body: ' + pm.response.text()).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/sessions"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "EP Bifrost MCP endpoint",
+      "description": "Bifrost MCP endpoint tests.",
+      "item": [
+        {
+          "name": "EP-09 Instruction cap validation",
+          "description": "Setup: PUT /api/config (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "EP-09 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-09 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "EP-09 per-client cap above the total is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_max_instructions_per_client = 500;",
+                      "cc.mcp_max_instructions_total = 100;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-09 per-client cap above the total is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"EP-09 per-client cap above the total is rejected: error message contains \\\"must not exceed mcp_max_instructions_total\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must not exceed mcp_max_instructions_total\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-09 a negative cap is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_max_instructions_per_client = -1;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-09 a negative cap is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"EP-09 a negative cap is rejected: error message contains \\\"must not be negative\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must not be negative\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-09 a cap of 1048577 is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_max_instructions_per_client = 1048577;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-09 a cap of 1048577 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"EP-09 a cap of 1048577 is rejected: error message contains \\\"must not exceed 1048576 bytes\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must not exceed 1048576 bytes\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-09 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-09 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "OAS Bifrost OAuth server",
+      "description": "Bifrost OAuth server tests.",
+      "item": [
+        {
+          "name": "OAS-31 Sessions list validation",
+          "description": "Setup: admin (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "OAS-31 bf_mode=bogus is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-31 bf_mode=bogus is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/oauth2/sessions?bf_mode=bogus"
+              }
+            },
+            {
+              "name": "OAS-31 limit=0 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-31 limit=0 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/oauth2/sessions?limit=0"
+              }
+            },
+            {
+              "name": "OAS-31 limit=abc is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-31 limit=abc is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/oauth2/sessions?limit=abc"
+              }
+            },
+            {
+              "name": "OAS-31 offset=-1 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-31 offset=-1 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/oauth2/sessions?offset=-1"
+              }
+            },
+            {
+              "name": "OAS-31 limit=1000 gives 500",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-31 limit=1000 gives 500: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"OAS-31 limit=1000 gives 500: limit is 500\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"limit\"], 'body: ' + pm.response.text()).to.equal(500);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/oauth2/sessions?limit=1000"
+              }
+            }
+          ]
+        },
+        {
+          "name": "OAS-36 OAuth config validation",
+          "description": "Setup: PUT /api/config (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "OAS-36 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-36 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "OAS-36 mcp_server_auth_mode bogus is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = 'bogus';",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-36 mcp_server_auth_mode bogus is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"OAS-36 mcp_server_auth_mode bogus is rejected: error message contains \\\"must be one of: headers, both, oauth\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be one of: headers, both, oauth\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-36 both without issuer_url is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = 'both';",
+                      "cc.oauth2_server_config = {};",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-36 both without issuer_url is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"OAS-36 both without issuer_url is rejected: error message contains \\\"issuer_url must be set\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"issuer_url must be set\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-36 auth_code_ttl 901 is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.oauth2_server_config = { auth_code_ttl: 901 };",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-36 auth_code_ttl 901 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"OAS-36 auth_code_ttl 901 is rejected: error message contains \\\"must not exceed 900 seconds\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must not exceed 900 seconds\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-36 disable_vk_identity in both mode is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = 'both';",
+                      "cc.oauth2_server_config = { issuer_url: pm.variables.get('base_url'), disable_vk_identity: true };",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-36 disable_vk_identity in both mode is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"OAS-36 disable_vk_identity in both mode is rejected: error message contains \\\"only valid when mcp_server_auth_mode is oauth\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"only valid when mcp_server_auth_mode is oauth\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-36 a partial wildcard redirect is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.oauth2_server_config = { allowed_redirect_uris: ['https://x/*'] };",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-36 a partial wildcard redirect is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"OAS-36 a partial wildcard redirect is rejected: error message contains \\\"supports only a bare\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"supports only a bare\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-36 an ftp redirect is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.oauth2_server_config = { allowed_redirect_uris: ['ftp://x'] };",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-36 an ftp redirect is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"OAS-36 an ftp redirect is rejected: error message contains \\\"invalid callback URI\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"invalid callback URI\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-36 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-36 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "INF Inference",
+      "description": "Inference tests.",
+      "item": [
+        {
+          "name": "INF-23 Instruction cap validation",
+          "description": "Setup: PUT /api/config (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "INF-23 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-23 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "INF-23 a negative cap is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_max_instructions_per_client = -1;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-23 a negative cap is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-23 a negative cap is rejected: error message contains \\\"must not be negative\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must not be negative\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-23 per-client 5000 with total 4000 is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_max_instructions_per_client = 5000;",
+                      "cc.mcp_max_instructions_total = 4000;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-23 per-client 5000 with total 4000 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-23 per-client 5000 with total 4000 is rejected: error message contains \\\"must not exceed mcp_max_instructions_total (4000)\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must not exceed mcp_max_instructions_total (4000)\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-56 Code mode limits validation",
+          "description": "Setup: PUT /api/config (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "INF-56 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-56 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "INF-56 max_steps -1 is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_code_mode_limits = { max_steps: -1 };",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-56 max_steps -1 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-56 max_steps -1 is rejected: error message contains \\\"must not be negative\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must not be negative\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-56 max_value_bytes 100 is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_code_mode_limits = { max_value_bytes: 100 };",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-56 max_value_bytes 100 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-56 max_value_bytes 100 is rejected: error message contains \\\"must be at least 1024\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be at least 1024\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-56 max_nesting_depth 1001 is rejected",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_code_mode_limits = { max_nesting_depth: 1001 };",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-56 max_nesting_depth 1001 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-56 max_nesting_depth 1001 is rejected: error message contains \\\"must be at most 1000\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be at most 1000\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "LIB MCP library",
+      "description": "MCP library tests.",
+      "item": [
+        {
+          "name": "LIB-06 Bad paging values",
+          "description": "Setup: none (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "LIB-06 limit=abc is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-06 limit=abc is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-06 limit=abc is rejected: error message is \\\"Invalid limit parameter: must be a number\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Invalid limit parameter: must be a number\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?limit=abc"
+              }
+            },
+            {
+              "name": "LIB-06 limit=-1 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-06 limit=-1 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-06 limit=-1 is rejected: error message contains \\\"must be non-negative\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be non-negative\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?limit=-1"
+              }
+            },
+            {
+              "name": "LIB-06 offset=abc is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-06 offset=abc is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-06 offset=abc is rejected: error message is \\\"Invalid offset parameter: must be a number\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Invalid offset parameter: must be a number\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?offset=abc"
+              }
+            },
+            {
+              "name": "LIB-06 offset=-1 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-06 offset=-1 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-06 offset=-1 is rejected: error message contains \\\"must be non-negative\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be non-negative\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?offset=-1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-10 Publish validation",
+          "description": "Setup: none (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "LIB-10 bad JSON is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-10 bad JSON is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-10 bad JSON is rejected: error message is \\\"Invalid request payload\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Invalid request payload\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{"
+                }
+              }
+            },
+            {
+              "name": "LIB-10 a blank name is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-10 a blank name is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-10 a blank name is rejected: error message is \\\"name is required\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"name is required\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"  \",\"connection_type\":\"http\",\"connection_url\":\"http://127.0.0.1:9/mcp\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-10 http without a URL is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-10 http without a URL is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-10 http without a URL is rejected: error message is \\\"connection_url is required for http/sse connection types\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"connection_url is required for http/sse connection types\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"LIB-10 http\",\"connection_type\":\"http\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-10 stdio_config without a command is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-10 stdio_config without a command is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-10 stdio_config without a command is rejected: error message is \\\"stdio_config.command is required for stdio connection type\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"stdio_config.command is required for stdio connection type\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"LIB-10 stdio\",\"connection_type\":\"stdio\",\"stdio_config\":{\"args\":[\"x\"]}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-10 connection_type openapi is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-10 connection_type openapi is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-10 connection_type openapi is rejected: error message is \\\"connection_type must be one of: http, stdio, sse\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"connection_type must be one of: http, stdio, sse\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"LIB-10 openapi\",\"connection_type\":\"openapi\",\"connection_url\":\"http://127.0.0.1:9/mcp\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-10 an unknown auth_type is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-10 an unknown auth_type is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-10 an unknown auth_type is rejected: error message is \\\"invalid auth_type\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"invalid auth_type\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"LIB-10 auth\",\"connection_type\":\"http\",\"connection_url\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"bogus\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-10 name \"!!!\" is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-10 name \\\"!!!\\\" is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-10 name \\\"!!!\\\" is rejected: error message is \\\"name must contain at least one alphanumeric character\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"name must contain at least one alphanumeric character\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"!!!\",\"connection_type\":\"http\",\"connection_url\":\"http://127.0.0.1:9/mcp\"}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-16 Delete with bad ids",
+          "description": "Setup: none (dashboard auth on, admin credentials). The repeat-delete case publishes and deletes its own custom entry first.",
+          "item": [
+            {
+              "name": "LIB-16 a non-numeric id is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-16 a non-numeric id is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-16 a non-numeric id is rejected: error message is \\\"id must be a positive integer\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"id must be a positive integer\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/abc"
+              }
+            },
+            {
+              "name": "LIB-16 an unknown id is not found",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-16 an unknown id is not found: status is 404\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(404);",
+                      "});",
+                      "pm.test(\"LIB-16 an unknown id is not found: error message is \\\"MCP library entry not found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"MCP library entry not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/999999"
+              }
+            },
+            {
+              "name": "LIB-16 setup: publish a custom entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-16 setup: publish a custom entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('lib16_id', pm.response.json().entry.id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"LIB-16 entry\",\"connection_type\":\"http\",\"connection_url\":\"http://127.0.0.1:9/mcp\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-16 setup: delete the entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-16 setup: delete the entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib16_id}}"
+              }
+            },
+            {
+              "name": "LIB-16 a repeat delete is not found",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-16 a repeat delete is not found: status is 404\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(404);",
+                      "});",
+                      "pm.test(\"LIB-16 a repeat delete is not found: error message is \\\"MCP library entry not found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"MCP library entry not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib16_id}}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "LOG Logs and telemetry",
+      "description": "Logs and telemetry tests.",
+      "item": [
+        {
+          "name": "LOG-27 Invalid list params",
+          "description": "Setup: none (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "LOG-27 limit=0 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-27 limit=0 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?limit=0"
+              }
+            },
+            {
+              "name": "LOG-27 limit=1001 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-27 limit=1001 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LOG-27 limit=1001 is rejected: error message is \\\"limit cannot exceed 1000\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"limit cannot exceed 1000\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?limit=1001"
+              }
+            },
+            {
+              "name": "LOG-27 limit=x is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-27 limit=x is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?limit=x"
+              }
+            },
+            {
+              "name": "LOG-27 offset=-1 is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-27 offset=-1 is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?offset=-1"
+              }
+            },
+            {
+              "name": "LOG-27 sort_by=tokens is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-27 sort_by=tokens is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LOG-27 sort_by=tokens is rejected: error message contains \\\"must be 'timestamp', 'latency' or 'cost'\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be 'timestamp', 'latency' or 'cost'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?sort_by=tokens"
+              }
+            },
+            {
+              "name": "LOG-27 order=up is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-27 order=up is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?order=up"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LOG-28 Invalid time and latency params",
+          "description": "Setup: none (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "LOG-28 start_time=bad is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-28 start_time=bad is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LOG-28 start_time=bad is rejected: error message contains \\\"invalid start_time format\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"invalid start_time format\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?start_time=bad"
+              }
+            },
+            {
+              "name": "LOG-28 min_latency=x is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-28 min_latency=x is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?min_latency=x"
+              }
+            },
+            {
+              "name": "LOG-28 start_time=bad with period=1h is accepted",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-28 start_time=bad with period=1h is accepted: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?start_time=bad&period=1h"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LOG-29 Unknown log id",
+          "description": "Setup: none (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "LOG-29 an unknown id is not found",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-29 an unknown id is not found: status is 404\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(404);",
+                      "});",
+                      "pm.test(\"LOG-29 an unknown id is not found: error message is \\\"MCP log not found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"MCP log not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs/mcp-harness-no-such-log"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LOG-37 Histogram bad time",
+          "description": "Setup: none (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "LOG-37 start_time=bad is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-37 start_time=bad is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LOG-37 start_time=bad is rejected: error message contains \\\"invalid start_time format\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"invalid start_time format\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs/histogram?start_time=bad"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LOG-40 Delete body validation",
+          "description": "Setup: authenticated (dashboard auth on, admin credentials).",
+          "item": [
+            {
+              "name": "LOG-40 an empty body is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-40 an empty body is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LOG-40 an empty body is rejected: error message is \\\"No log IDs provided\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"No log IDs provided\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "LOG-40 malformed JSON is rejected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-40 malformed JSON is rejected: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LOG-40 malformed JSON is rejected: error message is \\\"Invalid JSON\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Invalid JSON\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{"
+                }
+              }
+            },
+            {
+              "name": "LOG-40 unknown ids are accepted",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-40 unknown ids are accepted: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"ids\":[\"mcp-harness-no-such-log\"]}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -22,8 +22,102 @@
       "item": [
         {
           "name": "ADM-01 Every MCP admin route without a credential",
-          "description": "Setup: dashboard auth on; requests carry no Authorization header or cookie.",
+          "description": "Setup: dashboard auth on; alpha (echo_tool, add_tool) and an HTTP, auth none, per-call client on alpha. The requests under test carry no Authorization header or cookie, and the client-scoped ones target that client.",
           "item": [
+            {
+              "name": "ADM-01 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-01 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-01 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-01 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-01 setup: create the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-01 setup: create the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm01-c\",\"name\":\"adm01_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
             {
               "name": "ADM-01 setup: record the client count",
               "event": [
@@ -49,6 +143,34 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/clients"
+              }
+            },
+            {
+              "name": "ADM-01 setup: read the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-01 setup: read the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "var c = pm.response.json().clients[0] || {};",
+                      "pm.collectionVariables.set('adm01_before', JSON.stringify({ config: c.config, tools: (c.tools || []).map(function (t) { return t.name; }).sort() }));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm01-c"
               }
             },
             {
@@ -83,6 +205,9 @@
                   "mode": "raw",
                   "raw": "{\"name\":\"adm01_client\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
                 }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -108,20 +233,23 @@
                 "method": "GET",
                 "header": [],
                 "url": "{{base_url}}/api/mcp/clients"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 PUT /api/mcp/client/adm01-id without a credential",
+              "name": "ADM-01 PUT /api/mcp/client/adm01-c without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 PUT /api/mcp/client/adm01-id without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 PUT /api/mcp/client/adm01-c without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 PUT /api/mcp/client/adm01-id without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 PUT /api/mcp/client/adm01-c without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -137,25 +265,28 @@
                     "value": "application/json"
                   }
                 ],
-                "url": "{{base_url}}/api/mcp/client/adm01-id",
+                "url": "{{base_url}}/api/mcp/client/adm01-c",
                 "body": {
                   "mode": "raw",
-                  "raw": "{}"
+                  "raw": "{\"disabled\":true}"
                 }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 DELETE /api/mcp/client/adm01-id without a credential",
+              "name": "ADM-01 DELETE /api/mcp/client/adm01-c without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 DELETE /api/mcp/client/adm01-id without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 DELETE /api/mcp/client/adm01-c without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 DELETE /api/mcp/client/adm01-id without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 DELETE /api/mcp/client/adm01-c without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -166,21 +297,24 @@
               "request": {
                 "method": "DELETE",
                 "header": [],
-                "url": "{{base_url}}/api/mcp/client/adm01-id"
+                "url": "{{base_url}}/api/mcp/client/adm01-c"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 POST /api/mcp/client/adm01-id/reconnect without a credential",
+              "name": "ADM-01 POST /api/mcp/client/adm01-c/reconnect without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/reconnect without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/reconnect without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/reconnect without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/reconnect without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -191,21 +325,24 @@
               "request": {
                 "method": "POST",
                 "header": [],
-                "url": "{{base_url}}/api/mcp/client/adm01-id/reconnect"
+                "url": "{{base_url}}/api/mcp/client/adm01-c/reconnect"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 POST /api/mcp/client/adm01-id/refresh-tools without a credential",
+              "name": "ADM-01 POST /api/mcp/client/adm01-c/refresh-tools without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/refresh-tools without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/refresh-tools without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/refresh-tools without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/refresh-tools without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -216,21 +353,24 @@
               "request": {
                 "method": "POST",
                 "header": [],
-                "url": "{{base_url}}/api/mcp/client/adm01-id/refresh-tools"
+                "url": "{{base_url}}/api/mcp/client/adm01-c/refresh-tools"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 POST /api/mcp/client/adm01-id/reauthorize without a credential",
+              "name": "ADM-01 POST /api/mcp/client/adm01-c/reauthorize without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/reauthorize without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/reauthorize without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/reauthorize without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/reauthorize without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -241,21 +381,24 @@
               "request": {
                 "method": "POST",
                 "header": [],
-                "url": "{{base_url}}/api/mcp/client/adm01-id/reauthorize"
+                "url": "{{base_url}}/api/mcp/client/adm01-c/reauthorize"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 POST /api/mcp/client/adm01-id/reregister without a credential",
+              "name": "ADM-01 POST /api/mcp/client/adm01-c/reregister without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/reregister without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/reregister without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/reregister without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/reregister without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -266,21 +409,24 @@
               "request": {
                 "method": "POST",
                 "header": [],
-                "url": "{{base_url}}/api/mcp/client/adm01-id/reregister"
+                "url": "{{base_url}}/api/mcp/client/adm01-c/reregister"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 POST /api/mcp/client/adm01-id/complete-oauth without a credential",
+              "name": "ADM-01 POST /api/mcp/client/adm01-c/complete-oauth without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/complete-oauth without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/complete-oauth without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/complete-oauth without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/complete-oauth without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -291,21 +437,24 @@
               "request": {
                 "method": "POST",
                 "header": [],
-                "url": "{{base_url}}/api/mcp/client/adm01-id/complete-oauth"
+                "url": "{{base_url}}/api/mcp/client/adm01-c/complete-oauth"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 POST /api/mcp/client/adm01-id/initiate-verification without a credential",
+              "name": "ADM-01 POST /api/mcp/client/adm01-c/initiate-verification without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/initiate-verification without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/initiate-verification without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/initiate-verification without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/initiate-verification without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -316,21 +465,24 @@
               "request": {
                 "method": "POST",
                 "header": [],
-                "url": "{{base_url}}/api/mcp/client/adm01-id/initiate-verification"
+                "url": "{{base_url}}/api/mcp/client/adm01-c/initiate-verification"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 POST /api/mcp/client/adm01-id/verify-headers without a credential",
+              "name": "ADM-01 POST /api/mcp/client/adm01-c/verify-headers without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/verify-headers without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/verify-headers without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/verify-headers without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/verify-headers without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -346,25 +498,28 @@
                     "value": "application/json"
                   }
                 ],
-                "url": "{{base_url}}/api/mcp/client/adm01-id/verify-headers",
+                "url": "{{base_url}}/api/mcp/client/adm01-c/verify-headers",
                 "body": {
                   "mode": "raw",
                   "raw": "{}"
                 }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 POST /api/mcp/client/adm01-id/verify-exchange without a credential",
+              "name": "ADM-01 POST /api/mcp/client/adm01-c/verify-exchange without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/verify-exchange without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/verify-exchange without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-id/verify-exchange without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 POST /api/mcp/client/adm01-c/verify-exchange without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -380,25 +535,28 @@
                     "value": "application/json"
                   }
                 ],
-                "url": "{{base_url}}/api/mcp/client/adm01-id/verify-exchange",
+                "url": "{{base_url}}/api/mcp/client/adm01-c/verify-exchange",
                 "body": {
                   "mode": "raw",
                   "raw": "{}"
                 }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 GET /api/mcp/client/adm01-id/openapi-spec without a credential",
+              "name": "ADM-01 GET /api/mcp/client/adm01-c/openapi-spec without a credential",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 GET /api/mcp/client/adm01-id/openapi-spec without a credential: status is 401\", function () {",
+                      "pm.test(\"ADM-01 GET /api/mcp/client/adm01-c/openapi-spec without a credential: status is 401\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
                       "});",
-                      "pm.test(\"ADM-01 GET /api/mcp/client/adm01-id/openapi-spec without a credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "pm.test(\"ADM-01 GET /api/mcp/client/adm01-c/openapi-spec without a credential: error message is \\\"Unauthorized\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
                       "});"
@@ -409,7 +567,10 @@
               "request": {
                 "method": "GET",
                 "header": [],
-                "url": "{{base_url}}/api/mcp/client/adm01-id/openapi-spec"
+                "url": "{{base_url}}/api/mcp/client/adm01-c/openapi-spec"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -444,6 +605,9 @@
                   "mode": "raw",
                   "raw": "{}"
                 }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -469,6 +633,9 @@
                 "method": "GET",
                 "header": [],
                 "url": "{{base_url}}/api/mcp/sessions"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -494,6 +661,9 @@
                 "method": "DELETE",
                 "header": [],
                 "url": "{{base_url}}/api/mcp/sessions/adm01-id"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -519,6 +689,9 @@
                 "method": "POST",
                 "header": [],
                 "url": "{{base_url}}/api/mcp/sessions/adm01-id/reauth"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -544,6 +717,9 @@
                 "method": "GET",
                 "header": [],
                 "url": "{{base_url}}/api/mcp/per-user-headers/flows/adm01-id"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -578,6 +754,9 @@
                   "mode": "raw",
                   "raw": "{}"
                 }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -603,6 +782,9 @@
                 "method": "DELETE",
                 "header": [],
                 "url": "{{base_url}}/api/mcp/per-user-headers/credential/adm01-id"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -628,6 +810,9 @@
                 "method": "GET",
                 "header": [],
                 "url": "{{base_url}}/api/oauth/per-user/flows/adm01-id"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -653,6 +838,9 @@
                 "method": "GET",
                 "header": [],
                 "url": "{{base_url}}/api/oauth/per-user/flows/adm01-id/start"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -678,6 +866,9 @@
                 "method": "GET",
                 "header": [],
                 "url": "{{base_url}}/api/oauth/config/adm01-id/status"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -703,6 +894,9 @@
                 "method": "DELETE",
                 "header": [],
                 "url": "{{base_url}}/api/oauth/config/adm01-id"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
@@ -728,20 +922,23 @@
                 "method": "GET",
                 "header": [],
                 "url": "{{base_url}}/api/oauth/callback"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             },
             {
-              "name": "ADM-01 nothing changed",
+              "name": "ADM-01 the client count is unchanged",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"ADM-01 nothing changed: status is 200\", function () {",
+                      "pm.test(\"ADM-01 the client count is unchanged: status is 200\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
                       "});",
-                      "pm.test(\"ADM-01 nothing changed: total_count is unchanged\", function () {",
+                      "pm.test(\"ADM-01 the client count is unchanged: total_count is unchanged\", function () {",
                       "  var before = Number(pm.collectionVariables.get('adm01_total'));",
                       "  pm.expect(pm.response.json().total_count, 'body: ' + pm.response.text()).to.equal(before);",
                       "});"
@@ -758,6 +955,69 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/clients"
+              }
+            },
+            {
+              "name": "ADM-01 the client is unchanged",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-01 the client is unchanged: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-01 the client is unchanged: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-01 the client is unchanged: state is \\\"healthy\\\"\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].state, 'body: ' + pm.response.text()).to.equal(\"healthy\");",
+                      "});",
+                      "pm.test(\"ADM-01 the client is unchanged: config and tools are unchanged\", function () {",
+                      "  var c = pm.response.json().clients[0], before = JSON.parse(pm.collectionVariables.get('adm01_before'));",
+                      "  pm.expect(c.config, 'body: ' + pm.response.text()).to.eql(before.config);",
+                      "  pm.expect((c.tools || []).map(function (t) { return t.name; }).sort()).to.eql(before.tools);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm01-c"
+              }
+            },
+            {
+              "name": "ADM-01 teardown: delete client adm01-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-01 teardown: delete client adm01-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm01-c"
               }
             }
           ]

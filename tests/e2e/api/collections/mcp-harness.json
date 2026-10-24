@@ -27301,6 +27301,35 @@
           "description": "Setup: stdio_config with command, args, envs. The folder deletes its entry at the end.",
           "item": [
             {
+              "name": "LIB-09 filterdata lacks stdio before the publish",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-09 filterdata lacks stdio before the publish: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-09 filterdata lacks stdio before the publish: connection_types has no \\\"stdio\\\"\", function () {",
+                      "  pm.expect(pm.response.json().connection_types || [], 'body: ' + pm.response.text()).to.not.include('stdio');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/filterdata"
+              }
+            },
+            {
               "name": "LIB-09 publish a stdio entry",
               "event": [
                 {

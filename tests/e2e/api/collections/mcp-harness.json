@@ -1023,6 +1023,316 @@
           ]
         },
         {
+          "name": "ADM-03 Wrong password and VKs are not admin credentials",
+          "description": "Setup: dashboard auth on; a virtual key. Create and list carry a wrong Basic password, the key in x-bf-vk, or the key as a Bearer token.",
+          "item": [
+            {
+              "name": "ADM-03 setup: create a virtual key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-03 setup: create a virtual key: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"adm03_vk1_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"adm03_vk1\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"ADM-03 vk1\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-03 create with a wrong Basic password",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8);",
+                      "pm.variables.set(\"adm03_wrong_basic\", 'Basic ' + C.enc.Base64.stringify(C.enc.Utf8.parse(pair.split(':')[0] + ':adm03-wrong-password')));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-03 create with a wrong Basic password: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"ADM-03 create with a wrong Basic password: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "{{adm03_wrong_basic}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm03_client\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-03 list with a wrong Basic password",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8);",
+                      "pm.variables.set(\"adm03_wrong_basic\", 'Basic ' + C.enc.Base64.stringify(C.enc.Utf8.parse(pair.split(':')[0] + ':adm03-wrong-password')));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-03 list with a wrong Basic password: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"ADM-03 list with a wrong Basic password: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{adm03_wrong_basic}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-03 create with x-bf-vk set to the key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-03 create with x-bf-vk set to the key: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"ADM-03 create with x-bf-vk set to the key: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{adm03_vk1}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm03_client\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-03 list with x-bf-vk set to the key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-03 list with x-bf-vk set to the key: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"ADM-03 list with x-bf-vk set to the key: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{adm03_vk1}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-03 create with Bearer with the key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-03 create with Bearer with the key: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"ADM-03 create with Bearer with the key: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adm03_vk1}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm03_client\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"none\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-03 list with Bearer with the key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-03 list with Bearer with the key: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"ADM-03 list with Bearer with the key: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adm03_vk1}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-03 teardown: delete the virtual key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-03 teardown: delete the virtual key: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{adm03_vk1_id}}"
+              }
+            }
+          ]
+        },
+        {
           "name": "ADM-05 Create rejects a bad body and connection_type",
           "description": "Setup: dashboard auth on, admin credentials.",
           "item": [
@@ -3707,6 +4017,1468 @@
           ]
         },
         {
+          "name": "ADM-18 Unauthenticated caller cannot target private addresses",
+          "description": "Setup: /api/mcp/client in whitelisted_routes, so its requests carry no credential; alpha (echo_tool, add_tool).",
+          "item": [
+            {
+              "name": "ADM-18 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-18 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-18 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "ADM-18 setup: whitelist /api/mcp/client",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.whitelisted_routes = [\"/api/mcp/client\"];",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 setup: whitelist /api/mcp/client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-18 a client at 127.0.0.1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 a client at 127.0.0.1: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"ADM-18 a client at 127.0.0.1: error message contains \\\"unauthenticated callers cannot register MCP clients that connect to loopback, private-network, or link-local addresses\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"unauthenticated callers cannot register MCP clients that connect to loopback, private-network, or link-local addresses\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm18_x\",\"connection_type\":\"http\",\"auth_type\":\"none\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-18 a client at localhost",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.variables.set('adm18_localhost', pm.variables.get('chaos_url').replace('127.0.0.1', 'localhost'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 a client at localhost: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"ADM-18 a client at localhost: error message contains \\\"unauthenticated callers cannot register MCP clients that connect to loopback, private-network, or link-local addresses\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"unauthenticated callers cannot register MCP clients that connect to loopback, private-network, or link-local addresses\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm18_x\",\"connection_type\":\"http\",\"auth_type\":\"none\",\"connection_string\":\"{{adm18_localhost}}/s/alpha/mcp\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-18 a client at 10.0.0.5",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 a client at 10.0.0.5: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"ADM-18 a client at 10.0.0.5: error message contains \\\"unauthenticated callers cannot register MCP clients that connect to loopback, private-network, or link-local addresses\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"unauthenticated callers cannot register MCP clients that connect to loopback, private-network, or link-local addresses\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm18_x\",\"connection_type\":\"http\",\"auth_type\":\"none\",\"connection_string\":\"http://10.0.0.5/mcp\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-18 a client at 169.254.169.254",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 a client at 169.254.169.254: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"ADM-18 a client at 169.254.169.254: error message contains \\\"unauthenticated callers cannot register MCP clients that connect to loopback, private-network, or link-local addresses\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"unauthenticated callers cannot register MCP clients that connect to loopback, private-network, or link-local addresses\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm18_x\",\"connection_type\":\"http\",\"auth_type\":\"none\",\"connection_string\":\"http://169.254.169.254/mcp\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-18 a client at nope.invalid",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 a client at nope.invalid: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"ADM-18 a client at nope.invalid: error message contains \\\"could not resolve MCP target host\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"could not resolve MCP target host\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm18_x\",\"connection_type\":\"http\",\"auth_type\":\"none\",\"connection_string\":\"http://nope.invalid/mcp\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-18 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-18 alpha opened no session",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-18 alpha opened no session: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-18 alpha opened no session: sessions is 0\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.sessions, 'body: ' + pm.response.text()).to.equal(0);",
+                      "  pm.expect(b.counters.sessions).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-19 Unauthenticated caller: STDIO and secret references",
+          "description": "Setup: alpha (echo_tool, add_tool) and an HTTP client on it; /api/mcp/client and that client's path in whitelisted_routes, so their requests carry no credential; then the same requests with admin credentials.",
+          "item": [
+            {
+              "name": "ADM-19 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-19 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-19 setup: create the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 setup: create the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm19-c\",\"name\":\"adm19_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-19 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "ADM-19 setup: whitelist /api/mcp/client and /api/mcp/client/adm19-c",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.whitelisted_routes = [\"/api/mcp/client\",\"/api/mcp/client/adm19-c\"];",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 setup: whitelist /api/mcp/client and /api/mcp/client/adm19-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-19 a STDIO client without a credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 a STDIO client without a credential: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"ADM-19 a STDIO client without a credential: error message starts with \\\"Registering a stdio MCP client requires an authenticated admin session\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Registering a stdio MCP client requires an authenticated admin session\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm19-stdio\",\"name\":\"adm19_stdio\",\"connection_type\":\"stdio\",\"auth_type\":\"none\",\"stdio_config\":{\"command\":\"{{chaos_bin}}\",\"args\":[\"-stdio\",\"-fleet\",\"{{chaos_url}}\",\"-server\",\"alpha\"],\"envs\":[]}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-19 an env. header reference on create without a credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 an env. header reference on create without a credential: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"ADM-19 an env. header reference on create without a credential: error message contains \\\"env./vault. references in MCP client fields (headers.X-Key)\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"env./vault. references in MCP client fields (headers.X-Key)\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm19-env\",\"name\":\"adm19_env\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"headers\":{\"X-Key\":\"env.HOME\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-19 an env. header reference on PUT without a credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 an env. header reference on PUT without a credential: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"ADM-19 an env. header reference on PUT without a credential: error message contains \\\"env./vault. references in MCP client fields (headers.X-Key)\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"env./vault. references in MCP client fields (headers.X-Key)\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm19-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"headers\":{\"X-Key\":\"env.HOME\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-19 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-19 the STDIO client with admin credentials",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 the STDIO client with admin credentials: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm19-stdio\",\"name\":\"adm19_stdio\",\"connection_type\":\"stdio\",\"auth_type\":\"none\",\"stdio_config\":{\"command\":\"{{chaos_bin}}\",\"args\":[\"-stdio\",\"-fleet\",\"{{chaos_url}}\",\"-server\",\"alpha\"],\"envs\":[]}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-19 the env. header reference on create with admin credentials",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 the env. header reference on create with admin credentials: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm19-env\",\"name\":\"adm19_env\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"headers\":{\"X-Key\":\"env.HOME\"}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-19 the env. header reference on PUT with admin credentials",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 the env. header reference on PUT with admin credentials: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm19-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"headers\":{\"X-Key\":\"env.HOME\"}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-19 teardown: delete client adm19-stdio",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 teardown: delete client adm19-stdio: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm19-stdio"
+              }
+            },
+            {
+              "name": "ADM-19 teardown: delete client adm19-env",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 teardown: delete client adm19-env: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm19-env"
+              }
+            },
+            {
+              "name": "ADM-19 teardown: delete client adm19-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-19 teardown: delete client adm19-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm19-c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-20 require_public_target is set by the server, never cleared",
+          "description": "Setup: /api/mcp/client in whitelisted_routes for the first create, which carries no credential; then admin credentials. alpha (echo_tool, add_tool) is the admin client's target; 192.0.2.10 is a documentation address that answers nothing.",
+          "item": [
+            {
+              "name": "ADM-20 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-20 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-20 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "ADM-20 setup: whitelist /api/mcp/client",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.whitelisted_routes = [\"/api/mcp/client\"];",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 setup: whitelist /api/mcp/client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-20 create a client at 192.0.2.10 without a credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 create a client at 192.0.2.10 without a credential: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm20-wl\",\"name\":\"adm20_wl\",\"connection_type\":\"http\",\"connection_string\":\"http://192.0.2.10/mcp\",\"auth_type\":\"none\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-20 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-20 the unauthenticated create stored require_public_target true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 the unauthenticated create stored require_public_target true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-20 the unauthenticated create stored require_public_target true: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-20 the unauthenticated create stored require_public_target true: config.require_public_target is true\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.require_public_target, 'body: ' + pm.response.text()).to.eql(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm20-wl"
+              }
+            },
+            {
+              "name": "ADM-20 an admin create that sets require_public_target true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 an admin create that sets require_public_target true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm20-admin\",\"name\":\"adm20_admin\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"require_public_target\":true}"
+                }
+              }
+            },
+            {
+              "name": "ADM-20 the admin create stored it false",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 the admin create stored it false: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-20 the admin create stored it false: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-20 the admin create stored it false: require_public_target is false\", function () {",
+                      "  var v = pm.response.json().clients[0].config.require_public_target;",
+                      "  pm.expect(v === undefined || v === false, 'require_public_target: ' + v).to.equal(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm20-admin"
+              }
+            },
+            {
+              "name": "ADM-20 a later admin PUT with require_public_target false",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 a later admin PUT with require_public_target false: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm20-wl",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"require_public_target\":false}"
+                }
+              }
+            },
+            {
+              "name": "ADM-20 require_public_target is still true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 require_public_target is still true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-20 require_public_target is still true: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-20 require_public_target is still true: config.require_public_target is true\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.require_public_target, 'body: ' + pm.response.text()).to.eql(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm20-wl"
+              }
+            },
+            {
+              "name": "ADM-20 teardown: delete client adm20-wl",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 teardown: delete client adm20-wl: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm20-wl"
+              }
+            },
+            {
+              "name": "ADM-20 teardown: delete client adm20-admin",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-20 teardown: delete client adm20-admin: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm20-admin"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-22 OAuth create input checks",
+          "description": "Setup: admin credentials.",
+          "item": [
+            {
+              "name": "ADM-22 auth_type oauth without oauth_config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-22 auth_type oauth without oauth_config: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-22 auth_type oauth without oauth_config: error message is \\\"OAuth configuration is required when auth_type is 'oauth'\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"OAuth configuration is required when auth_type is 'oauth'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm22_oauth\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"oauth\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-22 auth_type per_user_oauth without oauth_config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-22 auth_type per_user_oauth without oauth_config: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-22 auth_type per_user_oauth without oauth_config: error message is \\\"OAuth configuration is required when auth_type is 'per_user_oauth'\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"OAuth configuration is required when auth_type is 'per_user_oauth'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm22_puo\",\"connection_type\":\"http\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"per_user_oauth\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-22 oauth_config {} without connection_string",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-22 oauth_config {} without connection_string: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-22 oauth_config {} without connection_string: error message contains \\\"Either client_id must be provided, or server URL must be set\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"Either client_id must be provided, or server URL must be set\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm22_noserver\",\"connection_type\":\"http\",\"auth_type\":\"oauth\",\"oauth_config\":{}}"
+                }
+              }
+            }
+          ]
+        },
+        {
           "name": "ADM-42 Reconnect a sticky client",
           "description": "Setup: a client on alpha with needs_session_stickiness true, then POST /control/alpha/sessions/kill.",
           "item": [
@@ -4744,6 +6516,1377 @@
           ]
         },
         {
+          "name": "ADM-52 Enabling a sticky client with a dead upstream",
+          "description": "Setup: alpha (echo_tool, add_tool); a client on alpha with needs_session_stickiness true, disabled; then alpha refuses connections. The client being reported disabled after the enable is a known issue, so that check is skipped.",
+          "item": [
+            {
+              "name": "ADM-52 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-52 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-52 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-52 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-52 setup: create the sticky client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-52 setup: create the sticky client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm52-s\",\"name\":\"adm52_s\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"needs_session_stickiness\":true}"
+                }
+              }
+            },
+            {
+              "name": "ADM-52 setup: disable it",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-52 setup: disable it: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm52-s",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"disabled\":true}"
+                }
+              }
+            },
+            {
+              "name": "ADM-52 setup: alpha refuses connections",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-52 setup: alpha refuses connections: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/faults",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"faults\":{\"refuse\":true}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-52 enable it",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-52 enable it: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-52 enable it: status is \\\"partial_success\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"status\"], 'body: ' + pm.response.text()).to.equal(\"partial_success\");",
+                      "});",
+                      "pm.test(\"ADM-52 enable it: message contains \\\"establishing the shared connection failed\\\"\", function () {",
+                      "  pm.expect(pm.response.json().message, 'body: ' + pm.response.text()).to.include('establishing the shared connection failed');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm52-s",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"disabled\":false}"
+                }
+              }
+            },
+            {
+              "name": "ADM-52 disabled is false and the client is not reported disabled",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-52 disabled is false and the client is not reported disabled: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-52 disabled is false and the client is not reported disabled: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-52 disabled is false and the client is not reported disabled: config.disabled is false\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.disabled, 'body: ' + pm.response.text()).to.eql(false);",
+                      "});",
+                      "pm.test.skip(\"ADM-52 disabled is false and the client is not reported disabled: state is not \\\"disabled\\\" (skipped: known issue)\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].state, 'body: ' + pm.response.text()).to.not.equal('disabled');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm52-s"
+              }
+            },
+            {
+              "name": "ADM-52 teardown: clear alpha's faults",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-52 teardown: clear alpha's faults: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha/faults/clear"
+              }
+            },
+            {
+              "name": "ADM-52 teardown: delete client adm52-s",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-52 teardown: delete client adm52-s: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm52-s"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-53 Flip needs_session_stickiness live",
+          "description": "Setup: alpha (echo_tool, add_tool); an HTTP, auth none, per-call client on alpha.",
+          "item": [
+            {
+              "name": "ADM-53 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-53 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-53 setup: create the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 setup: create the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm53-c\",\"name\":\"adm53_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-53 setup: record alpha's session count",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 setup: record alpha's session count: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"adm53_sessions\", pm.response.json().counters.sessions);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "ADM-53 set needs_session_stickiness true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 set needs_session_stickiness true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-53 set needs_session_stickiness true: message contains \\\"now maintains a persistent shared connection\\\"\", function () {",
+                      "  pm.expect(pm.response.json().message, 'body: ' + pm.response.text()).to.include('now maintains a persistent shared connection');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm53-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"needs_session_stickiness\":true}"
+                }
+              }
+            },
+            {
+              "name": "ADM-53 alpha opened one more session",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 alpha opened one more session: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-53 alpha opened one more session: sessions is one more than before\", function () {",
+                      "  var before = Number(pm.collectionVariables.get('adm53_sessions'));",
+                      "  pm.expect(pm.response.json().counters.sessions, 'body: ' + pm.response.text()).to.equal(before + 1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "ADM-53 set needs_session_stickiness false",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 set needs_session_stickiness false: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-53 set needs_session_stickiness false: message contains \\\"now connects per call\\\"\", function () {",
+                      "  pm.expect(pm.response.json().message, 'body: ' + pm.response.text()).to.include('now connects per call');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm53-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"needs_session_stickiness\":false}"
+                }
+              }
+            },
+            {
+              "name": "ADM-53 setup: alpha refuses connections",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 setup: alpha refuses connections: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/faults",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"faults\":{\"refuse\":true}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-53 set needs_session_stickiness true while alpha refuses",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 set needs_session_stickiness true while alpha refuses: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-53 set needs_session_stickiness true while alpha refuses: status is \\\"partial_success\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"status\"], 'body: ' + pm.response.text()).to.equal(\"partial_success\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm53-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"needs_session_stickiness\":true}"
+                }
+              }
+            },
+            {
+              "name": "ADM-53 teardown: clear alpha's faults",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 teardown: clear alpha's faults: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha/faults/clear"
+              }
+            },
+            {
+              "name": "ADM-53 teardown: delete client adm53-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-53 teardown: delete client adm53-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm53-c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-54 Assign and remove vk_configs",
+          "description": "Setup: alpha (echo_tool, add_tool); a client on alpha; virtual keys vk1 and vk2.",
+          "item": [
+            {
+              "name": "ADM-54 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-54 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-54 setup: create the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 setup: create the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm54-c\",\"name\":\"adm54_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-54 setup: create vk1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 setup: create vk1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"adm54_vk1_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"adm54_vk1\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"ADM-54 vk1\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-54 setup: create vk2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 setup: create vk2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"adm54_vk2_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"adm54_vk2\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"ADM-54 vk2\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-54 PUT vk1 with [\"echo_tool\"]",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 PUT vk1 with [\\\"echo_tool\\\"]: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm54-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"vk_configs\":[{\"virtual_key_id\":\"{{adm54_vk1_id}}\",\"tools_to_execute\":[\"echo_tool\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-54 vk_configs has vk1 with its name and tools",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 vk_configs has vk1 with its name and tools: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-54 vk_configs has vk1 with its name and tools: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-54 vk_configs has vk1 with its name and tools: one entry: vk1, \\\"ADM-54 vk1\\\", [\\\"echo_tool\\\"]\", function () {",
+                      "  var v = pm.response.json().clients[0].vk_configs;",
+                      "  pm.expect(v, 'body: ' + pm.response.text()).to.have.lengthOf(1);",
+                      "  pm.expect(v[0].virtual_key_id).to.equal(pm.collectionVariables.get('adm54_vk1_id'));",
+                      "  pm.expect(v[0].virtual_key_name).to.equal('ADM-54 vk1');",
+                      "  pm.expect(v[0].tools_to_execute).to.eql(['echo_tool']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm54-c"
+              }
+            },
+            {
+              "name": "ADM-54 ?virtual_keys=vk1 lists the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 ?virtual_keys=vk1 lists the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-54 ?virtual_keys=vk1 lists the client: adm54-c is listed\", function () {",
+                      "  var ids = (pm.response.json().clients || []).map(function (c) { return c.config.client_id; });",
+                      "  pm.expect(ids, 'body: ' + pm.response.text()).to.include(\"adm54-c\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?virtual_keys={{adm54_vk1_id}}&limit=100"
+              }
+            },
+            {
+              "name": "ADM-54 ?virtual_keys=vk2 does not",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 ?virtual_keys=vk2 does not: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-54 ?virtual_keys=vk2 does not: adm54-c is not listed\", function () {",
+                      "  var ids = (pm.response.json().clients || []).map(function (c) { return c.config.client_id; });",
+                      "  pm.expect(ids, 'body: ' + pm.response.text()).to.not.include(\"adm54-c\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?virtual_keys={{adm54_vk2_id}}&limit=100"
+              }
+            },
+            {
+              "name": "ADM-54 PUT []",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 PUT []: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm54-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"vk_configs\":[]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-54 vk_configs is []",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 vk_configs is []: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-54 vk_configs is []: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-54 vk_configs is []: vk_configs is []\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].vk_configs, 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm54-c"
+              }
+            },
+            {
+              "name": "ADM-54 teardown: delete client adm54-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 teardown: delete client adm54-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm54-c"
+              }
+            },
+            {
+              "name": "ADM-54 teardown: delete vk1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 teardown: delete vk1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{adm54_vk1_id}}"
+              }
+            },
+            {
+              "name": "ADM-54 teardown: delete vk2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-54 teardown: delete vk2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{adm54_vk2_id}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-55 vk_configs validation",
+          "description": "Setup: alpha (echo_tool, add_tool); a client on alpha; virtual key vk1.",
+          "item": [
+            {
+              "name": "ADM-55 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-55 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-55 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-55 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-55 setup: create the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-55 setup: create the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm55-c\",\"name\":\"adm55_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-55 setup: create vk1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-55 setup: create vk1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"adm55_vk1_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"adm55_vk1\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"ADM-55 vk1\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-55 a duplicate virtual_key_id",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-55 a duplicate virtual_key_id: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-55 a duplicate virtual_key_id: error message is \\\"duplicate virtual_key_id in vk_configs: <vk1 id>\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal('duplicate virtual_key_id in vk_configs: ' + pm.collectionVariables.get('adm55_vk1_id'));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm55-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"vk_configs\":[{\"virtual_key_id\":\"{{adm55_vk1_id}}\",\"tools_to_execute\":[\"*\"]},{\"virtual_key_id\":\"{{adm55_vk1_id}}\",\"tools_to_execute\":[\"*\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-55 an empty virtual_key_id",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-55 an empty virtual_key_id: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-55 an empty virtual_key_id: error message is \\\"virtual_key_id must not be empty\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"virtual_key_id must not be empty\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm55-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"vk_configs\":[{\"virtual_key_id\":\"\",\"tools_to_execute\":[\"*\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-55 tools_to_execute [\"*\",\"x\"]",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-55 tools_to_execute [\\\"*\\\",\\\"x\\\"]: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-55 tools_to_execute [\\\"*\\\",\\\"x\\\"]: error message contains \\\"invalid tools_to_execute for virtual key <vk1 id>\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include('invalid tools_to_execute for virtual key ' + pm.collectionVariables.get('adm55_vk1_id'));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm55-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"vk_configs\":[{\"virtual_key_id\":\"{{adm55_vk1_id}}\",\"tools_to_execute\":[\"*\",\"x\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-55 teardown: delete client adm55-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-55 teardown: delete client adm55-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm55-c"
+              }
+            },
+            {
+              "name": "ADM-55 teardown: delete vk1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-55 teardown: delete vk1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{adm55_vk1_id}}"
+              }
+            }
+          ]
+        },
+        {
           "name": "ADM-59 Delete unknown or twice",
           "description": "Setup: admin credentials; two clients on alpha.",
           "item": [
@@ -5261,6 +8404,496 @@
           ]
         },
         {
+          "name": "ADM-65 per_user_headers create validation",
+          "description": "Setup: admin credentials; alpha (echo_tool, add_tool) requires the header x-key: good.",
+          "item": [
+            {
+              "name": "ADM-65 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-65 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-65 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-65 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-65 setup: alpha requires x-key: good",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-65 setup: alpha requires x-key: good: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"auth\":{\"require_headers\":{\"x-key\":\"good\"}}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-65 no per_user_header_keys",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-65 no per_user_header_keys: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-65 no per_user_header_keys: error message contains \\\"per_user_header_keys must be a non-empty list\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"per_user_header_keys must be a non-empty list\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm65-h\",\"name\":\"adm65_h\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"per_user_headers\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-65 per_user_header_keys [\"X-Key\",\"x-key\"]",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-65 per_user_header_keys [\\\"X-Key\\\",\\\"x-key\\\"]: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-65 per_user_header_keys [\\\"X-Key\\\",\\\"x-key\\\"]: error message contains \\\"contains duplicate entries\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"contains duplicate entries\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm65-h\",\"name\":\"adm65_h\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"per_user_headers\",\"per_user_header_keys\":[\"X-Key\",\"x-key\"],\"user_headers\":{\"x-key\":\"good\"}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-65 per_user_header_keys [\" \"]",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-65 per_user_header_keys [\\\" \\\"]: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-65 per_user_header_keys [\\\" \\\"]: error message is \\\"per_user_header_keys[0] is empty\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"per_user_header_keys[0] is empty\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm65-h\",\"name\":\"adm65_h\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"per_user_headers\",\"per_user_header_keys\":[\" \"]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-65 no sample user_headers",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-65 no sample user_headers: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-65 no sample user_headers: error message is \\\"sample user_headers missing values for required keys: x-key\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"sample user_headers missing values for required keys: x-key\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm65-h\",\"name\":\"adm65_h\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"per_user_headers\",\"per_user_header_keys\":[\"x-key\"]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-65 a wrong sample value",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-65 a wrong sample value: status is 422\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(422);",
+                      "});",
+                      "pm.test(\"ADM-65 a wrong sample value: error message starts with \\\"Verification failed:\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Verification failed:\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm65-h\",\"name\":\"adm65_h\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"per_user_headers\",\"per_user_header_keys\":[\"x-key\"],\"user_headers\":{\"x-key\":\"bad\"}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-66 per_user_headers create succeeds",
+          "description": "Setup: admin credentials; alpha (echo_tool, add_tool) requires the header x-key: good; the sample value sent is \"good\".",
+          "item": [
+            {
+              "name": "ADM-66 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-66 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-66 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-66 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-66 setup: alpha requires x-key: good",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-66 setup: alpha requires x-key: good: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"auth\":{\"require_headers\":{\"x-key\":\"good\"}}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-66 create with X-Key \"good\"",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-66 create with X-Key \\\"good\\\": status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-66 create with X-Key \\\"good\\\": message is \\\"MCP client registered. 2 tools discovered. Each user will submit their own headers on first tool use.\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP client registered. 2 tools discovered. Each user will submit their own headers on first tool use.\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm66-h\",\"name\":\"adm66_h\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"per_user_headers\",\"per_user_header_keys\":[\"X-Key\"],\"user_headers\":{\"X-Key\":\"good\"}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-66 keys [\"x-key\"], healthy, 2 tools, no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-66 keys [\\\"x-key\\\"], healthy, 2 tools, no credential: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-66 keys [\\\"x-key\\\"], healthy, 2 tools, no credential: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-66 keys [\\\"x-key\\\"], healthy, 2 tools, no credential: config.per_user_header_keys is [\\\"x-key\\\"]\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.per_user_header_keys, 'body: ' + pm.response.text()).to.eql([\"x-key\"]);",
+                      "});",
+                      "pm.test(\"ADM-66 keys [\\\"x-key\\\"], healthy, 2 tools, no credential: state is \\\"healthy\\\"\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].state, 'body: ' + pm.response.text()).to.equal(\"healthy\");",
+                      "});",
+                      "pm.test(\"ADM-66 keys [\\\"x-key\\\"], healthy, 2 tools, no credential: tools are [\\\"add_tool\\\",\\\"echo_tool\\\"]\", function () {",
+                      "  var c = pm.response.json().clients[0];",
+                      "  var names = (c.tools || []).map(function (t) { return t.name; }).sort();",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"add_tool\",\"echo_tool\"]);",
+                      "});",
+                      "pm.test(\"ADM-66 keys [\\\"x-key\\\"], healthy, 2 tools, no credential: there is no credential\", function () {",
+                      "  pm.expect(pm.response.json().clients[0], 'body: ' + pm.response.text()).to.not.have.property('credential');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm66-h"
+              }
+            },
+            {
+              "name": "ADM-66 teardown: delete client adm66-h",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-66 teardown: delete client adm66-h: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm66-h"
+              }
+            }
+          ]
+        },
+        {
           "name": "ADM-73 Sessions list validation",
           "description": "Setup: dashboard auth on, admin credentials.",
           "item": [
@@ -5408,6 +9041,544 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/sessions"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-81 OpenAPI create validation",
+          "description": "Setup: admin credentials; an inline Petstore OpenAPI document with an absolute server URL.",
+          "item": [
+            {
+              "name": "ADM-81 auth_type oauth",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-81 auth_type oauth: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-81 auth_type oauth: error message contains \\\"not supported for connection_type 'openapi'\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"not supported for connection_type 'openapi'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm81_q\",\"connection_type\":\"openapi\",\"auth_type\":\"oauth\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{\"spec\":\"{\\n  \\\"openapi\\\": \\\"3.0.3\\\",\\n  \\\"info\\\": {\\\"title\\\": \\\"Petstore\\\", \\\"version\\\": \\\"1.0.0\\\"},\\n  \\\"servers\\\": [{\\\"url\\\": \\\"https://petstore.example.com/v1\\\"}],\\n  \\\"components\\\": {\\\"securitySchemes\\\": {\\\"ApiKeyAuth\\\": {\\\"type\\\": \\\"apiKey\\\", \\\"in\\\": \\\"header\\\", \\\"name\\\": \\\"X-API-Key\\\"}}},\\n  \\\"security\\\": [{\\\"ApiKeyAuth\\\": []}],\\n  \\\"paths\\\": {\\n    \\\"/pets\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"listPets\\\", \\\"summary\\\": \\\"List pets\\\", \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}},\\n      \\\"post\\\": {\\\"operationId\\\": \\\"createPet\\\", \\\"requestBody\\\": {\\\"required\\\": true, \\\"content\\\": {\\\"application/json\\\": {\\\"schema\\\": {\\\"type\\\": \\\"object\\\", \\\"properties\\\": {\\\"name\\\": {\\\"type\\\": \\\"string\\\"}}}}}}, \\\"responses\\\": {\\\"201\\\": {\\\"description\\\": \\\"created\\\"}}}\\n    },\\n    \\\"/pets/{petId}\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"getPetById\\\", \\\"parameters\\\": [{\\\"name\\\": \\\"petId\\\", \\\"in\\\": \\\"path\\\", \\\"required\\\": true, \\\"schema\\\": {\\\"type\\\": \\\"string\\\"}}], \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}}\\n    }\\n  }\\n}\"}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-81 connection_string set",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-81 connection_string set: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm81_q\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{\"spec\":\"{\\n  \\\"openapi\\\": \\\"3.0.3\\\",\\n  \\\"info\\\": {\\\"title\\\": \\\"Petstore\\\", \\\"version\\\": \\\"1.0.0\\\"},\\n  \\\"servers\\\": [{\\\"url\\\": \\\"https://petstore.example.com/v1\\\"}],\\n  \\\"components\\\": {\\\"securitySchemes\\\": {\\\"ApiKeyAuth\\\": {\\\"type\\\": \\\"apiKey\\\", \\\"in\\\": \\\"header\\\", \\\"name\\\": \\\"X-API-Key\\\"}}},\\n  \\\"security\\\": [{\\\"ApiKeyAuth\\\": []}],\\n  \\\"paths\\\": {\\n    \\\"/pets\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"listPets\\\", \\\"summary\\\": \\\"List pets\\\", \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}},\\n      \\\"post\\\": {\\\"operationId\\\": \\\"createPet\\\", \\\"requestBody\\\": {\\\"required\\\": true, \\\"content\\\": {\\\"application/json\\\": {\\\"schema\\\": {\\\"type\\\": \\\"object\\\", \\\"properties\\\": {\\\"name\\\": {\\\"type\\\": \\\"string\\\"}}}}}}, \\\"responses\\\": {\\\"201\\\": {\\\"description\\\": \\\"created\\\"}}}\\n    },\\n    \\\"/pets/{petId}\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"getPetById\\\", \\\"parameters\\\": [{\\\"name\\\": \\\"petId\\\", \\\"in\\\": \\\"path\\\", \\\"required\\\": true, \\\"schema\\\": {\\\"type\\\": \\\"string\\\"}}], \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}}\\n    }\\n  }\\n}\"},\"connection_string\":\"https://mcp.example.com\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-81 spec_file",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-81 spec_file: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-81 spec_file: error message contains \\\"only supported in config.json\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"only supported in config.json\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm81_q\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{\"spec_file\":\"x.yaml\"}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-81 no spec",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-81 no spec: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm81_q\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-81 an unknown tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-81 an unknown tool: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-81 an unknown tool: error message contains \\\"the spec defines no tool named X\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"the spec defines no tool named X\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm81_q\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"X\"],\"openapi_config\":{\"spec\":\"{\\n  \\\"openapi\\\": \\\"3.0.3\\\",\\n  \\\"info\\\": {\\\"title\\\": \\\"Petstore\\\", \\\"version\\\": \\\"1.0.0\\\"},\\n  \\\"servers\\\": [{\\\"url\\\": \\\"https://petstore.example.com/v1\\\"}],\\n  \\\"components\\\": {\\\"securitySchemes\\\": {\\\"ApiKeyAuth\\\": {\\\"type\\\": \\\"apiKey\\\", \\\"in\\\": \\\"header\\\", \\\"name\\\": \\\"X-API-Key\\\"}}},\\n  \\\"security\\\": [{\\\"ApiKeyAuth\\\": []}],\\n  \\\"paths\\\": {\\n    \\\"/pets\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"listPets\\\", \\\"summary\\\": \\\"List pets\\\", \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}},\\n      \\\"post\\\": {\\\"operationId\\\": \\\"createPet\\\", \\\"requestBody\\\": {\\\"required\\\": true, \\\"content\\\": {\\\"application/json\\\": {\\\"schema\\\": {\\\"type\\\": \\\"object\\\", \\\"properties\\\": {\\\"name\\\": {\\\"type\\\": \\\"string\\\"}}}}}}, \\\"responses\\\": {\\\"201\\\": {\\\"description\\\": \\\"created\\\"}}}\\n    },\\n    \\\"/pets/{petId}\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"getPetById\\\", \\\"parameters\\\": [{\\\"name\\\": \\\"petId\\\", \\\"in\\\": \\\"path\\\", \\\"required\\\": true, \\\"schema\\\": {\\\"type\\\": \\\"string\\\"}}], \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}}\\n    }\\n  }\\n}\"}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-81 no server URL",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-81 no server URL: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-81 no server URL: error message contains \\\"set openapi_config.base_url\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"set openapi_config.base_url\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm81_q\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{\"spec\":\"{\\\"openapi\\\":\\\"3.0.3\\\",\\\"info\\\":{\\\"title\\\":\\\"Petstore\\\",\\\"version\\\":\\\"1.0.0\\\"},\\\"components\\\":{\\\"securitySchemes\\\":{\\\"ApiKeyAuth\\\":{\\\"type\\\":\\\"apiKey\\\",\\\"in\\\":\\\"header\\\",\\\"name\\\":\\\"X-API-Key\\\"}}},\\\"security\\\":[{\\\"ApiKeyAuth\\\":[]}],\\\"paths\\\":{\\\"/pets\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"listPets\\\",\\\"summary\\\":\\\"List pets\\\",\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}},\\\"post\\\":{\\\"operationId\\\":\\\"createPet\\\",\\\"requestBody\\\":{\\\"required\\\":true,\\\"content\\\":{\\\"application/json\\\":{\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"name\\\":{\\\"type\\\":\\\"string\\\"}}}}}},\\\"responses\\\":{\\\"201\\\":{\\\"description\\\":\\\"created\\\"}}}},\\\"/pets/{petId}\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"getPetById\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"petId\\\",\\\"in\\\":\\\"path\\\",\\\"required\\\":true,\\\"schema\\\":{\\\"type\\\":\\\"string\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}}}}}\"}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-82 Stored OpenAPI spec endpoint",
+          "description": "Setup: alpha (echo_tool, add_tool) and an HTTP client on it; an OpenAPI client created from the inline Petstore document.",
+          "item": [
+            {
+              "name": "ADM-82 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-82 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-82 setup: create the HTTP client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 setup: create the HTTP client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm82-c\",\"name\":\"adm82_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-82 setup: create the OpenAPI client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 setup: create the OpenAPI client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm82-q\",\"name\":\"adm82_q\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"openapi_config\":{\"spec\":\"{\\n  \\\"openapi\\\": \\\"3.0.3\\\",\\n  \\\"info\\\": {\\\"title\\\": \\\"Petstore\\\", \\\"version\\\": \\\"1.0.0\\\"},\\n  \\\"servers\\\": [{\\\"url\\\": \\\"https://petstore.example.com/v1\\\"}],\\n  \\\"components\\\": {\\\"securitySchemes\\\": {\\\"ApiKeyAuth\\\": {\\\"type\\\": \\\"apiKey\\\", \\\"in\\\": \\\"header\\\", \\\"name\\\": \\\"X-API-Key\\\"}}},\\n  \\\"security\\\": [{\\\"ApiKeyAuth\\\": []}],\\n  \\\"paths\\\": {\\n    \\\"/pets\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"listPets\\\", \\\"summary\\\": \\\"List pets\\\", \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}},\\n      \\\"post\\\": {\\\"operationId\\\": \\\"createPet\\\", \\\"requestBody\\\": {\\\"required\\\": true, \\\"content\\\": {\\\"application/json\\\": {\\\"schema\\\": {\\\"type\\\": \\\"object\\\", \\\"properties\\\": {\\\"name\\\": {\\\"type\\\": \\\"string\\\"}}}}}}, \\\"responses\\\": {\\\"201\\\": {\\\"description\\\": \\\"created\\\"}}}\\n    },\\n    \\\"/pets/{petId}\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"getPetById\\\", \\\"parameters\\\": [{\\\"name\\\": \\\"petId\\\", \\\"in\\\": \\\"path\\\", \\\"required\\\": true, \\\"schema\\\": {\\\"type\\\": \\\"string\\\"}}], \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}}\\n    }\\n  }\\n}\"}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-82 the OpenAPI client's spec",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 the OpenAPI client's spec: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-82 the OpenAPI client's spec: the body equals the stored spec\", function () {",
+                      "  pm.expect(pm.response.text()).to.equal(\"{\\n  \\\"openapi\\\": \\\"3.0.3\\\",\\n  \\\"info\\\": {\\\"title\\\": \\\"Petstore\\\", \\\"version\\\": \\\"1.0.0\\\"},\\n  \\\"servers\\\": [{\\\"url\\\": \\\"https://petstore.example.com/v1\\\"}],\\n  \\\"components\\\": {\\\"securitySchemes\\\": {\\\"ApiKeyAuth\\\": {\\\"type\\\": \\\"apiKey\\\", \\\"in\\\": \\\"header\\\", \\\"name\\\": \\\"X-API-Key\\\"}}},\\n  \\\"security\\\": [{\\\"ApiKeyAuth\\\": []}],\\n  \\\"paths\\\": {\\n    \\\"/pets\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"listPets\\\", \\\"summary\\\": \\\"List pets\\\", \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}},\\n      \\\"post\\\": {\\\"operationId\\\": \\\"createPet\\\", \\\"requestBody\\\": {\\\"required\\\": true, \\\"content\\\": {\\\"application/json\\\": {\\\"schema\\\": {\\\"type\\\": \\\"object\\\", \\\"properties\\\": {\\\"name\\\": {\\\"type\\\": \\\"string\\\"}}}}}}, \\\"responses\\\": {\\\"201\\\": {\\\"description\\\": \\\"created\\\"}}}\\n    },\\n    \\\"/pets/{petId}\\\": {\\n      \\\"get\\\": {\\\"operationId\\\": \\\"getPetById\\\", \\\"parameters\\\": [{\\\"name\\\": \\\"petId\\\", \\\"in\\\": \\\"path\\\", \\\"required\\\": true, \\\"schema\\\": {\\\"type\\\": \\\"string\\\"}}], \\\"responses\\\": {\\\"200\\\": {\\\"description\\\": \\\"ok\\\"}}}\\n    }\\n  }\\n}\");",
+                      "});",
+                      "pm.test(\"ADM-82 the OpenAPI client's spec: Content-Type is \\\"application/json; charset=utf-8\\\"\", function () {",
+                      "  pm.expect(pm.response.headers.get('Content-Type')).to.equal('application/json; charset=utf-8');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm82-q/openapi-spec"
+              }
+            },
+            {
+              "name": "ADM-82 the list shows the spec empty",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 the list shows the spec empty: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-82 the list shows the spec empty: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-82 the list shows the spec empty: openapi_config.spec is empty\", function () {",
+                      "  var oc = pm.response.json().clients[0].config.openapi_config;",
+                      "  pm.expect(oc, 'body: ' + pm.response.text()).to.be.an('object');",
+                      "  pm.expect(oc.spec === undefined || oc.spec === '', 'spec: ' + oc.spec).to.equal(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm82-q"
+              }
+            },
+            {
+              "name": "ADM-82 the HTTP client's spec",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 the HTTP client's spec: status is 404\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(404);",
+                      "});",
+                      "pm.test(\"ADM-82 the HTTP client's spec: error message is \\\"OpenAPI MCP client not found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"OpenAPI MCP client not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm82-c/openapi-spec"
+              }
+            },
+            {
+              "name": "ADM-82 an unknown client's spec",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 an unknown client's spec: status is 404\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(404);",
+                      "});",
+                      "pm.test(\"ADM-82 an unknown client's spec: error message is \\\"OpenAPI MCP client not found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"OpenAPI MCP client not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm82-no-such-client/openapi-spec"
+              }
+            },
+            {
+              "name": "ADM-82 teardown: delete client adm82-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 teardown: delete client adm82-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm82-c"
+              }
+            },
+            {
+              "name": "ADM-82 teardown: delete client adm82-q",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-82 teardown: delete client adm82-q: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm82-q"
               }
             }
           ]

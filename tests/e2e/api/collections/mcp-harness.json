@@ -49596,6 +49596,2467 @@
       ]
     },
     {
+      "name": "GOV Governance",
+      "description": "Virtual MCP and virtual key governance tests.",
+      "item": [
+        {
+          "name": "GOV-06 Legacy name allow_on_all_virtual_keys",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; the client is updated with the legacy field name, and two more clients on alpha are created with it.",
+          "item": [
+            {
+              "name": "GOV-06 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-06 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-06 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"gov-06-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-06 PUT allow_on_all_virtual_keys true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 PUT allow_on_all_virtual_keys true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-06-alpha",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"allow_on_all_virtual_keys\":true}"
+                }
+              }
+            },
+            {
+              "name": "GOV-06 true sets both fields",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 true sets both fields: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"GOV-06 true sets both fields: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"GOV-06 true sets both fields: config.allow_by_default is true\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.allow_by_default, 'body: ' + pm.response.text()).to.eql(true);",
+                      "});",
+                      "pm.test(\"GOV-06 true sets both fields: config.allow_on_all_virtual_keys is true\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.allow_on_all_virtual_keys, 'body: ' + pm.response.text()).to.eql(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=gov-06-alpha"
+              }
+            },
+            {
+              "name": "GOV-06 PUT allow_by_default false with allow_on_all_virtual_keys true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 PUT allow_by_default false with allow_on_all_virtual_keys true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-06-alpha",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"allow_by_default\":false,\"allow_on_all_virtual_keys\":true}"
+                }
+              }
+            },
+            {
+              "name": "GOV-06 false wins",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 false wins: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"GOV-06 false wins: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"GOV-06 false wins: config.allow_by_default is false\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.allow_by_default, 'body: ' + pm.response.text()).to.eql(false);",
+                      "});",
+                      "pm.test(\"GOV-06 false wins: config.allow_on_all_virtual_keys is false\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.allow_on_all_virtual_keys, 'body: ' + pm.response.text()).to.eql(false);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=gov-06-alpha"
+              }
+            },
+            {
+              "name": "GOV-06 create with allow_on_all_virtual_keys true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 create with allow_on_all_virtual_keys true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"gov-06-c2\",\"name\":\"gov06_c2\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"allow_on_all_virtual_keys\":true}"
+                }
+              }
+            },
+            {
+              "name": "GOV-06 on create, true sets both fields",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 on create, true sets both fields: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"GOV-06 on create, true sets both fields: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"GOV-06 on create, true sets both fields: config.allow_by_default is true\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.allow_by_default, 'body: ' + pm.response.text()).to.eql(true);",
+                      "});",
+                      "pm.test(\"GOV-06 on create, true sets both fields: config.allow_on_all_virtual_keys is true\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.allow_on_all_virtual_keys, 'body: ' + pm.response.text()).to.eql(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=gov-06-c2"
+              }
+            },
+            {
+              "name": "GOV-06 create with allow_by_default false and allow_on_all_virtual_keys true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 create with allow_by_default false and allow_on_all_virtual_keys true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"gov-06-c3\",\"name\":\"gov06_c3\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"allow_by_default\":false,\"allow_on_all_virtual_keys\":true}"
+                }
+              }
+            },
+            {
+              "name": "GOV-06 on create, false wins",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 on create, false wins: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"GOV-06 on create, false wins: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"GOV-06 on create, false wins: config.allow_by_default is false\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.allow_by_default, 'body: ' + pm.response.text()).to.eql(false);",
+                      "});",
+                      "pm.test(\"GOV-06 on create, false wins: config.allow_on_all_virtual_keys is false\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config.allow_on_all_virtual_keys, 'body: ' + pm.response.text()).to.eql(false);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=gov-06-c3"
+              }
+            },
+            {
+              "name": "GOV-06 teardown: delete client gov-06-c2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 teardown: delete client gov-06-c2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-06-c2"
+              }
+            },
+            {
+              "name": "GOV-06 teardown: delete client gov-06-c3",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 teardown: delete client gov-06-c3: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-06-c3"
+              }
+            },
+            {
+              "name": "GOV-06 teardown: delete client gov-06-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-06 teardown: delete client gov-06-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-06-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GOV-11 Grants edited from the client side",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; a VK with no MCP configs; grants set through the client's vk_configs.",
+          "item": [
+            {
+              "name": "GOV-11 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-11 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-11 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"gov-11-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-11 setup: create a VK with no MCP configs",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 setup: create a VK with no MCP configs: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"gov11_vk_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"gov11_vk\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"GOV-11 client-side VK\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-11 control: before the edit the VK cannot run alpha-add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 control: before the edit the VK cannot run alpha-add: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{gov11_vk}}"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-add\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "GOV-11 PUT vk_configs granting the VK [\"add\"]",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 PUT vk_configs granting the VK [\\\"add\\\"]: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-11-alpha",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"vk_configs\":[{\"virtual_key_id\":\"{{gov11_vk_id}}\",\"tools_to_execute\":[\"add\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-11 the VK runs alpha-add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 the VK runs alpha-add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{gov11_vk}}"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-add\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "GOV-11 the VK runs alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 the VK runs alpha-echo: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{gov11_vk}}"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c2\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "GOV-11 PUT vk_configs with an empty virtual_key_id",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 PUT vk_configs with an empty virtual_key_id: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-11-alpha",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"vk_configs\":[{\"virtual_key_id\":\"\",\"tools_to_execute\":[\"add\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-11 PUT vk_configs with a repeated virtual_key_id",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 PUT vk_configs with a repeated virtual_key_id: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-11-alpha",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"vk_configs\":[{\"virtual_key_id\":\"{{gov11_vk_id}}\",\"tools_to_execute\":[\"add\"]},{\"virtual_key_id\":\"{{gov11_vk_id}}\",\"tools_to_execute\":[\"echo\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-11 teardown: delete the VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 teardown: delete the VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{gov11_vk_id}}"
+              }
+            },
+            {
+              "name": "GOV-11 teardown: delete client gov-11-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-11 teardown: delete client gov-11-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-11-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GOV-16 Unknown VK value",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; the caller sends x-bf-vk sk-bf-doesnotexist.",
+          "item": [
+            {
+              "name": "GOV-16 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-16 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-16 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-16 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-16 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-16 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"gov-16-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-16 execute alpha-echo with the unknown VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-16 execute alpha-echo with the unknown VK: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"GOV-16 execute alpha-echo with the unknown VK: type is \\\"access_not_found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"type\"], 'body: ' + pm.response.text()).to.equal(\"access_not_found\");",
+                      "});",
+                      "pm.test(\"GOV-16 execute alpha-echo with the unknown VK: error message is \\\"access not found. The provided credential does not exist or has been revoked.\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"access not found. The provided credential does not exist or has been revoked.\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "sk-bf-doesnotexist"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "GOV-16 /mcp initialize with the unknown VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-16 /mcp initialize with the unknown VK: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "sk-bf-doesnotexist"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"mcp-harness\",\"version\":\"1.0.0\"}}}"
+                }
+              }
+            },
+            {
+              "name": "GOV-16 teardown: delete client gov-16-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-16 teardown: delete client gov-16-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-16-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GOV-17 VK required",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; enforce_auth_on_inference true; the caller sends no credential.",
+          "item": [
+            {
+              "name": "GOV-17 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-17 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-17 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-17 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-17 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-17 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"gov-17-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-17 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-17 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "GOV-17 setup: set enforce_auth_on_inference true",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.enforce_auth_on_inference = true;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-17 setup: set enforce_auth_on_inference true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "GOV-17 execute alpha-echo with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-17 execute alpha-echo with no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"GOV-17 execute alpha-echo with no credential: type is \\\"virtual_key_required\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"type\"], 'body: ' + pm.response.text()).to.equal(\"virtual_key_required\");",
+                      "});",
+                      "pm.test(\"GOV-17 execute alpha-echo with no credential: error message is \\\"virtual key is required. Provide a virtual key via the x-bf-vk header.\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"virtual key is required. Provide a virtual key via the x-bf-vk header.\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "GOV-17 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-17 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "GOV-17 teardown: delete client gov-17-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-17 teardown: delete client gov-17-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-17-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GOV-29 Virtual MCP create",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed.",
+          "item": [
+            {
+              "name": "GOV-29 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-29 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-29 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-29 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-29 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-29 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"gov-29-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-29 create Tools A over alpha's echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-29 create Tools A over alpha's echo: status is 201\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(201);",
+                      "});",
+                      "pm.test(\"GOV-29 create Tools A over alpha's echo: virtual_mcp.endpoint_slug is \\\"tools-a\\\"\", function () {",
+                      "  pm.expect(pm.response.json().virtual_mcp.endpoint_slug, 'body: ' + pm.response.text()).to.eql(\"tools-a\");",
+                      "});",
+                      "pm.test(\"GOV-29 create Tools A over alpha's echo: virtual_mcp.enabled is true\", function () {",
+                      "  pm.expect(pm.response.json().virtual_mcp.enabled, 'body: ' + pm.response.text()).to.eql(true);",
+                      "});",
+                      "pm.test(\"GOV-29 create Tools A over alpha's echo: virtual_mcp.virtual_key_ids is []\", function () {",
+                      "  pm.expect(pm.response.json().virtual_mcp.virtual_key_ids, 'body: ' + pm.response.text()).to.eql([]);",
+                      "});",
+                      "pm.collectionVariables.set('gov29_vmcp_id', pm.response.json().virtual_mcp.id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"Tools A\",\"tools\":[{\"mcp_client_id\":\"gov-29-alpha\",\"tool_names\":[\"echo\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-29 no name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-29 no name: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"GOV-29 no name: error message is \\\"name is required\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"name is required\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"mcp_client_id\":\"gov-29-alpha\",\"tool_names\":[\"echo\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-29 bad JSON",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-29 bad JSON: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{"
+                }
+              }
+            },
+            {
+              "name": "GOV-29 client id x",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-29 client id x: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"GOV-29 client id x: error message is \\\"invalid MCP client IDs: x\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"invalid MCP client IDs: x\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"GOV-29 bad client\",\"tools\":[{\"mcp_client_id\":\"x\",\"tool_names\":[\"echo\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-29 teardown: delete the virtual MCP",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-29 teardown: delete the virtual MCP: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov29_vmcp_id}}"
+              }
+            },
+            {
+              "name": "GOV-29 teardown: delete client gov-29-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-29 teardown: delete client gov-29-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-29-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GOV-31 Virtual MCP update and lookup",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; the virtual MCP Tools A (slug tools-a) over alpha's echo.",
+          "item": [
+            {
+              "name": "GOV-31 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-31 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-31 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"gov-31-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-31 setup: create the virtual MCP Tools A over alpha's echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 setup: create the virtual MCP Tools A over alpha's echo: status is 201\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(201);",
+                      "});",
+                      "pm.collectionVariables.set(\"gov31_vmcp_id\", pm.response.json().virtual_mcp.id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"Tools A\",\"tools\":[{\"mcp_client_id\":\"gov-31-alpha\",\"tool_names\":[\"echo\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-31 PUT a new slug",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 PUT a new slug: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"GOV-31 PUT a new slug: virtual_mcp.endpoint_slug is \\\"tools-a\\\"\", function () {",
+                      "  pm.expect(pm.response.json().virtual_mcp.endpoint_slug, 'body: ' + pm.response.text()).to.eql(\"tools-a\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov31_vmcp_id}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"endpoint_slug\":\"tools-b\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-31 PUT without tools",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 PUT without tools: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"GOV-31 PUT without tools: virtual_mcp.tools is [{\\\"mcp_client_id\\\":\\\"gov-31-alpha\\\",\\\"tool_names\\\":[\\\"echo\\\"]}]\", function () {",
+                      "  pm.expect(pm.response.json().virtual_mcp.tools, 'body: ' + pm.response.text()).to.eql([{\"mcp_client_id\":\"gov-31-alpha\",\"tool_names\":[\"echo\"]}]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov31_vmcp_id}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"description\":\"GOV-31\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-31 PUT enabled false",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 PUT enabled false: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov31_vmcp_id}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"enabled\":false}"
+                }
+              }
+            },
+            {
+              "name": "GOV-31 enabled false persists",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 enabled false persists: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"GOV-31 enabled false persists: virtual_mcp.enabled is false\", function () {",
+                      "  pm.expect(pm.response.json().virtual_mcp.enabled, 'body: ' + pm.response.text()).to.eql(false);",
+                      "});",
+                      "pm.test(\"GOV-31 enabled false persists: virtual_mcp.endpoint_slug is \\\"tools-a\\\"\", function () {",
+                      "  pm.expect(pm.response.json().virtual_mcp.endpoint_slug, 'body: ' + pm.response.text()).to.eql(\"tools-a\");",
+                      "});",
+                      "pm.test(\"GOV-31 enabled false persists: virtual_mcp.tools is [{\\\"mcp_client_id\\\":\\\"gov-31-alpha\\\",\\\"tool_names\\\":[\\\"echo\\\"]}]\", function () {",
+                      "  pm.expect(pm.response.json().virtual_mcp.tools, 'body: ' + pm.response.text()).to.eql([{\"mcp_client_id\":\"gov-31-alpha\",\"tool_names\":[\"echo\"]}]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov31_vmcp_id}}"
+              }
+            },
+            {
+              "name": "GOV-31 GET /abc",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 GET /abc: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"GOV-31 GET /abc: error message is \\\"invalid virtual MCP id\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"invalid virtual MCP id\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/abc"
+              }
+            },
+            {
+              "name": "GOV-31 GET /999999",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 GET /999999: status is 404\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(404);",
+                      "});",
+                      "pm.test(\"GOV-31 GET /999999: error message is \\\"virtual MCP not found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"virtual MCP not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/999999"
+              }
+            },
+            {
+              "name": "GOV-31 teardown: delete the virtual MCP",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 teardown: delete the virtual MCP: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov31_vmcp_id}}"
+              }
+            },
+            {
+              "name": "GOV-31 teardown: delete client gov-31-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-31 teardown: delete client gov-31-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-31-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GOV-32 Attach and detach VKs",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; the virtual MCP Tools A (slug tools-a) over alpha's echo; a VK with no MCP configs.",
+          "item": [
+            {
+              "name": "GOV-32 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-32 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-32 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"gov-32-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-32 setup: create the virtual MCP Tools A over alpha's echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 setup: create the virtual MCP Tools A over alpha's echo: status is 201\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(201);",
+                      "});",
+                      "pm.collectionVariables.set(\"gov32_vmcp_id\", pm.response.json().virtual_mcp.id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"Tools A\",\"tools\":[{\"mcp_client_id\":\"gov-32-alpha\",\"tool_names\":[\"echo\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "GOV-32 setup: create a VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 setup: create a VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"gov32_vk_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"gov32_vk\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"GOV-32 VK\"}"
+                }
+              }
+            },
+            {
+              "name": "GOV-32 attach an unknown VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 attach an unknown VK: status is 404\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(404);",
+                      "});",
+                      "pm.test(\"GOV-32 attach an unknown VK: error message is \\\"virtual key not found\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"virtual key not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov32_vmcp_id}}/virtual-keys/gov32-no-such-vk"
+              }
+            },
+            {
+              "name": "GOV-32 detach the VK, which was never attached",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 detach the VK, which was never attached: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov32_vmcp_id}}/virtual-keys/{{gov32_vk_id}}"
+              }
+            },
+            {
+              "name": "GOV-32 attach the VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 attach the VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov32_vmcp_id}}/virtual-keys/{{gov32_vk_id}}"
+              }
+            },
+            {
+              "name": "GOV-32 attach the VK again",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 attach the VK again: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov32_vmcp_id}}/virtual-keys/{{gov32_vk_id}}"
+              }
+            },
+            {
+              "name": "GOV-32 the VK is listed once",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 the VK is listed once: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"GOV-32 the VK is listed once: virtual_mcp.virtual_key_ids is [the VK's id]\", function () {",
+                      "  pm.expect(pm.response.json().virtual_mcp.virtual_key_ids, 'body: ' + pm.response.text()).to.eql([pm.collectionVariables.get('gov32_vk_id')]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov32_vmcp_id}}"
+              }
+            },
+            {
+              "name": "GOV-32 attach to an unknown virtual MCP",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 attach to an unknown virtual MCP: status is 404\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(404);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/999999/virtual-keys/{{gov32_vk_id}}"
+              }
+            },
+            {
+              "name": "GOV-32 teardown: delete the virtual MCP",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 teardown: delete the virtual MCP: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/virtual-mcps/{{gov32_vmcp_id}}"
+              }
+            },
+            {
+              "name": "GOV-32 teardown: delete the VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 teardown: delete the VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{gov32_vk_id}}"
+              }
+            },
+            {
+              "name": "GOV-32 teardown: delete client gov-32-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"GOV-32 teardown: delete client gov-32-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/gov-32-alpha"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "INF Inference",
       "description": "Inference tests.",
       "item": [

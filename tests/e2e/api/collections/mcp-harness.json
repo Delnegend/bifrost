@@ -91708,6 +91708,278 @@
           ]
         },
         {
+          "name": "INF-05 Bedrock route",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; the bedrock provider points at the same mock through the fleet's TLS listener; converse and converse-stream on /bedrock with the bare model mock-model; the mock LLM answers with a toolUse for alpha-echo.",
+          "item": [
+            {
+              "name": "INF-05 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-05 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-05 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-05 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-05 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-05 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-05-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-05 setup: script the mock LLM for inf05",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-05 setup: script the mock LLM for inf05: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf05\",\"then\":{\"tool_calls\":[{\"id\":\"tu1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]}}"
+                }
+              }
+            },
+            {
+              "name": "INF-05 converse",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-05 converse: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-05 converse: the client gets a toolUse named alpha-echo\", function () {",
+                      "  var content = (((pm.response.json().output || {}).message) || {}).content || [];",
+                      "  var uses = content.filter(function (b) { return b.toolUse; });",
+                      "  pm.expect(uses.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "  pm.expect(uses[0].toolUse.name).to.equal('alpha-echo');",
+                      "  pm.expect(uses[0].toolUse.toolUseId).to.equal('tu1');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/bedrock/model/mock-model/converse",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"messages\":[{\"role\":\"user\",\"content\":[{\"text\":\"[scenario:inf05] hi\"}]}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-05 converse-stream",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-05 converse-stream: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-05 converse-stream: the event stream opens one toolUse named alpha-echo\", function () {",
+                      "  pm.expect(pm.response.headers.get('Content-Type')).to.equal('application/vnd.amazon.eventstream');",
+                      "  var names = [], re = /\"toolUse\":\\{[^{}]*\"name\":\"([^\"]+)\"/g, m;",
+                      "  while ((m = re.exec(pm.response.text())) !== null) { names.push(m[1]); }",
+                      "  pm.expect(names, 'stream: ' + pm.response.text()).to.eql(['alpha-echo']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/bedrock/model/mock-model/converse-stream",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"messages\":[{\"role\":\"user\",\"content\":[{\"text\":\"[scenario:inf05] hi\"}]}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-05 both requests declare alpha-echo as a toolSpec",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-05 both requests declare alpha-echo as a toolSpec: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-05 both requests declare alpha-echo as a toolSpec: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});",
+                      "pm.test(\"INF-05 both requests declare alpha-echo as a toolSpec: request 1 declares alpha-echo\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs[0] && reqs[0].tools, 'body: ' + pm.response.text()).to.include(\"alpha-echo\");",
+                      "});",
+                      "pm.test(\"INF-05 both requests declare alpha-echo as a toolSpec: request 2 declares alpha-echo\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs[1] && reqs[1].tools, 'body: ' + pm.response.text()).to.include(\"alpha-echo\");",
+                      "});",
+                      "pm.test(\"INF-05 both requests declare alpha-echo as a toolSpec: one plain and one streamed Converse request\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.map(function (r) { return r.format + ':' + r.stream; })).to.eql(['bedrock.converse:false', 'bedrock.converse:true']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf05"
+              }
+            },
+            {
+              "name": "INF-05 teardown: delete client inf-05-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-05 teardown: delete client inf-05-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-05-alpha"
+              }
+            }
+          ]
+        },
+        {
           "name": "INF-06 Alias routes",
           "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; a chat request with model openai/mock-model on /openai, /litellm, /langchain and /pydanticai, and a Cohere v2 chat on /cohere/v2/chat.",
           "item": [

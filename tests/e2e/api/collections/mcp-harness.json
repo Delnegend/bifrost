@@ -89250,6 +89250,414 @@
       "description": "MCP library tests.",
       "item": [
         {
+          "name": "LIB-01 GET /api/mcp/library after the boot sync",
+          "description": "Setup: the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order), synced at boot into a fresh database.",
+          "item": [
+            {
+              "name": "LIB-01 list the library",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-01 list the library: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-01 list the library: total_count is 5\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"total_count\"], 'body: ' + pm.response.text()).to.equal(5);",
+                      "});",
+                      "pm.test(\"LIB-01 list the library: limit is 25\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"limit\"], 'body: ' + pm.response.text()).to.equal(25);",
+                      "});",
+                      "pm.test(\"LIB-01 list the library: offset is 0\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"offset\"], 'body: ' + pm.response.text()).to.equal(0);",
+                      "});",
+                      "pm.test(\"LIB-01 list the library: count equals the number of servers\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.count, 'body: ' + pm.response.text()).to.equal(b.servers.length);",
+                      "});",
+                      "pm.test(\"LIB-01 list the library: servers are Acme Notes, Bravo Search, Delta Files, Echo Tickets, Harness Catalog Server\", function () {",
+                      "  pm.expect((pm.response.json().servers || []).map(function (s) { return s.name; }), 'body: ' + pm.response.text()).to.eql([\"Acme Notes\",\"Bravo Search\",\"Delta Files\",\"Echo Tickets\",\"Harness Catalog Server\"]);",
+                      "});",
+                      "pm.test(\"LIB-01 list the library: each entry has source \\\"remote\\\" and installed false\", function () {",
+                      "  (pm.response.json().servers || []).forEach(function (s) { pm.expect(s.source, s.name).to.equal('remote'); pm.expect(s.installed, s.name).to.equal(false); });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-02 Search",
+          "description": "Setup: as LIB-01 (the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order)). \"aCmE\" matches Acme Notes by name, Delta Files by description (\"maintained by Acme\") and Bravo Search by publisher (\"ACME Corp\").",
+          "item": [
+            {
+              "name": "LIB-02 search aCmE",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-02 search aCmE: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-02 search aCmE: total_count is 3\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"total_count\"], 'body: ' + pm.response.text()).to.equal(3);",
+                      "});",
+                      "pm.test(\"LIB-02 search aCmE: servers are Acme Notes, Bravo Search, Delta Files\", function () {",
+                      "  pm.expect((pm.response.json().servers || []).map(function (s) { return s.name; }), 'body: ' + pm.response.text()).to.eql([\"Acme Notes\",\"Bravo Search\",\"Delta Files\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=aCmE"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-03 Category, connection type and auth filters",
+          "description": "Setup: the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order): categories testing, files, search, files and none; connection types http, sse, http, http, sse; auth types none, headers, oauth, none, headers.",
+          "item": [
+            {
+              "name": "LIB-03 setup: keep each entry's id",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-03 setup: keep each entry's id: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "var ids = {}; (pm.response.json().servers || []).forEach(function (s) { ids[s.name] = s.id; });",
+                      "pm.collectionVariables.set('lib03_ids', JSON.stringify(ids));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?limit=100"
+              }
+            },
+            {
+              "name": "LIB-03 category=files,search",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-03 category=files,search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-03 category=files,search: ids are exactly those of Delta Files, Bravo Search, Acme Notes\", function () {",
+                      "  var ids = JSON.parse(pm.collectionVariables.get('lib03_ids'));",
+                      "  var want = [\"Delta Files\",\"Bravo Search\",\"Acme Notes\"].map(function (n) { return ids[n]; }).sort(function (a, b) { return a - b; });",
+                      "  var got = (pm.response.json().servers || []).map(function (s) { return s.id; }).sort(function (a, b) { return a - b; });",
+                      "  pm.expect(got, 'body: ' + pm.response.text()).to.eql(want);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?category=files,search"
+              }
+            },
+            {
+              "name": "LIB-03 connection_type=sse",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-03 connection_type=sse: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-03 connection_type=sse: ids are exactly those of Delta Files, Echo Tickets\", function () {",
+                      "  var ids = JSON.parse(pm.collectionVariables.get('lib03_ids'));",
+                      "  var want = [\"Delta Files\",\"Echo Tickets\"].map(function (n) { return ids[n]; }).sort(function (a, b) { return a - b; });",
+                      "  var got = (pm.response.json().servers || []).map(function (s) { return s.id; }).sort(function (a, b) { return a - b; });",
+                      "  pm.expect(got, 'body: ' + pm.response.text()).to.eql(want);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?connection_type=sse"
+              }
+            },
+            {
+              "name": "LIB-03 auth_type=none,oauth",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-03 auth_type=none,oauth: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-03 auth_type=none,oauth: ids are exactly those of Harness Catalog Server, Bravo Search, Acme Notes\", function () {",
+                      "  var ids = JSON.parse(pm.collectionVariables.get('lib03_ids'));",
+                      "  var want = [\"Harness Catalog Server\",\"Bravo Search\",\"Acme Notes\"].map(function (n) { return ids[n]; }).sort(function (a, b) { return a - b; });",
+                      "  var got = (pm.response.json().servers || []).map(function (s) { return s.id; }).sort(function (a, b) { return a - b; });",
+                      "  pm.expect(got, 'body: ' + pm.response.text()).to.eql(want);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?auth_type=none,oauth"
+              }
+            },
+            {
+              "name": "LIB-03 category=files and connection_type=http",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-03 category=files and connection_type=http: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-03 category=files and connection_type=http: ids are exactly those of Acme Notes\", function () {",
+                      "  var ids = JSON.parse(pm.collectionVariables.get('lib03_ids'));",
+                      "  var want = [\"Acme Notes\"].map(function (n) { return ids[n]; }).sort(function (a, b) { return a - b; });",
+                      "  var got = (pm.response.json().servers || []).map(function (s) { return s.id; }).sort(function (a, b) { return a - b; });",
+                      "  pm.expect(got, 'body: ' + pm.response.text()).to.eql(want);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?category=files&connection_type=http"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-05 Pagination and sort",
+          "description": "Setup: the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order); name order is Acme Notes, Bravo Search, Delta Files, Echo Tickets, Harness Catalog Server.",
+          "item": [
+            {
+              "name": "LIB-05 limit=2&offset=2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-05 limit=2&offset=2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-05 limit=2&offset=2: servers are Delta Files, Echo Tickets\", function () {",
+                      "  pm.expect((pm.response.json().servers || []).map(function (s) { return s.name; }), 'body: ' + pm.response.text()).to.eql([\"Delta Files\",\"Echo Tickets\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?limit=2&offset=2"
+              }
+            },
+            {
+              "name": "LIB-05 limit=500",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-05 limit=500: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-05 limit=500: limit is 100\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"limit\"], 'body: ' + pm.response.text()).to.equal(100);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?limit=500"
+              }
+            },
+            {
+              "name": "LIB-05 limit=0",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-05 limit=0: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-05 limit=0: limit is 25\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"limit\"], 'body: ' + pm.response.text()).to.equal(25);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?limit=0"
+              }
+            },
+            {
+              "name": "LIB-05 sort_by=created_at&order=desc",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-05 sort_by=created_at&order=desc: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-05 sort_by=created_at&order=desc: servers are Echo Tickets, Acme Notes, Bravo Search, Delta Files, Harness Catalog Server\", function () {",
+                      "  pm.expect((pm.response.json().servers || []).map(function (s) { return s.name; }), 'body: ' + pm.response.text()).to.eql([\"Echo Tickets\",\"Acme Notes\",\"Bravo Search\",\"Delta Files\",\"Harness Catalog Server\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?sort_by=created_at&order=desc"
+              }
+            },
+            {
+              "name": "LIB-05 an unknown sort_by",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-05 an unknown sort_by: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-05 an unknown sort_by: servers are Acme Notes, Bravo Search, Delta Files, Echo Tickets, Harness Catalog Server\", function () {",
+                      "  pm.expect((pm.response.json().servers || []).map(function (s) { return s.name; }), 'body: ' + pm.response.text()).to.eql([\"Acme Notes\",\"Bravo Search\",\"Delta Files\",\"Echo Tickets\",\"Harness Catalog Server\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?sort_by=bogus"
+              }
+            }
+          ]
+        },
+        {
           "name": "LIB-06 Bad paging values",
           "description": "Setup: none (dashboard auth on, admin credentials).",
           "item": [
@@ -89371,6 +89779,256 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/library?offset=-1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-07 Filter data",
+          "description": "Setup: the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order), which has category \"files\" twice, an empty category and an empty tag; plus remote entry \"LIB-07 deleted entry\" with category and tag \"lib07-deleted\", synced and then deleted.",
+          "item": [
+            {
+              "name": "LIB-07 setup: read the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-07 setup: read the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('lib_boot', JSON.stringify(pm.response.json().rest.routes[0].json.servers));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/library"
+              }
+            },
+            {
+              "name": "LIB-07 setup: the catalog adds LIB-07 deleted entry",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var servers = JSON.parse(pm.collectionVariables.get('lib_boot')).concat([{\"name\":\"LIB-07 deleted entry\",\"description\":\"\",\"category\":\"lib07-deleted\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib07/mcp\",\"auth_type\":\"none\",\"tags\":[\"lib07-deleted\"]}]);",
+                      "pm.variables.set('catalog_body', JSON.stringify({ route: { method: 'GET', path: '/catalog.json', json: { servers: servers } } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-07 setup: the catalog adds LIB-07 deleted entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{catalog_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-07 setup: force-sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-07 setup: force-sync: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-07 setup: force-sync: message is \\\"MCP library sync completed, 6 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 6 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-07 setup: find LIB-07 deleted entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-07 setup: find LIB-07 deleted entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-07 setup: find LIB-07 deleted entry: one entry named \\\"LIB-07 deleted entry\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-07 deleted entry\"; });",
+                      "  pm.expect(found.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-07 deleted entry\"; });",
+                      "if (found.length) { pm.collectionVariables.set(\"lib07_d\", found[0].id); pm.collectionVariables.set(\"lib07_d_entry\", JSON.stringify(found[0])); }"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-07%20deleted%20entry"
+              }
+            },
+            {
+              "name": "LIB-07 control: filterdata lists the entry while it is live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-07 control: filterdata lists the entry while it is live: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-07 control: filterdata lists the entry while it is live: categories and tags include \\\"lib07-deleted\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.categories, 'body: ' + pm.response.text()).to.include('lib07-deleted');",
+                      "  pm.expect(b.tags).to.include('lib07-deleted');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/filterdata"
+              }
+            },
+            {
+              "name": "LIB-07 setup: delete LIB-07 deleted entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-07 setup: delete LIB-07 deleted entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib07_d}}"
+              }
+            },
+            {
+              "name": "LIB-07 filterdata",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-07 filterdata: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-07 filterdata: sorted, deduplicated, no empty strings, the deleted entry's values excluded\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.categories, 'body: ' + pm.response.text()).to.eql(['files', 'search', 'testing']);",
+                      "  pm.expect(b.connection_types).to.eql(['http', 'sse']);",
+                      "  pm.expect(b.auth_types).to.eql(['headers', 'none', 'oauth']);",
+                      "  pm.expect(b.tags).to.eql(['x', 'y']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/filterdata"
+              }
+            },
+            {
+              "name": "LIB-07 teardown: reset library to the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-07 teardown: reset library to the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"reset\":\"library\"}"
+                }
               }
             }
           ]
@@ -90285,6 +90943,314 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/library/{{lib13_republished_id}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-14 Deleted remote entry stays deleted after sync",
+          "description": "Setup: the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order) plus remote entry \"LIB-14 entry\" (category and tag \"lib14-r\"), synced; the entry is deleted while the catalog still lists it.",
+          "item": [
+            {
+              "name": "LIB-14 setup: read the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 setup: read the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('lib_boot', JSON.stringify(pm.response.json().rest.routes[0].json.servers));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/library"
+              }
+            },
+            {
+              "name": "LIB-14 setup: the catalog adds LIB-14 entry",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var servers = JSON.parse(pm.collectionVariables.get('lib_boot')).concat([{\"name\":\"LIB-14 entry\",\"description\":\"\",\"category\":\"lib14-r\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib14/mcp\",\"auth_type\":\"none\",\"tags\":[\"lib14-r\"]}]);",
+                      "pm.variables.set('catalog_body', JSON.stringify({ route: { method: 'GET', path: '/catalog.json', json: { servers: servers } } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 setup: the catalog adds LIB-14 entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{catalog_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-14 setup: force-sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 setup: force-sync: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-14 setup: force-sync: message is \\\"MCP library sync completed, 6 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 6 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-14 control: the entry is listed",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 control: the entry is listed: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-14 control: the entry is listed: one entry named \\\"LIB-14 entry\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-14 entry\"; });",
+                      "  pm.expect(found.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-14 entry\"; });",
+                      "if (found.length) { pm.collectionVariables.set(\"lib14_r\", found[0].id); pm.collectionVariables.set(\"lib14_r_entry\", JSON.stringify(found[0])); }"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-14%20entry"
+              }
+            },
+            {
+              "name": "LIB-14 control: filterdata lists the entry while it is live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 control: filterdata lists the entry while it is live: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-14 control: filterdata lists the entry while it is live: categories and tags include \\\"lib14-r\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.categories, 'body: ' + pm.response.text()).to.include('lib14-r');",
+                      "  pm.expect(b.tags).to.include('lib14-r');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/filterdata"
+              }
+            },
+            {
+              "name": "LIB-14 delete the entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 delete the entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib14_r}}"
+              }
+            },
+            {
+              "name": "LIB-14 force-sync with the entry still in the catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 force-sync with the entry still in the catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-14 force-sync with the entry still in the catalog: message is \\\"MCP library sync completed, 5 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 5 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-14 the entry is not listed",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 the entry is not listed: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-14 the entry is not listed: no entry named \\\"LIB-14 entry\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-14 entry\"; });",
+                      "  pm.expect(found, 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-14%20entry"
+              }
+            },
+            {
+              "name": "LIB-14 filterdata lacks the entry's category and tag",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 filterdata lacks the entry's category and tag: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-14 filterdata lacks the entry's category and tag: no \\\"lib14-r\\\" category or tag\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.categories, 'body: ' + pm.response.text()).to.not.include('lib14-r');",
+                      "  pm.expect(b.tags).to.not.include('lib14-r');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/filterdata"
+              }
+            },
+            {
+              "name": "LIB-14 teardown: reset library to the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-14 teardown: reset library to the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"reset\":\"library\"}"
+                }
               }
             }
           ]
@@ -91457,6 +92423,1467 @@
           ]
         },
         {
+          "name": "LIB-21 Force-sync adds new entries",
+          "description": "Setup: the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order) plus two new entries, \"LIB-21 first\" and \"LIB-21 second\".",
+          "item": [
+            {
+              "name": "LIB-21 setup: read the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-21 setup: read the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('lib_boot', JSON.stringify(pm.response.json().rest.routes[0].json.servers));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/library"
+              }
+            },
+            {
+              "name": "LIB-21 setup: the catalog adds LIB-21 first and LIB-21 second",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var servers = JSON.parse(pm.collectionVariables.get('lib_boot')).concat([{\"name\":\"LIB-21 first\",\"description\":\"\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib21a/mcp\",\"auth_type\":\"none\"},{\"name\":\"LIB-21 second\",\"description\":\"\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib21b/mcp\",\"auth_type\":\"none\"}]);",
+                      "pm.variables.set('catalog_body', JSON.stringify({ route: { method: 'GET', path: '/catalog.json', json: { servers: servers } } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-21 setup: the catalog adds LIB-21 first and LIB-21 second: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{catalog_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-21 force-sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-21 force-sync: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-21 force-sync: message is \\\"MCP library sync completed, 7 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 7 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-21 LIB-21 first is remote",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-21 LIB-21 first is remote: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-21 LIB-21 first is remote: one entry named \\\"LIB-21 first\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-21 first\"; });",
+                      "  pm.expect(found.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"LIB-21 LIB-21 first is remote: source is \\\"remote\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-21 first\"; });",
+                      "  pm.expect(found[0].source).to.equal('remote');",
+                      "});",
+                      "var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-21 first\"; });",
+                      "if (found.length) { pm.collectionVariables.set(\"lib21_a\", found[0].id); pm.collectionVariables.set(\"lib21_a_entry\", JSON.stringify(found[0])); }"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-21%20first"
+              }
+            },
+            {
+              "name": "LIB-21 LIB-21 second is remote",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-21 LIB-21 second is remote: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-21 LIB-21 second is remote: one entry named \\\"LIB-21 second\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-21 second\"; });",
+                      "  pm.expect(found.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"LIB-21 LIB-21 second is remote: source is \\\"remote\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-21 second\"; });",
+                      "  pm.expect(found[0].source).to.equal('remote');",
+                      "});",
+                      "var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-21 second\"; });",
+                      "if (found.length) { pm.collectionVariables.set(\"lib21_b\", found[0].id); pm.collectionVariables.set(\"lib21_b_entry\", JSON.stringify(found[0])); }"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-21%20second"
+              }
+            },
+            {
+              "name": "LIB-21 teardown: reset library to the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-21 teardown: reset library to the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"reset\":\"library\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-21 teardown: delete LIB-21 first",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-21 teardown: delete LIB-21 first: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib21_a}}"
+              }
+            },
+            {
+              "name": "LIB-21 teardown: delete LIB-21 second",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-21 teardown: delete LIB-21 second: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib21_b}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-22 Force-sync applies changes",
+          "description": "Setup: the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order) plus entry \"LIB-22 entry\" (description \"before\", URL .../lib22v1/mcp), synced; then the catalog changes its description to \"after\" and its URL to .../lib22v2/mcp.",
+          "item": [
+            {
+              "name": "LIB-22 setup: read the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-22 setup: read the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('lib_boot', JSON.stringify(pm.response.json().rest.routes[0].json.servers));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/library"
+              }
+            },
+            {
+              "name": "LIB-22 setup: the catalog adds the entry",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var servers = JSON.parse(pm.collectionVariables.get('lib_boot')).concat([{\"name\":\"LIB-22 entry\",\"description\":\"before\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib22v1/mcp\",\"auth_type\":\"none\"}]);",
+                      "pm.variables.set('catalog_body', JSON.stringify({ route: { method: 'GET', path: '/catalog.json', json: { servers: servers } } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-22 setup: the catalog adds the entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{catalog_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-22 setup: force-sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-22 setup: force-sync: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-22 setup: force-sync: message is \\\"MCP library sync completed, 6 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 6 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-22 setup: read the entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-22 setup: read the entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-22 setup: read the entry: one entry named \\\"LIB-22 entry\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-22 entry\"; });",
+                      "  pm.expect(found.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-22 entry\"; });",
+                      "if (found.length) { pm.collectionVariables.set(\"lib22_e\", found[0].id); pm.collectionVariables.set(\"lib22_e_entry\", JSON.stringify(found[0])); }"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-22%20entry"
+              }
+            },
+            {
+              "name": "LIB-22 setup: the catalog changes the entry's description and URL",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var servers = JSON.parse(pm.collectionVariables.get('lib_boot')).concat([{\"name\":\"LIB-22 entry\",\"description\":\"after\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib22v2/mcp\",\"auth_type\":\"none\"}]);",
+                      "pm.variables.set('catalog_body', JSON.stringify({ route: { method: 'GET', path: '/catalog.json', json: { servers: servers } } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-22 setup: the catalog changes the entry's description and URL: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{catalog_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-22 force-sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-22 force-sync: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-22 force-sync: message is \\\"MCP library sync completed, 6 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 6 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-22 the entry is updated, keeping its id and created_at",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-22 the entry is updated, keeping its id and created_at: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-22 the entry is updated, keeping its id and created_at: description and URL changed; id and created_at unchanged; updated_at later\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-22 entry\"; });",
+                      "  var before = JSON.parse(pm.collectionVariables.get('lib22_e_entry'));",
+                      "  pm.expect(found.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "  var e = found[0];",
+                      "  pm.expect(e.description).to.equal('after');",
+                      "  pm.expect(e.connection_url).to.equal('https://mcp.example.invalid/lib22v2/mcp');",
+                      "  pm.expect(e.id).to.equal(before.id);",
+                      "  pm.expect(e.created_at).to.equal(before.created_at);",
+                      "  pm.expect(Date.parse(e.updated_at), e.updated_at + ' vs ' + before.updated_at).to.be.above(Date.parse(before.updated_at));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-22%20entry"
+              }
+            },
+            {
+              "name": "LIB-22 teardown: reset library to the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-22 teardown: reset library to the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"reset\":\"library\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-22 teardown: delete the entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-22 teardown: delete the entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib22_e}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-23 Entry removed from the catalog",
+          "description": "Setup: the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order) plus entry \"LIB-23 entry\", synced; then the entry is dropped from the catalog.",
+          "item": [
+            {
+              "name": "LIB-23 setup: read the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-23 setup: read the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('lib_boot', JSON.stringify(pm.response.json().rest.routes[0].json.servers));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/library"
+              }
+            },
+            {
+              "name": "LIB-23 setup: the catalog adds the entry",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var servers = JSON.parse(pm.collectionVariables.get('lib_boot')).concat([{\"name\":\"LIB-23 entry\",\"description\":\"\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib23/mcp\",\"auth_type\":\"none\"}]);",
+                      "pm.variables.set('catalog_body', JSON.stringify({ route: { method: 'GET', path: '/catalog.json', json: { servers: servers } } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-23 setup: the catalog adds the entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{catalog_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-23 setup: force-sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-23 setup: force-sync: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-23 setup: force-sync: message is \\\"MCP library sync completed, 6 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 6 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-23 setup: the catalog drops the entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-23 setup: the catalog drops the entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"reset\":\"library\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-23 force-sync without the entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-23 force-sync without the entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-23 force-sync without the entry: message is \\\"MCP library sync completed, 5 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 5 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-23 the entry is still listed as remote",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-23 the entry is still listed as remote: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-23 the entry is still listed as remote: one entry named \\\"LIB-23 entry\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-23 entry\"; });",
+                      "  pm.expect(found.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"LIB-23 the entry is still listed as remote: source is \\\"remote\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-23 entry\"; });",
+                      "  pm.expect(found[0].source).to.equal('remote');",
+                      "});",
+                      "var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-23 entry\"; });",
+                      "if (found.length) { pm.collectionVariables.set(\"lib23_e\", found[0].id); pm.collectionVariables.set(\"lib23_e_entry\", JSON.stringify(found[0])); }"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-23%20entry"
+              }
+            },
+            {
+              "name": "LIB-23 teardown: delete the entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-23 teardown: delete the entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib23_e}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-24 Catalog name clashes with a custom entry",
+          "description": "Setup: a custom entry \"LIB-24 custom\" (description \"custom\", URL .../lib24custom/mcp); the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order) plus a catalog entry with the same name, another description and URL. The catalog is reset before the custom entry is deleted.",
+          "item": [
+            {
+              "name": "LIB-24 setup: publish the custom entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-24 setup: publish the custom entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('lib24_c', pm.response.json().entry.id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"LIB-24 custom\",\"description\":\"custom\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib24custom/mcp\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-24 setup: read the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-24 setup: read the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('lib_boot', JSON.stringify(pm.response.json().rest.routes[0].json.servers));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/library"
+              }
+            },
+            {
+              "name": "LIB-24 setup: the catalog adds an entry with the same name",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var servers = JSON.parse(pm.collectionVariables.get('lib_boot')).concat([{\"name\":\"LIB-24 custom\",\"description\":\"from the catalog\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib24catalog/mcp\",\"auth_type\":\"none\"}]);",
+                      "pm.variables.set('catalog_body', JSON.stringify({ route: { method: 'GET', path: '/catalog.json', json: { servers: servers } } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-24 setup: the catalog adds an entry with the same name: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{catalog_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-24 force-sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-24 force-sync: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-24 force-sync: message is \\\"MCP library sync completed, 5 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 5 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-24 the custom entry is unchanged",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-24 the custom entry is unchanged: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-24 the custom entry is unchanged: one entry named LIB-24 custom, the custom one, unchanged\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-24 custom\"; });",
+                      "  pm.expect(found.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "  pm.expect(found[0].id).to.equal(Number(pm.collectionVariables.get('lib24_c')));",
+                      "  pm.expect(found[0].source).to.equal('custom');",
+                      "  pm.expect(found[0].description).to.equal('custom');",
+                      "  pm.expect(found[0].connection_url).to.equal('https://mcp.example.invalid/lib24custom/mcp');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-24%20custom"
+              }
+            },
+            {
+              "name": "LIB-24 teardown: reset library to the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-24 teardown: reset library to the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"reset\":\"library\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-24 teardown: delete the custom entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-24 teardown: delete the custom entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib24_c}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-25 Payload edge cases",
+          "description": "Setup: the boot catalog (Harness Catalog Server, Delta Files, Bravo Search, Acme Notes, Echo Tickets, in that order) plus \"LIB-25 Dup\" twice (descriptions \"first\" and \"second\"), an entry with an empty name and one named \"!!!\"; then a catalog of {\"servers\":[]}.",
+          "item": [
+            {
+              "name": "LIB-25 setup: read the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 setup: read the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('lib_boot', JSON.stringify(pm.response.json().rest.routes[0].json.servers));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/library"
+              }
+            },
+            {
+              "name": "LIB-25 setup: the catalog adds the duplicates and the bad names",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var servers = JSON.parse(pm.collectionVariables.get('lib_boot')).concat([{\"name\":\"LIB-25 Dup\",\"description\":\"first\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib25a/mcp\",\"auth_type\":\"none\"},{\"name\":\"LIB-25 Dup\",\"description\":\"second\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib25b/mcp\",\"auth_type\":\"none\"},{\"name\":\"\",\"description\":\"\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib25c/mcp\",\"auth_type\":\"none\"},{\"name\":\"!!!\",\"description\":\"\",\"category\":\"\",\"connection_type\":\"http\",\"connection_url\":\"https://mcp.example.invalid/lib25d/mcp\",\"auth_type\":\"none\"}]);",
+                      "pm.variables.set('catalog_body', JSON.stringify({ route: { method: 'GET', path: '/catalog.json', json: { servers: servers } } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 setup: the catalog adds the duplicates and the bad names: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{catalog_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-25 force-sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 force-sync: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-25 force-sync: message is \\\"MCP library sync completed, 6 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 6 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-25 the duplicates became one entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 the duplicates became one entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-25 the duplicates became one entry: one entry named \\\"LIB-25 Dup\\\"\", function () {",
+                      "  var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-25 Dup\"; });",
+                      "  pm.expect(found.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "var found = (pm.response.json().servers || []).filter(function (s) { return s.name === \"LIB-25 Dup\"; });",
+                      "if (found.length) { pm.collectionVariables.set(\"lib25_dup\", found[0].id); pm.collectionVariables.set(\"lib25_dup_entry\", JSON.stringify(found[0])); }"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?search=LIB-25%20Dup"
+              }
+            },
+            {
+              "name": "LIB-25 the library has the five boot entries and LIB-25 Dup",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 the library has the five boot entries and LIB-25 Dup: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-25 the library has the five boot entries and LIB-25 Dup: total_count is 6\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"total_count\"], 'body: ' + pm.response.text()).to.equal(6);",
+                      "});",
+                      "pm.test(\"LIB-25 the library has the five boot entries and LIB-25 Dup: the names are the five boot entries and LIB-25 Dup\", function () {",
+                      "  pm.expect(pm.response.json().servers.map(function (s) { return s.name; }).sort(), 'body: ' + pm.response.text()).to.eql(['Acme Notes', 'Bravo Search', 'Delta Files', 'Echo Tickets', 'Harness Catalog Server', 'LIB-25 Dup']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?limit=100"
+              }
+            },
+            {
+              "name": "LIB-25 setup: the catalog is {\"servers\":[]}",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var servers = [].concat([]);",
+                      "pm.variables.set('catalog_body', JSON.stringify({ route: { method: 'GET', path: '/catalog.json', json: { servers: servers } } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 setup: the catalog is {\\\"servers\\\":[]}: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{catalog_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-25 force-sync the empty catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 force-sync the empty catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-25 force-sync the empty catalog: message is \\\"MCP library sync completed, 0 entries synced\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync completed, 0 entries synced\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-25 the entries are kept",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 the entries are kept: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-25 the entries are kept: total_count is 6\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"total_count\"], 'body: ' + pm.response.text()).to.equal(6);",
+                      "});",
+                      "pm.test(\"LIB-25 the entries are kept: the names are the five boot entries and LIB-25 Dup\", function () {",
+                      "  pm.expect(pm.response.json().servers.map(function (s) { return s.name; }).sort(), 'body: ' + pm.response.text()).to.eql(['Acme Notes', 'Bravo Search', 'Delta Files', 'Echo Tickets', 'Harness Catalog Server', 'LIB-25 Dup']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library?limit=100"
+              }
+            },
+            {
+              "name": "LIB-25 teardown: reset library to the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 teardown: reset library to the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"reset\":\"library\"}"
+                }
+              }
+            },
+            {
+              "name": "LIB-25 teardown: delete LIB-25 Dup",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-25 teardown: delete LIB-25 Dup: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/{{lib25_dup}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-26 Catalog returns HTTP 500",
+          "description": "Setup: library answers every request with 500; its request log is cleared first.",
+          "item": [
+            {
+              "name": "LIB-26 setup: clear library's request log",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-26 setup: clear library's request log: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/counters/reset",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "LIB-26 setup: library answers 500",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-26 setup: library answers 500: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/faults",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"faults\":{\"status\":500}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-26 force-sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-26 force-sync: status is 500\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(500);",
+                      "});",
+                      "pm.test(\"LIB-26 force-sync: error message matches \\\"failed to sync MCP library: ... HTTP 500\\\"\", function () {",
+                      "  pm.expect(pm.response.json().error.message, 'body: ' + pm.response.text()).to.match(/^failed to sync MCP library: .* HTTP 500$/);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              }
+            },
+            {
+              "name": "LIB-26 the catalog was hit 4 times",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-26 the catalog was hit 4 times: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-26 the catalog was hit 4 times: 4 requests for /catalog.json, each answered 500\", function () {",
+                      "  var calls = ((pm.response.json().rest || {}).calls || []).filter(function (c) { return c.path === '/catalog.json'; });",
+                      "  pm.expect(calls.length, 'body: ' + pm.response.text()).to.equal(4);",
+                      "  calls.forEach(function (c) { pm.expect(c.status).to.equal(500); });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/library"
+              }
+            },
+            {
+              "name": "LIB-26 teardown: reset library to the boot catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-26 teardown: reset library to the boot catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"reset\":\"library\"}"
+                }
+              }
+            }
+          ]
+        },
+        {
           "name": "LIB-32 file:// URL over the API",
           "description": "Setup: PUT /api/config with framework_config.mcp_library_url set to a file:// URL.",
           "item": [
@@ -91648,6 +94075,291 @@
                       "pm.test(\"LIB-33 PUT an ftp:// mcp_library_url: error message contains \\\"only https and http schemes are allowed, got: ftp\\\"\", function () {",
                       "  var b = pm.response.json();",
                       "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"only https and http schemes are allowed, got: ftp\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-34 Loopback URL over the API",
+          "description": "Setup: PUT /api/config with framework_config.mcp_library_url set to the mock catalog's URL spelled with a query (?lib34=1), so it differs from the stored URL; library's request log is cleared first.",
+          "item": [
+            {
+              "name": "LIB-34 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-34 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "LIB-34 control: the URL answers 200",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-34 control: the URL answers 200: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/s/library/rest/catalog.json?lib34=1"
+              }
+            },
+            {
+              "name": "LIB-34 setup: clear library's request log",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-34 setup: clear library's request log: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/library/counters/reset",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "LIB-34 PUT the mock catalog URL",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc, framework_config: { mcp_library_url: pm.variables.get('chaos_url') + '/s/library/rest/catalog.json?lib34=1' } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-34 PUT the mock catalog URL: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-34 PUT the mock catalog URL: error message contains \\\"url is not reachable\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"url is not reachable\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-34 control: the PUT never reached the catalog",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-34 control: the PUT never reached the catalog: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LIB-34 control: the PUT never reached the catalog: library's request log is empty\", function () {",
+                      "  pm.expect(((pm.response.json().rest || {}).calls || []), 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/library"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-36 Interval validation over the API",
+          "description": "Setup: PUT /api/config with framework_config.mcp_library_sync_interval 0, then -1.",
+          "item": [
+            {
+              "name": "LIB-36 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-36 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "LIB-36 PUT mcp_library_sync_interval 0",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc, framework_config: { mcp_library_sync_interval: 0 } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-36 PUT mcp_library_sync_interval 0: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-36 PUT mcp_library_sync_interval 0: error message is \\\"MCP library sync interval must be greater than 0\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync interval must be greater than 0\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-36 PUT mcp_library_sync_interval -1",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc, framework_config: { mcp_library_sync_interval: -1 } }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-36 PUT mcp_library_sync_interval -1: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"LIB-36 PUT mcp_library_sync_interval -1: error message is \\\"MCP library sync interval must be greater than 0\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"MCP library sync interval must be greater than 0\");",
                       "});"
                     ]
                   }

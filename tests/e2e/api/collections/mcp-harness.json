@@ -3331,6 +3331,237 @@
           ]
         },
         {
+          "name": "ADM-14 Stored fields come back in read encodings",
+          "description": "Setup: admin credentials; alpha (echo_tool, add_tool) as the client's target; the client's pricing is set with PUT.",
+          "item": [
+            {
+              "name": "ADM-14 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-14 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-14 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-14 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-14 create with headers, tool_sync_interval 5, tool_execution_timeout 30 and allow_by_default true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-14 create with headers, tool_sync_interval 5, tool_execution_timeout 30 and allow_by_default true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm14-c\",\"name\":\"adm14_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"headers\":{\"X-Key\":\"abcdefghijkl\"},\"tool_sync_interval\":5,\"tool_execution_timeout\":30,\"allow_by_default\":true}"
+                }
+              }
+            },
+            {
+              "name": "ADM-14 PUT tool_pricing echo_tool 0.25",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-14 PUT tool_pricing echo_tool 0.25: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm14-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tool_pricing\":{\"echo_tool\":0.25}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-14 read the client back",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-14 read the client back: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-14 read the client back: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-14 read the client back: headers redacted, tool_sync_interval 300000000000, tool_execution_timeout \\\"30s\\\", allow_on_all_virtual_keys true, pricing echoed\", function () {",
+                      "  var c = pm.response.json().clients[0].config;",
+                      "  pm.expect(c.headers['X-Key'].value, 'body: ' + pm.response.text()).to.equal('abcd' + new Array(25).join('*') + 'ijkl');",
+                      "  pm.expect(c.tool_sync_interval).to.equal(300000000000);",
+                      "  pm.expect(c.tool_execution_timeout).to.equal('30s');",
+                      "  pm.expect(c.allow_on_all_virtual_keys).to.equal(true);",
+                      "  pm.expect(c.tool_pricing).to.eql({ echo_tool: 0.25 });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm14-c"
+              }
+            },
+            {
+              "name": "ADM-14 teardown: clear tool_pricing",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-14 teardown: clear tool_pricing: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm14-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tool_pricing\":{}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-14 teardown: delete client adm14-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-14 teardown: delete client adm14-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm14-c"
+              }
+            }
+          ]
+        },
+        {
           "name": "ADM-16 Missing connection target is rolled back",
           "description": "Setup: admin credentials; alpha (echo_tool, add_tool) for the reuse checks (an HTTP client and a STDIO bridge).",
           "item": [
@@ -6250,6 +6481,305 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/adm46-c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ADM-47 PUT is a patch and ignores immutable fields",
+          "description": "Setup: alpha (echo_tool, add_tool); a client on alpha with headers and tool lists, then pricing set with PUT.",
+          "item": [
+            {
+              "name": "ADM-47 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-47 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-47 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-47 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-47 setup: create the client with headers and tool lists",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-47 setup: create the client with headers and tool lists: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm47-c\",\"name\":\"adm47_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"headers\":{\"X-Key\":\"abcdefghijkl\"},\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo_tool\"]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-47 setup: PUT tool_pricing echo_tool 0.5",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-47 setup: PUT tool_pricing echo_tool 0.5: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm47-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tool_pricing\":{\"echo_tool\":0.5}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-47 setup: read the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-47 setup: read the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('adm47_before', JSON.stringify(pm.response.json().clients[0].config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm47-c"
+              }
+            },
+            {
+              "name": "ADM-47 PUT name, connection_string, auth_type and endpoint_slug",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-47 PUT name, connection_string, auth_type and endpoint_slug: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-47 PUT name, connection_string, auth_type and endpoint_slug: message is \\\"MCP client edited successfully\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.message, 'body: ' + pm.response.text()).to.equal(\"MCP client edited successfully\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm47-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"adm47_renamed\",\"connection_string\":\"http://127.0.0.1:9/mcp\",\"auth_type\":\"headers\",\"endpoint_slug\":\"adm47-other\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-47 only the name changed and the tools are still listed",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-47 only the name changed and the tools are still listed: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-47 only the name changed and the tools are still listed: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"ADM-47 only the name changed and the tools are still listed: config equals the earlier read apart from name\", function () {",
+                      "  var c = pm.response.json().clients[0].config, before = JSON.parse(pm.collectionVariables.get('adm47_before'));",
+                      "  pm.expect(c.name, 'body: ' + pm.response.text()).to.equal('adm47_renamed');",
+                      "  delete c.name; delete before.name;",
+                      "  pm.expect(c).to.eql(before);",
+                      "});",
+                      "pm.test(\"ADM-47 only the name changed and the tools are still listed: tools are [\\\"add_tool\\\",\\\"echo_tool\\\"]\", function () {",
+                      "  var c = pm.response.json().clients[0];",
+                      "  var names = (c.tools || []).map(function (t) { return t.name; }).sort();",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"add_tool\",\"echo_tool\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=adm47-c"
+              }
+            },
+            {
+              "name": "ADM-47 teardown: clear tool_pricing",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-47 teardown: clear tool_pricing: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm47-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tool_pricing\":{}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-47 teardown: delete client adm47-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-47 teardown: delete client adm47-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm47-c"
               }
             }
           ]

@@ -86,7 +86,7 @@ const (
 // request header block (server.read_buffer_size) is the effective bound.
 type TableOAuth2AuthorizeRequest struct {
 	ID                  string                       `gorm:"type:varchar(255);primaryKey" json:"id"`
-	ClientID            string                       `gorm:"type:varchar(255);not null;index" json:"client_id"`
+	ClientID            string                       `gorm:"type:text;not null;index" json:"client_id"`
 	RedirectURI         string                       `gorm:"type:text;not null" json:"-"`
 	State               string                       `gorm:"type:text;not null" json:"-"` // CSRF; returned in redirect
 	Scope               string                       `gorm:"type:text" json:"scope"`
@@ -125,7 +125,7 @@ type TableOAuth2RefreshToken struct {
 	ID         string     `gorm:"type:varchar(255);primaryKey" json:"id"`
 	TokenHash  string     `gorm:"type:varchar(255);uniqueIndex;not null" json:"-"`   // SHA256 hex
 	FamilyID   string     `gorm:"type:varchar(255);not null;index" json:"family_id"` // authorize request ID
-	ClientID   string     `gorm:"type:varchar(255);not null;index" json:"client_id"`
+	ClientID   string     `gorm:"type:text;not null;index" json:"client_id"`
 	BfMode     string     `gorm:"type:varchar(20);not null" json:"bf_mode"` // user|vk|session
 	BfSub      string     `gorm:"type:varchar(255);not null" json:"bf_sub"` // resolved identity
 	Scope      string     `gorm:"type:text" json:"scope"`

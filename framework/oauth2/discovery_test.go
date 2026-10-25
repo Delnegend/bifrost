@@ -282,3 +282,20 @@ func TestRegisterDynamicClient_SendsApplicationType(t *testing.T) {
 		})
 	}
 }
+
+// Client ID Metadata Document URLs: https, a clean non-root path, no credentials or fragment.
+func TestIsClientMetadataURL(t *testing.T) {
+	for clientID, want := range map[string]bool{
+		"https://app.example.com/oauth/client.json":    true,
+		"https://app.example.com/":                     false, // needs a path
+		"https://app.example.com":                      false,
+		"http://app.example.com/oauth/client.json":     false, // https only
+		"https://user:pw@app.example.com/client.json":  false, // no credentials
+		"https://app.example.com/client.json#fragment": false,
+		"https://app.example.com/a/../client.json":     false, // no dot segments
+		"3f2b6c1e-dynamically-registered-client-id":    false,
+		"": false,
+	} {
+		assert.Equal(t, want, IsClientMetadataURL(clientID), clientID)
+	}
+}

@@ -572,6 +572,7 @@ var configstoreMigrationSteps = []migrationStep{
 	{IDs: []string{"add_rss_feeds_icon_url_column"}, run: migrationAddRSSFeedsIconURLColumn},
 	{IDs: []string{"add_passthrough_json_column"}, run: migrationAddPassthroughJSONColumn},
 	{IDs: []string{"add_warp_topic_discovery_min_requests_column"}, run: migrationAddWarpTopicDiscoveryMinRequestsColumn},
+	{IDs: []string{"widen_oauth2_client_id_columns"}, run: migrationWidenOAuth2ClientIDColumns},
 }
 
 // warpLogEmbeddingColumns are the semantic-search configuration columns added
@@ -15212,6 +15213,12 @@ func ensureIndexConcurrently(tx *gorm.DB, table, name, definition string, unique
 // where), which both Postgres and SQLite support. An empty where builds a full
 // index. The same no-transaction requirement applies on postgres.
 func ensurePartialIndexConcurrently(tx *gorm.DB, table, name, definition, where string, unique bool) error {
+	return ensureIndexConcurrentlyUsing(tx, table, name, "", definition, where, unique)
+}
+
+// ensureIndexConcurrentlyUsing is ensurePartialIndexConcurrently with an index access method
+// (USING method, e.g. "hash"); "" is the default btree.
+func ensureIndexConcurrentlyUsing(tx *gorm.DB, table, name, method, definition, where string, unique bool) error {
 	kind := "INDEX"
 	if unique {
 		kind = "UNIQUE INDEX"
@@ -15220,8 +15227,12 @@ func ensurePartialIndexConcurrently(tx *gorm.DB, table, name, definition, where 
 	if where != "" {
 		predicate = " WHERE " + where
 	}
+	on := table
+	if method != "" {
+		on += " USING " + method
+	}
 	if tx.Dialector.Name() != "postgres" {
-		return tx.Exec(fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)%s", kind, name, table, definition, predicate)).Error
+		return tx.Exec(fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)%s", kind, name, on, definition, predicate)).Error
 	}
 	qualified, valid, found, err := postgresIndexOnTable(tx, table, name)
 	if err != nil {
@@ -15257,7 +15268,7 @@ func ensurePartialIndexConcurrently(tx *gorm.DB, table, name, definition, where 
 		if found {
 			stmts = append(stmts, fmt.Sprintf("DROP INDEX IF EXISTS %s", qualified))
 		}
-		stmts = append(stmts, fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)%s", kind, name, table, definition, predicate))
+		stmts = append(stmts, fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)%s", kind, name, on, definition, predicate))
 		return ExecWithBoundedLock(tx, "index "+name, stmts...)
 	}
 	if found {
@@ -15265,7 +15276,7 @@ func ensurePartialIndexConcurrently(tx *gorm.DB, table, name, definition, where 
 			return fmt.Errorf("drop invalid index %s: %w", qualified, err)
 		}
 	}
-	return tx.Exec(fmt.Sprintf("CREATE %s CONCURRENTLY IF NOT EXISTS %s ON %s (%s)%s", kind, name, table, definition, predicate)).Error
+	return tx.Exec(fmt.Sprintf("CREATE %s CONCURRENTLY IF NOT EXISTS %s ON %s (%s)%s", kind, name, on, definition, predicate)).Error
 }
 
 // smallTableIndexMaxBytes and smallTableIndexMaxRows decide when an index is
@@ -15690,25 +15701,29 @@ type indexState struct {
 	exists bool
 	unique bool
 	valid  bool
+	method string // Postgres access method ("btree", "hash", ...); "" on SQLite
 }
 
 // describeIndex reports whether index name exists on table, whether it is
-// UNIQUE, and (on Postgres) whether it is valid. SQLite indexes are always valid.
+// UNIQUE, (on Postgres) whether it is valid, and its access method. SQLite
+// indexes are always valid.
 func describeIndex(tx *gorm.DB, table, name string) (indexState, error) {
 	if tx.Dialector.Name() == "postgres" {
 		var row struct {
 			Count  int64
 			Unique bool
 			Valid  bool
+			Method string
 		}
 		err := tx.Raw(`
-			SELECT COUNT(*) AS count, COALESCE(bool_and(pi.indisunique), false) AS "unique", COALESCE(bool_and(pi.indisvalid), false) AS valid
+			SELECT COUNT(*) AS count, COALESCE(bool_and(pi.indisunique), false) AS "unique", COALESCE(bool_and(pi.indisvalid), false) AS valid, COALESCE(MAX(am.amname), '') AS method
 			FROM pg_class pc
 			JOIN pg_index pi ON pi.indrelid = pc.oid
 			JOIN pg_class ic ON ic.oid = pi.indexrelid
+			JOIN pg_am am ON am.oid = ic.relam
 			WHERE pc.relname = ? AND ic.relname = ? AND pg_catalog.pg_table_is_visible(pc.oid)
 		`, table, name).Scan(&row).Error
-		return indexState{exists: row.Count > 0, unique: row.Unique, valid: row.Valid}, err
+		return indexState{exists: row.Count > 0, unique: row.Unique, valid: row.Valid, method: row.Method}, err
 	}
 	var rows []struct {
 		Name   string
@@ -16391,4 +16406,81 @@ func migrationAddClientConfigSkipAccessProfileUserVirtualKeyLifecycleColumns(ctx
 		return fmt.Errorf("error running %s migration: %w", migrationName, err)
 	}
 	return nil
+}
+
+// migrationWidenOAuth2ClientIDColumns lets oauth2_authorize_requests.client_id and
+// oauth2_refresh_tokens.client_id hold a Client ID Metadata Document URL of any length: the
+// columns become text and their btree indexes, capped at ~2.7KB per entry, become hash indexes.
+// Postgres-only: SQLite enforces neither bound.
+//
+// Nothing holds a lock for long on a large table: the type change needs no rewrite (varchar to
+// text is binary-coercible) and runs under a bounded lock wait; the hash index is built
+// concurrently beside the old btree, which keeps serving lookups, then swapped in under the name
+// the model declares (were it missing, auto-migration would recreate a btree). It runs outside a
+// transaction, and an interrupted run is finished by the next one.
+func migrationWidenOAuth2ClientIDColumns(ctx context.Context, db *gorm.DB, logger schemas.Logger) error {
+	migrationName := "widen_oauth2_client_id_columns"
+	logger.Info("[configstore] starting migration %s", migrationName)
+	defer logger.Info("[configstore] finished migration %s", migrationName)
+	noTxOpts := *migrator.DefaultOptions
+	noTxOpts.UseTransaction = false
+	if err := RunSingleMigration(ctx, &noTxOpts, db, logger, widenOAuth2ClientIDColumnsMigration(ctx, migrationName)); err != nil {
+		return fmt.Errorf("error while running db migration %s: %w", migrationName, err)
+	}
+	return nil
+}
+
+// widenOAuth2ClientIDColumnsMigration builds the migration applied by
+// migrationWidenOAuth2ClientIDColumns, so tests exercise the same Migrate and Rollback callbacks
+// the upgrade runs.
+func widenOAuth2ClientIDColumnsMigration(ctx context.Context, migrationName string) *migrator.Migration {
+	return &migrator.Migration{
+		ID: migrationName,
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Dialector.Name() != "postgres" {
+				return nil
+			}
+			for _, table := range []string{"oauth2_authorize_requests", "oauth2_refresh_tokens"} {
+				if err := widenOAuth2ClientIDColumn(tx, table); err != nil {
+					return fmt.Errorf("failed to widen %s.client_id: %w", table, err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(*gorm.DB) error {
+			return fmt.Errorf("%s is non-rollbackable: client_id values longer than varchar(255) may already be stored", migrationName)
+		},
+	}
+}
+
+// widenOAuth2ClientIDColumn makes table.client_id text with a hash index; see
+// migrationWidenOAuth2ClientIDColumns.
+func widenOAuth2ClientIDColumn(tx *gorm.DB, table string) error {
+	if !tx.Migrator().HasColumn(table, "client_id") {
+		return nil
+	}
+	if err := ExecWithBoundedLock(tx, table+".client_id", fmt.Sprintf("ALTER TABLE %s ALTER COLUMN client_id TYPE TEXT", table)); err != nil {
+		return err
+	}
+	index := "idx_" + table + "_client_id"
+	building := index + "_hash"
+	final, err := describeIndex(tx, table, index)
+	if err != nil {
+		return fmt.Errorf("inspect index %s: %w", index, err)
+	}
+	if final.exists && final.valid && final.method == "hash" {
+		return dropIndexConcurrently(tx, table, building)
+	}
+	if err := ensureIndexConcurrentlyUsing(tx, table, building, "hash", "client_id", "", false); err != nil {
+		return err
+	}
+	if err := dropIndexConcurrently(tx, table, index); err != nil {
+		return err
+	}
+	qualified, _, found, err := postgresIndexOnTable(tx, table, building)
+	if err != nil || !found {
+		return err
+	}
+	return ExecWithBoundedLock(tx, "index "+index, fmt.Sprintf("ALTER INDEX %s RENAME TO %s", qualified, index))
 }

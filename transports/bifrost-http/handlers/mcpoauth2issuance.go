@@ -42,14 +42,15 @@ type OAuth2IssuanceHandler struct {
 	// then, matching availableModes which keeps offering vk without a resolver.
 	identityResolver OAuth2IdentityResolver
 	// extensions serves grant types the handler does not; nil when none.
-	extensions OAuth2Extensions
+	extensions     OAuth2Extensions
+	clientMetadata *oauth2ClientMetadataResolver // resolves Client ID Metadata Document client_ids
 }
 
 // NewOAuth2IssuanceHandler creates a new issuance handler. identityResolver may
 // be nil — the VK-refresh cutoff degrades to a no-op, consistent with the
 // consent handler offering vk when no resolver is present.
 func NewOAuth2IssuanceHandler(store *lib.Config, tempTokens *temptoken.Service, identityResolver OAuth2IdentityResolver) *OAuth2IssuanceHandler {
-	return &OAuth2IssuanceHandler{store: store, tempTokens: tempTokens, identityResolver: identityResolver}
+	return &OAuth2IssuanceHandler{store: store, tempTokens: tempTokens, identityResolver: identityResolver, clientMetadata: defaultClientMetadataResolver}
 }
 
 // Bounds on the client-controlled free-text fields of the issuance endpoints.
@@ -97,6 +98,78 @@ type dcrRequest struct {
 	ResponseTypes           []string `json:"response_types"`
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
 	Scope                   string   `json:"scope"`
+	ApplicationType         string   `json:"application_type"` // accepted, not enforced
+}
+
+// oauth2ClientMetadataError is an OAuth error for invalid client metadata.
+type oauth2ClientMetadataError struct{ code, description string }
+
+func (e *oauth2ClientMetadataError) Error() string { return e.description }
+
+// httpStatus is 503 for a resolver at its fetch limit, else 400.
+func (e *oauth2ClientMetadataError) httpStatus() int {
+	if e.code == "temporarily_unavailable" {
+		return fasthttp.StatusServiceUnavailable
+	}
+	return fasthttp.StatusBadRequest
+}
+
+// validateOAuth2ClientMetadata validates DCR or CIMD client metadata and returns its grant types,
+// response types and scope with defaults applied. Redirects must be https or loopback http
+// (RFC 9700 §4.1.3), unless administrator-approved.
+func validateOAuth2ClientMetadata(store *lib.Config, req dcrRequest) (grantTypes, responseTypes []string, scope string, err *oauth2ClientMetadataError) {
+	reject := func(code, format string, args ...any) ([]string, []string, string, *oauth2ClientMetadataError) {
+		return nil, nil, "", &oauth2ClientMetadataError{code: code, description: fmt.Sprintf(format, args...)}
+	}
+	if len(req.RedirectURIs) == 0 {
+		return reject("invalid_redirect_uri", "redirect_uris is required")
+	}
+	if len(req.RedirectURIs) > maxOAuth2RedirectURIs {
+		return reject("invalid_redirect_uri", "at most %d redirect_uris are allowed", maxOAuth2RedirectURIs)
+	}
+	if len(req.ClientName) > maxOAuth2ClientNameLen {
+		return reject("invalid_client_metadata", "client_name exceeds %d bytes", maxOAuth2ClientNameLen)
+	}
+	if len(req.Scope) > maxOAuth2ScopeLen {
+		return reject("invalid_client_metadata", "scope exceeds %d bytes", maxOAuth2ScopeLen)
+	}
+	for _, uri := range req.RedirectURIs {
+		if len(uri) > maxOAuth2RedirectURILen {
+			return reject("invalid_redirect_uri", "redirect_uri exceeds %d bytes", maxOAuth2RedirectURILen)
+		}
+		if !oauth2RedirectAllowed(store, uri) {
+			return reject("invalid_redirect_uri", "redirect_uri must be a valid local callback or an administrator-approved remote callback")
+		}
+	}
+	// Only public clients supported.
+	if req.TokenEndpointAuthMethod != "" && req.TokenEndpointAuthMethod != "none" {
+		return reject("invalid_client_metadata", "only token_endpoint_auth_method=none is supported")
+	}
+	grantTypes = req.GrantTypes
+	if len(grantTypes) == 0 {
+		grantTypes = []string{"authorization_code"}
+	}
+	// The token endpoint only implements the authorization-code and refresh-token grants.
+	for _, gt := range grantTypes {
+		if gt != "authorization_code" && gt != "refresh_token" {
+			return reject("invalid_client_metadata", "unsupported grant_type")
+		}
+	}
+	responseTypes = req.ResponseTypes
+	if len(responseTypes) == 0 {
+		responseTypes = []string{"code"}
+	}
+	// The authorize endpoint only implements response_type=code.
+	for _, rt := range responseTypes {
+		if rt != "code" {
+			return reject("invalid_client_metadata", "unsupported response_type")
+		}
+	}
+	scope = req.Scope
+	if scope == "" {
+		scope = "mcp"
+	}
+	return grantTypes, responseTypes, scope, nil
 }
 
 func (h *OAuth2IssuanceHandler) handleRegister(ctx *fasthttp.RequestCtx) {
@@ -114,68 +187,10 @@ func (h *OAuth2IssuanceHandler) handleRegister(ctx *fasthttp.RequestCtx) {
 		sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_request", "malformed request body")
 		return
 	}
-	if len(req.RedirectURIs) == 0 {
-		sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_redirect_uri", "redirect_uris is required")
+	grantTypes, responseTypes, scope, metadataErr := validateOAuth2ClientMetadata(h.store, req)
+	if metadataErr != nil {
+		sendOAuthError(ctx, fasthttp.StatusBadRequest, metadataErr.code, metadataErr.description)
 		return
-	}
-	if len(req.RedirectURIs) > maxOAuth2RedirectURIs {
-		sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_redirect_uri", fmt.Sprintf("at most %d redirect_uris are allowed", maxOAuth2RedirectURIs))
-		return
-	}
-	if len(req.ClientName) > maxOAuth2ClientNameLen {
-		sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_client_metadata", fmt.Sprintf("client_name exceeds %d bytes", maxOAuth2ClientNameLen))
-		return
-	}
-	if len(req.Scope) > maxOAuth2ScopeLen {
-		sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_client_metadata", fmt.Sprintf("scope exceeds %d bytes", maxOAuth2ScopeLen))
-		return
-	}
-	// Registration is public and unauthenticated, so reject dangerous schemes
-	// (javascript:, data:, etc.) here at the source. Only https is allowed, with
-	// http permitted exclusively for loopback addresses (RFC 9700 §4.1.3).
-	for _, uri := range req.RedirectURIs {
-		if len(uri) > maxOAuth2RedirectURILen {
-			sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_redirect_uri", fmt.Sprintf("redirect_uri exceeds %d bytes", maxOAuth2RedirectURILen))
-			return
-		}
-		if !oauth2RedirectAllowed(h.store, uri) {
-			sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_redirect_uri", "redirect_uri must be a valid local callback or an administrator-approved remote callback")
-			return
-		}
-	}
-	// Only public clients supported.
-	if req.TokenEndpointAuthMethod != "" && req.TokenEndpointAuthMethod != "none" {
-		sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_client_metadata", "only token_endpoint_auth_method=none is supported")
-		return
-	}
-
-	grantTypes := req.GrantTypes
-	if len(grantTypes) == 0 {
-		grantTypes = []string{"authorization_code"}
-	}
-	// The token endpoint only implements the authorization-code and refresh-token
-	// grants. Reject anything else here so a registration never advertises a flow
-	// that would later be refused at /oauth2/token.
-	for _, gt := range grantTypes {
-		if gt != "authorization_code" && gt != "refresh_token" {
-			sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_client_metadata", "unsupported grant_type")
-			return
-		}
-	}
-	responseTypes := req.ResponseTypes
-	if len(responseTypes) == 0 {
-		responseTypes = []string{"code"}
-	}
-	// The authorize endpoint only implements response_type=code.
-	for _, rt := range responseTypes {
-		if rt != "code" {
-			sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_client_metadata", "unsupported response_type")
-			return
-		}
-	}
-	scope := req.Scope
-	if scope == "" {
-		scope = "mcp"
 	}
 
 	clientID := uuid.New().String()
@@ -242,7 +257,11 @@ func (h *OAuth2IssuanceHandler) handleAuthorize(ctx *fasthttp.RequestCtx) {
 
 	// Validate client exists before using redirect_uri. No state is created until
 	// both the client and its redirect_uri have been verified.
-	client, err := h.store.ConfigStore.GetOAuth2ClientByClientID(ctx, clientID)
+	client, metadataErr, err := lookupOAuth2Client(ctx, h.store, h.clientMetadata, clientID)
+	if metadataErr != nil {
+		sendOAuthError(ctx, metadataErr.httpStatus(), metadataErr.code, metadataErr.description)
+		return
+	}
 	if err != nil || client == nil {
 		if errors.Is(err, configstore.ErrNotFound) {
 			sendOAuthError(ctx, fasthttp.StatusBadRequest, "invalid_client", "unknown client_id")

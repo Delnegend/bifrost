@@ -49732,6 +49732,3485 @@
           ]
         },
         {
+          "name": "INF-24 Execute, chat format",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; execute alpha-echo with id c1.",
+          "item": [
+            {
+              "name": "INF-24 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-24 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-24 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-24 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-24 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-24 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-24-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-24 execute alpha-echo with id c1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-24 execute alpha-echo with id c1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-24 execute alpha-echo with id c1: role \\\"tool\\\", tool_call_id \\\"c1\\\", content the echo\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.role, 'body: ' + pm.response.text()).to.equal('tool');",
+                      "  pm.expect(b.tool_call_id).to.equal('c1');",
+                      "  pm.expect(b.content).to.equal('echo:{\"text\":\"hi\"}');",
+                      "});",
+                      "pm.test(\"INF-24 execute alpha-echo with id c1: there is no is_error\", function () {",
+                      "  pm.expect(pm.response.json(), 'body: ' + pm.response.text()).to.not.have.property('is_error');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-24 alpha calls[echo] is 1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-24 alpha calls[echo] is 1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-24 alpha calls[echo] is 1: calls[echo] is 1\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-24 teardown: delete client inf-24-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-24 teardown: delete client inf-24-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-24-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-25 Execute, Responses format",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; execute alpha-echo in the Responses format with call_id r1.",
+          "item": [
+            {
+              "name": "INF-25 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-25 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-25 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-25 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-25 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-25 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-25-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-25 execute alpha-echo with format=responses and call_id r1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-25 execute alpha-echo with format=responses and call_id r1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-25 execute alpha-echo with format=responses and call_id r1: type \\\"function_call_output\\\", call_id \\\"r1\\\", output a string\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.type, 'body: ' + pm.response.text()).to.equal('function_call_output');",
+                      "  pm.expect(b.call_id).to.equal('r1');",
+                      "  pm.expect(b.output).to.be.a('string');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute?format=responses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"call_id\":\"r1\",\"name\":\"alpha-echo\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-25 teardown: delete client inf-25-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-25 teardown: delete client inf-25-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-25-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-26 Execute validation",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed.",
+          "item": [
+            {
+              "name": "INF-26 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-26 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-26 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-26 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-26 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-26 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-26-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-26 format=bogus",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-26 format=bogus: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute?format=bogus",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-26 a non-JSON body",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-26 a non-JSON body: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-26 a non-JSON body: error message is \\\"Invalid request payload\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Invalid request payload\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "x"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-26 chat format without a tool name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-26 chat format without a tool name: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-26 chat format without a tool name: error message is \\\"Tool function name is required\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Tool function name is required\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"m1\",\"type\":\"function\",\"function\":{\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-26 Responses format without a tool name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-26 Responses format without a tool name: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-26 Responses format without a tool name: error message is \\\"Tool function name is required\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Tool function name is required\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute?format=responses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"call_id\":\"m2\",\"arguments\":\"{}\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-26 teardown: delete client inf-26-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-26 teardown: delete client inf-26-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-26-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-27 Unknown tool and bad arguments",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed.",
+          "item": [
+            {
+              "name": "INF-27 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-27 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-27 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-27 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-27 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-27 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-27-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-27 execute nosuch-x",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-27 execute nosuch-x: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-27 execute nosuch-x: error message contains \\\"is not available or not permitted\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"is not available or not permitted\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"nosuch-x\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-27 execute alpha-echo with arguments \"{bad\"",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-27 execute alpha-echo with arguments \\\"{bad\\\": status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-27 execute alpha-echo with arguments \\\"{bad\\\": error message contains \\\"failed to parse tool arguments for 'alpha-echo'\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"failed to parse tool arguments for 'alpha-echo'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo\",\"arguments\":\"{bad\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-27 alpha received no tool call",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-27 alpha received no tool call: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-27 alpha received no tool call: calls is empty\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls, 'body: ' + pm.response.text()).to.eql({});",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-27 teardown: delete client inf-27-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-27 teardown: delete client inf-27-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-27-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-29 Upstream HTTP 500",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; alpha then fails every tools/call with HTTP 500 (err_kind http).",
+          "item": [
+            {
+              "name": "INF-29 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-29 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-29 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-29 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-29 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-29 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-29-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-29 setup: alpha fails every tools/call with HTTP 500 (err_kind http)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-29 setup: alpha fails every tools/call with HTTP 500 (err_kind http): status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/faults",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"faults\":{\"err_rate\":1,\"err_kind\":\"http\"}}"
+                }
+              }
+            },
+            {
+              "name": "INF-29 execute alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-29 execute alpha-echo: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-29 execute alpha-echo: error message contains \\\"MCP tool call failed for alpha-echo\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"MCP tool call failed for alpha-echo\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-29 alpha calls[echo] is 3",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-29 alpha calls[echo] is 3: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-29 alpha calls[echo] is 3: calls[echo] is 3\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(3);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-29 teardown: clear alpha's faults",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-29 teardown: clear alpha's faults: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha/faults/clear"
+              }
+            },
+            {
+              "name": "INF-29 teardown: delete client inf-29-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-29 teardown: delete client inf-29-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-29-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-30 Upstream JSON-RPC error",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; alpha then fails every tools/call with a JSON-RPC error (err_kind protocol).",
+          "item": [
+            {
+              "name": "INF-30 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-30 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-30 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-30 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-30 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-30 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-30-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-30 setup: alpha fails every tools/call with a JSON-RPC error (err_kind protocol)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-30 setup: alpha fails every tools/call with a JSON-RPC error (err_kind protocol): status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/faults",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"faults\":{\"err_rate\":1,\"err_kind\":\"protocol\"}}"
+                }
+              }
+            },
+            {
+              "name": "INF-30 execute alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-30 execute alpha-echo: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-30 execute alpha-echo: error message contains \\\"MCP tool call failed for alpha-echo\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"MCP tool call failed for alpha-echo\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-30 alpha calls[echo] is 1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-30 alpha calls[echo] is 1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-30 alpha calls[echo] is 1: calls[echo] is 1\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-30 teardown: clear alpha's faults",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-30 teardown: clear alpha's faults: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha/faults/clear"
+              }
+            },
+            {
+              "name": "INF-30 teardown: delete client inf-30-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-30 teardown: delete client inf-30-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-30-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-49 Tool binding",
+          "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"]; mcp_code_mode_binding_level \"tool\".",
+          "item": [
+            {
+              "name": "INF-49 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-49 setup: cm serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 setup: cm serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-49 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-49-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-49 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "INF-49 setup: set mcp_code_mode_binding_level \"tool\"",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_code_mode_binding_level = 'tool';",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 setup: set mcp_code_mode_binding_level \\\"tool\\\": status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-49 listToolFiles",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 listToolFiles: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-49 listToolFiles: lists servers/cm/add.pyi and servers/cm/echo.pyi, and no other file\", function () {",
+                      "  var c = pm.response.json().content;",
+                      "  pm.expect(c, 'body: ' + pm.response.text()).to.include('servers/\\n  cm/\\n    add.pyi\\n    echo.pyi');",
+                      "  pm.expect(c.split('\\n').filter(function (l) { return /\\.pyi$/.test(l); })).to.eql(['    add.pyi', '    echo.pyi']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"listToolFiles\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-49 readToolFile servers/cm/echo.pyi",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 readToolFile servers/cm/echo.pyi: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-49 readToolFile servers/cm/echo.pyi: content contains \\\"# cm.echo tool\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"# cm.echo tool\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"readToolFile\",\"arguments\":\"{\\\"fileName\\\":\\\"servers/cm/echo.pyi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-49 set mcp_code_mode_binding_level \"bogus\"",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_code_mode_binding_level = 'bogus';",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 set mcp_code_mode_binding_level \\\"bogus\\\": status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-49 set mcp_code_mode_binding_level \\\"bogus\\\": error message contains \\\"must be 'server' or 'tool'\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"must be 'server' or 'tool'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-49 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-49 teardown: delete client inf-49-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-49 teardown: delete client inf-49-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-49-cm"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-50 readToolFile errors",
+          "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"].",
+          "item": [
+            {
+              "name": "INF-50 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-50 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-50 setup: cm serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-50 setup: cm serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-50 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-50 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-50-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-50 readToolFile with no fileName",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-50 readToolFile with no fileName: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"readToolFile\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-50 readToolFile servers/nope.pyi",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-50 readToolFile servers/nope.pyi: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-50 readToolFile servers/nope.pyi: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"INF-50 readToolFile servers/nope.pyi: content contains \\\"No server found matching 'nope'\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"No server found matching 'nope'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"readToolFile\",\"arguments\":\"{\\\"fileName\\\":\\\"servers/nope.pyi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-50 readToolFile servers/../cm.pyi",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-50 readToolFile servers/../cm.pyi: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-50 readToolFile servers/../cm.pyi: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"INF-50 readToolFile servers/../cm.pyi: content contains \\\"No server found\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"No server found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"readToolFile\",\"arguments\":\"{\\\"fileName\\\":\\\"servers/../cm.pyi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-50 readToolFile servers/cm/zzz.pyi",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-50 readToolFile servers/cm/zzz.pyi: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-50 readToolFile servers/cm/zzz.pyi: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"INF-50 readToolFile servers/cm/zzz.pyi: content contains \\\"Tool 'zzz' not found in server 'cm'\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"Tool 'zzz' not found in server 'cm'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"readToolFile\",\"arguments\":\"{\\\"fileName\\\":\\\"servers/cm/zzz.pyi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-50 teardown: delete client inf-50-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-50 teardown: delete client inf-50-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-50-cm"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-51 readToolFile success and slicing",
+          "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"].",
+          "item": [
+            {
+              "name": "INF-51 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-51 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-51 setup: cm serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-51 setup: cm serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-51 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-51 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-51-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-51 readToolFile servers/cm.pyi",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-51 readToolFile servers/cm.pyi: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-51 readToolFile servers/cm.pyi: there is no is_error\", function () {",
+                      "  pm.expect(pm.response.json(), 'body: ' + pm.response.text()).to.not.have.property('is_error');",
+                      "});",
+                      "pm.test(\"INF-51 readToolFile servers/cm.pyi: line 1 is \\\"# Total lines: N (this is the complete file, no need to paginate)\\\"\", function () {",
+                      "  var first = pm.response.json().content.split('\\n')[0];",
+                      "  pm.expect(first, 'body: ' + pm.response.text()).to.match(/^# Total lines: \\d+ \\(this is the complete file, no need to paginate\\)$/);",
+                      "});",
+                      "pm.test(\"INF-51 readToolFile servers/cm.pyi: content contains \\\"# cm server tools\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"# cm server tools\");",
+                      "});",
+                      "pm.collectionVariables.set('inf51_line2', pm.response.json().content.split('\\n')[1]);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"readToolFile\",\"arguments\":\"{\\\"fileName\\\":\\\"servers/cm.pyi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-51 readToolFile servers/cm.pyi lines 2 to 2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-51 readToolFile servers/cm.pyi lines 2 to 2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-51 readToolFile servers/cm.pyi lines 2 to 2: content is exactly line 2 of the full read\", function () {",
+                      "  var c = pm.response.json().content;",
+                      "  pm.expect(c, 'body: ' + pm.response.text()).to.be.a('string').and.not.equal('');",
+                      "  pm.expect(c).to.equal(pm.collectionVariables.get('inf51_line2'));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"readToolFile\",\"arguments\":\"{\\\"fileName\\\":\\\"servers/cm.pyi\\\",\\\"startLine\\\":2,\\\"endLine\\\":2}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-51 teardown: delete client inf-51-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-51 teardown: delete client inf-51-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-51-cm"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-52 getToolDocs",
+          "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"].",
+          "item": [
+            {
+              "name": "INF-52 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-52 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-52 setup: cm serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-52 setup: cm serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-52 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-52 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-52-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-52 getToolDocs cm/echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-52 getToolDocs cm/echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-52 getToolDocs cm/echo: content contains \\\"# Documentation for cm.echo tool\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"# Documentation for cm.echo tool\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"getToolDocs\",\"arguments\":\"{\\\"server\\\":\\\"cm\\\",\\\"tool\\\":\\\"echo\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-52 getToolDocs with no server",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-52 getToolDocs with no server: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"getToolDocs\",\"arguments\":\"{\\\"tool\\\":\\\"echo\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-52 getToolDocs server x",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-52 getToolDocs server x: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-52 getToolDocs server x: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"INF-52 getToolDocs server x: content contains \\\"Server 'x' not found\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"Server 'x' not found\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"getToolDocs\",\"arguments\":\"{\\\"server\\\":\\\"x\\\",\\\"tool\\\":\\\"echo\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-52 getToolDocs cm/x",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-52 getToolDocs cm/x: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-52 getToolDocs cm/x: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"INF-52 getToolDocs cm/x: content contains \\\"Tool 'x' not found in server 'cm'\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"Tool 'x' not found in server 'cm'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"getToolDocs\",\"arguments\":\"{\\\"server\\\":\\\"cm\\\",\\\"tool\\\":\\\"x\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-52 teardown: delete client inf-52-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-52 teardown: delete client inf-52-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-52-cm"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-53 executeToolCode reply shapes",
+          "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"].",
+          "item": [
+            {
+              "name": "INF-53 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-53 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-53 setup: cm serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-53 setup: cm serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-53 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-53 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-53-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-53 result = 6*7",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-53 result = 6*7: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-53 result = 6*7: content is \\\"Execution completed successfully.\\\\nReturn value: 42\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"Execution completed successfully.\\nReturn value: 42\");",
+                      "});",
+                      "pm.test(\"INF-53 result = 6*7: there is no is_error\", function () {",
+                      "  pm.expect(pm.response.json(), 'body: ' + pm.response.text()).to.not.have.property('is_error');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"result = 6*7\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-53 print('a')",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-53 print('a'): status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-53 print('a'): content is \\\"Print output:\\\\na\\\\n\\\\nExecution completed successfully.\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"Print output:\\na\\n\\nExecution completed successfully.\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"print('a')\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-53 x = 1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-53 x = 1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-53 x = 1: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"INF-53 x = 1: content contains \\\"Execution completed but produced no data\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"Execution completed but produced no data\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"x = 1\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-53 teardown: delete client inf-53-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-53 teardown: delete client inf-53-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-53-cm"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-54 executeToolCode errors",
+          "description": "Setup: cm (echo, add, greet) registered as a code-mode client, auth none, per call, tools_to_execute [\"echo\", \"add\"].",
+          "item": [
+            {
+              "name": "INF-54 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-54 setup: cm serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 setup: cm serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-54 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-54-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"echo\",\"add\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-54 empty code",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 empty code: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-54 a syntax error",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 a syntax error: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-54 a syntax error: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"INF-54 a syntax error: content contains \\\"Execution runtime error\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"Execution runtime error\");",
+                      "});",
+                      "pm.test(\"INF-54 a syntax error: content contains \\\"code.star:1\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"code.star:1\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"x = = 1\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-54 control: cm serves greet upstream",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 control: cm serves greet upstream: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-54 control: cm serves greet upstream: cm's tools include greet\", function () {",
+                      "  var names = pm.response.json().tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.include('greet');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/cm"
+              }
+            },
+            {
+              "name": "INF-54 control: cm.echo runs",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 control: cm.echo runs: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-54 control: cm.echo runs: there is no is_error\", function () {",
+                      "  pm.expect(pm.response.json(), 'body: ' + pm.response.text()).to.not.have.property('is_error');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"result = cm.echo()\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-54 call cm.greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 call cm.greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-54 call cm.greet: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"INF-54 call cm.greet: content contains \\\"has no .greet attribute\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"has no .greet attribute\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"r = cm.greet()\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-54 cm calls[greet] is 0",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 cm calls[greet] is 0: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-54 cm calls[greet] is 0: calls[greet] is 0\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls[\"greet\"] || 0, 'body: ' + pm.response.text()).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/cm"
+              }
+            },
+            {
+              "name": "INF-54 teardown: delete client inf-54-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-54 teardown: delete client inf-54-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-54-cm"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-55 Limits apply live",
+          "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"]; mcp_code_mode_limits changed between calls.",
+          "item": [
+            {
+              "name": "INF-55 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-55 setup: cm serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 setup: cm serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-55 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-55-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-55 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "INF-55 setup: max_tool_calls 2",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_code_mode_limits = {\"max_tool_calls\":2};",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 setup: max_tool_calls 2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-55 three cm.echo calls",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 three cm.echo calls: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-55 three cm.echo calls: content contains \\\"code mode tool call limit exceeded\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"code mode tool call limit exceeded\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"cm.echo()\\\\ncm.echo()\\\\ncm.echo()\\\\nresult = 1\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-55 cm calls[echo] is 2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 cm calls[echo] is 2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-55 cm calls[echo] is 2: calls[echo] is 2\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/cm"
+              }
+            },
+            {
+              "name": "INF-55 setup: max_source_bytes 16",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_code_mode_limits = {\"max_source_bytes\":16};",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 setup: max_source_bytes 16: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-55 22 bytes of code",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 22 bytes of code: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-55 22 bytes of code: content contains \\\"code exceeds source limit\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"code exceeds source limit\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"result = 1 + 2 + 3 + 4\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-55 setup: max_log_bytes 64",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_code_mode_limits = {\"max_log_bytes\":64};",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 setup: max_log_bytes 64: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-55 print 100 characters",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 print 100 characters: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-55 print 100 characters: content contains \\\"log limit exceeded\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"log limit exceeded\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"print(\\\\\\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\\\\\\")\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-55 teardown: restore the config and reset mcp_code_mode_limits",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_code_mode_limits = {};",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 teardown: restore the config and reset mcp_code_mode_limits: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-55 teardown: delete client inf-55-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-55 teardown: delete client inf-55-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-55-cm"
+              }
+            }
+          ]
+        },
+        {
           "name": "INF-56 Code mode limits validation",
           "description": "Setup: PUT /api/config (dashboard auth on, admin credentials).",
           "item": [
@@ -49906,6 +53385,937 @@
                 "body": {
                   "mode": "raw",
                   "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-57 Nested call transport failure",
+          "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"]; cm then fails every tools/call with HTTP 500 (err_kind http).",
+          "item": [
+            {
+              "name": "INF-57 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-57 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-57 setup: cm serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-57 setup: cm serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-57 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-57 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-57-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-57 setup: cm fails every tools/call with HTTP 500",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-57 setup: cm fails every tools/call with HTTP 500: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/faults",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"faults\":{\"err_rate\":1,\"err_kind\":\"http\"}}"
+                }
+              }
+            },
+            {
+              "name": "INF-57 call cm.echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-57 call cm.echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-57 call cm.echo: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"INF-57 call cm.echo: content contains \\\"Execution runtime error\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"Execution runtime error\");",
+                      "});",
+                      "pm.test(\"INF-57 call cm.echo: content contains \\\"Print output:\\\\n[TOOL] cm.echo call failed\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include(\"Print output:\\n[TOOL] cm.echo call failed\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"r = cm.echo(text='hi')\\\\nresult = r\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-57 teardown: clear cm's faults",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-57 teardown: clear cm's faults: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{chaos_url}}/control/cm/faults/clear"
+              }
+            },
+            {
+              "name": "INF-57 teardown: delete client inf-57-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-57 teardown: delete client inf-57-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-57-cm"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-58 Nested calls are logged",
+          "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"]; executeToolCode calls cm.echo twice.",
+          "item": [
+            {
+              "name": "INF-58 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-58 setup: cm serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 setup: cm serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-58 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-58-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-58 setup: count cm echo log entries",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "setTimeout(function () {}, 7000);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 setup: count cm echo log entries: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"inf58_echo_before\", pm.response.json().pagination.total_count);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?server_labels=cm&tool_names=echo&limit=1"
+              }
+            },
+            {
+              "name": "INF-58 setup: count executeToolCode log entries",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 setup: count executeToolCode log entries: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"inf58_etc_before\", pm.response.json().pagination.total_count);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?tool_names=executeToolCode&limit=1"
+              }
+            },
+            {
+              "name": "INF-58 executeToolCode calls cm.echo twice",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 executeToolCode calls cm.echo twice: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"cm.echo(text='one')\\\\ncm.echo(text='two')\\\\nresult = 1\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-58 two more cm echo log entries",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var want = Number(pm.collectionVariables.get('inf58_echo_before')) + 2, left = 30;",
+                      "function poll() {",
+                      "  pm.sendRequest({ url: pm.variables.get('base_url') + '/api/mcp-logs?server_labels=cm&tool_names=echo&limit=1', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) {",
+                      "    if ((!err && res.code === 200 && res.json().pagination.total_count >= want) || --left <= 0) { return; }",
+                      "    setTimeout(poll, 500);",
+                      "  });",
+                      "}",
+                      "poll();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 two more cm echo log entries: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-58 two more cm echo log entries: total_count is two more than before\", function () {",
+                      "  pm.expect(pm.response.json().pagination.total_count, 'body: ' + pm.response.text()).to.equal(Number(pm.collectionVariables.get('inf58_echo_before')) + 2);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?server_labels=cm&tool_names=echo&limit=1"
+              }
+            },
+            {
+              "name": "INF-58 the two newest cm log entries are echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 the two newest cm log entries are echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-58 the two newest cm log entries are echo: both log entries have tool_name \\\"echo\\\" and server_label \\\"cm\\\"\", function () {",
+                      "  var logs = pm.response.json().logs;",
+                      "  pm.expect(logs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "  logs.forEach(function (l) { pm.expect(l.tool_name).to.equal('echo'); pm.expect(l.server_label).to.equal('cm'); });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?server_labels=cm&limit=2"
+              }
+            },
+            {
+              "name": "INF-58 control: a later executeToolCode call",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 control: a later executeToolCode call: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"executeToolCode\",\"arguments\":\"{\\\"code\\\":\\\"cm.echo(text='three')\\\\nresult = 1\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-58 control: the later call's log entry landed",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var want = Number(pm.collectionVariables.get('inf58_echo_before')) + 3, left = 30;",
+                      "function poll() {",
+                      "  pm.sendRequest({ url: pm.variables.get('base_url') + '/api/mcp-logs?server_labels=cm&tool_names=echo&limit=1', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) {",
+                      "    if ((!err && res.code === 200 && res.json().pagination.total_count >= want) || --left <= 0) { return; }",
+                      "    setTimeout(poll, 500);",
+                      "  });",
+                      "}",
+                      "poll();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 control: the later call's log entry landed: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-58 control: the later call's log entry landed: total_count is three more than before\", function () {",
+                      "  pm.expect(pm.response.json().pagination.total_count, 'body: ' + pm.response.text()).to.equal(Number(pm.collectionVariables.get('inf58_echo_before')) + 3);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?server_labels=cm&tool_names=echo&limit=1"
+              }
+            },
+            {
+              "name": "INF-58 no executeToolCode log entry",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 no executeToolCode log entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-58 no executeToolCode log entry: total_count is unchanged\", function () {",
+                      "  pm.expect(pm.response.json().pagination.total_count, 'body: ' + pm.response.text()).to.equal(Number(pm.collectionVariables.get('inf58_etc_before')));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?tool_names=executeToolCode&limit=1"
+              }
+            },
+            {
+              "name": "INF-58 teardown: delete client inf-58-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-58 teardown: delete client inf-58-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-58-cm"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-66 Injected tools validation",
+          "description": "Setup: PUT /api/providers/openai with concurrency_and_buffer_size set and one bad injected_tools value per request.",
+          "item": [
+            {
+              "name": "INF-66 injected_tools with a bad name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-66 injected_tools with a bad name: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with a bad name: error message starts with \\\"Invalid injected tools config: injected tools validation failed:\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid injected tools config: injected tools validation failed:\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with a bad name: error message contains \\\"injected_tools[0].name \\\\\\\"web search\\\\\\\" must be 1-64 letters, digits, _ or -\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"injected_tools[0].name \\\"web search\\\" must be 1-64 letters, digits, _ or -\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"concurrency_and_buffer_size\":{\"concurrency\":1,\"buffer_size\":10},\"injected_tools\":[{\"name\":\"web search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-66 injected_tools with a missing tool_name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-66 injected_tools with a missing tool_name: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with a missing tool_name: error message starts with \\\"Invalid injected tools config: injected tools validation failed:\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid injected tools config: injected tools validation failed:\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with a missing tool_name: error message contains \\\"tool_name is required\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"tool_name is required\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"concurrency_and_buffer_size\":{\"concurrency\":1,\"buffer_size\":10},\"injected_tools\":[{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-66 injected_tools with a duplicate name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-66 injected_tools with a duplicate name: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with a duplicate name: error message starts with \\\"Invalid injected tools config: injected tools validation failed:\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid injected tools config: injected tools validation failed:\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with a duplicate name: error message contains \\\"name \\\\\\\"web_search\\\\\\\" is used more than once\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"name \\\"web_search\\\" is used more than once\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"concurrency_and_buffer_size\":{\"concurrency\":1,\"buffer_size\":10},\"injected_tools\":[{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"},{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"other\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-66 injected_tools with the same tool twice",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-66 injected_tools with the same tool twice: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with the same tool twice: error message starts with \\\"Invalid injected tools config: injected tools validation failed:\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid injected tools config: injected tools validation failed:\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with the same tool twice: error message contains \\\"MCP tool alpha/search is injected more than once\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"MCP tool alpha/search is injected more than once\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"concurrency_and_buffer_size\":{\"concurrency\":1,\"buffer_size\":10},\"injected_tools\":[{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"},{\"name\":\"search2\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-66 injected_tools with an unknown client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-66 injected_tools with an unknown client: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with an unknown client: error message starts with \\\"Invalid injected tools config: injected tools validation failed:\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid injected tools config: injected tools validation failed:\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with an unknown client: error message contains \\\"references unknown MCP client \\\\\\\"inf66_no_such_client\\\\\\\"\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"references unknown MCP client \\\"inf66_no_such_client\\\"\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"concurrency_and_buffer_size\":{\"concurrency\":1,\"buffer_size\":10},\"injected_tools\":[{\"name\":\"web_search\",\"mcp_client_name\":\"inf66_no_such_client\",\"tool_name\":\"search\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-66 injected_tools with an unknown field",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-66 injected_tools with an unknown field: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with an unknown field: error message starts with \\\"Invalid injected tools config: injected tools validation failed:\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid injected tools config: injected tools validation failed:\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with an unknown field: error message contains \\\"has unknown field \\\\\\\"extra\\\\\\\"\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"has unknown field \\\"extra\\\"\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"concurrency_and_buffer_size\":{\"concurrency\":1,\"buffer_size\":10},\"injected_tools\":[{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\",\"extra\":1}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-66 injected_tools with a non-array",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-66 injected_tools with a non-array: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with a non-array: error message starts with \\\"Invalid injected tools config: injected tools validation failed:\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid injected tools config: injected tools validation failed:\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});",
+                      "pm.test(\"INF-66 injected_tools with a non-array: error message contains \\\"injected_tools must be an array\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"injected_tools must be an array\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"concurrency_and_buffer_size\":{\"concurrency\":1,\"buffer_size\":10},\"injected_tools\":{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"}}"
                 }
               }
             }

@@ -2,12 +2,15 @@ package oauth2
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -245,5 +248,37 @@ func TestDiscoverOAuthMetadataUsesGlobalProxy(t *testing.T) {
 		if hit.Target != "mcp.bifrost.test:443" {
 			t.Errorf("proxy saw %+v, want only CONNECTs to mcp.bifrost.test:443", hit)
 		}
+	}
+}
+
+// DCR sends application_type: "native" for loopback redirects, else "web" (SEP-837).
+func TestRegisterDynamicClient_SendsApplicationType(t *testing.T) {
+	newDCRProvider(t) // sets the package logger
+	var got atomic.Value
+	mux := http.NewServeMux()
+	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ApplicationType string `json:"application_type"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		got.Store(req.ApplicationType)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{"client_id": "registered"})
+	})
+	as := httptest.NewServer(mux)
+	t.Cleanup(as.Close)
+
+	for redirectURI, want := range map[string]string{
+		"https://bifrost.example.com/api/oauth/callback": "web",
+		"http://localhost:8080/api/oauth/callback":       "native",
+		"http://127.0.0.1:8080/api/oauth/callback":       "native",
+		"http://[::1]:8080/api/oauth/callback":           "native",
+	} {
+		t.Run(redirectURI, func(t *testing.T) {
+			_, _, err := registerDynamicClient(context.Background(), as.URL+"/register", redirectURI, nil)
+			require.NoError(t, err)
+			assert.Equal(t, want, got.Load())
+		})
 	}
 }

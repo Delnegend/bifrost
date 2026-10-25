@@ -155,7 +155,8 @@ func (h *MCPHandler) RegisterRoutes(r *router.Router, middlewares ...schemas.Bif
 // oauth_configs.mcp_client_config_json — row-lifecycle management is the
 // caller's concern.
 func (h *MCPHandler) runOAuthBootstrap(ctx *fasthttp.RequestCtx, oauthCfg *OAuthConfigRequest, serverURL string, requirePublicTarget bool) (*schemas.OAuth2FlowInitiation, error) {
-	redirectURI := lib.BuildBaseURL(ctx, h.store.GetMCPExternalClientURL()) + "/api/oauth/callback"
+	base := lib.BuildBaseURL(ctx, h.store.GetMCPExternalClientURL())
+	redirectURI := base + oauthCallbackPath
 	return h.oauthHandler.InitiateOAuthFlow(ctx, OAuthInitiationRequest{
 		ClientID:        oauthCfg.ClientID,
 		ClientSecret:    oauthCfg.ClientSecret,
@@ -168,6 +169,7 @@ func (h *MCPHandler) runOAuthBootstrap(ctx *fasthttp.RequestCtx, oauthCfg *OAuth
 		Resource:        oauthCfg.Resource,
 
 		RequirePublicTarget: requirePublicTarget,
+		ClientMetadataURL:   base + oauthClientMetadataPath,
 	})
 }
 
@@ -2657,21 +2659,7 @@ func (h *MCPHandler) addMCPClient(ctx *fasthttp.RequestCtx) {
 			return
 		}
 
-		redirectURI := lib.BuildBaseURL(ctx, h.store.GetMCPExternalClientURL()) + "/api/oauth/callback"
-
-		flowInitiation, err := h.oauthHandler.InitiateOAuthFlow(ctx, OAuthInitiationRequest{
-			ClientID:        req.OauthConfig.ClientID,
-			ClientSecret:    req.OauthConfig.ClientSecret,
-			AuthorizeURL:    req.OauthConfig.AuthorizeURL,
-			TokenURL:        req.OauthConfig.TokenURL,
-			RegistrationURL: req.OauthConfig.RegistrationURL,
-			RedirectURI:     redirectURI,
-			Scopes:          req.OauthConfig.Scopes,
-			ServerURL:       req.ConnectionString.GetValue(),
-			Resource:        req.OauthConfig.Resource,
-
-			RequirePublicTarget: req.RequirePublicTarget,
-		})
+		flowInitiation, err := h.runOAuthBootstrap(ctx, req.OauthConfig, req.ConnectionString.GetValue(), req.RequirePublicTarget)
 		if err != nil {
 			SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to initiate OAuth flow: %v", err))
 			return

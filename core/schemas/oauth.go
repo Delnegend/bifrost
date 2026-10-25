@@ -226,7 +226,8 @@ type OAuth2Config struct {
 	Resource        string     `json:"resource,omitempty"`         // Optional OAuth resource indicator (RFC 8707); omitted when empty
 	UseDiscovery    bool       `json:"use_discovery,omitempty"`    // Deprecated: Discovery now happens automatically when URLs are missing
 
-	RequirePublicTarget bool `json:"-"` // Server-set from the owning MCP client: OAuth requests may reach only public addresses
+	RequirePublicTarget bool   `json:"-"` // Server-set from the owning MCP client: OAuth requests may reach only public addresses
+	ClientMetadataURL   string `json:"-"` // Server-set: Bifrost's Client ID Metadata Document URL
 }
 
 // OauthToken represents OAuth access and refresh tokens

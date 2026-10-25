@@ -784,3 +784,176 @@ func TestOAuthLoopbackProviderFollowsPrivateTargetAllowlist(t *testing.T) {
 		})
 	}
 }
+
+// discoverableAuthServer is a discoverable MCP server + authorization server that counts DCR calls.
+type discoverableAuthServer struct {
+	server        *httptest.Server
+	registrations int
+	mu            sync.Mutex
+}
+
+func newDiscoverableAuthServer(t *testing.T, supportsCIMD bool) *discoverableAuthServer {
+	t.Helper()
+	as := &discoverableAuthServer{}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+as.server.URL+`/.well-known/oauth-protected-resource"`)
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+	mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"resource": as.server.URL + "/mcp", "authorization_servers": []string{as.server.URL}})
+	})
+	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                                as.server.URL,
+			"authorization_endpoint":                as.server.URL + "/authorize",
+			"token_endpoint":                        as.server.URL + "/token",
+			"registration_endpoint":                 as.server.URL + "/register",
+			"code_challenge_methods_supported":      []string{"S256"},
+			"client_id_metadata_document_supported": supportsCIMD,
+		})
+	})
+	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		as.mu.Lock()
+		as.registrations++
+		n := as.registrations
+		as.mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{"client_id": fmt.Sprintf("dyn-%d", n)})
+	})
+	as.server = httptest.NewServer(mux)
+	t.Cleanup(as.server.Close)
+	return as
+}
+
+// Client ID selection: configured client_id, else CIMD when supported and usable, else DCR.
+func TestInitiateOAuthFlow_ChoosesClientIDMetadataDocument(t *testing.T) {
+	const documentURL = "https://bifrost.example.com/api/oauth/client-metadata.json"
+	cases := []struct {
+		name         string
+		supportsCIMD bool
+		documentURL  string
+		clientID     *schemas.SecretVar
+		endpoints    string // "" = discovered, "own" = entered by hand, "other" = another server's, entered by hand, "other-token" = only another server's token endpoint entered
+		wantClientID string // "" = a dynamically registered one
+	}{
+		{"supported", true, documentURL, nil, "", documentURL},
+		{"not advertised", false, documentURL, nil, "", ""},
+		{"document not served over https", true, "http://bifrost.example.com/api/oauth/client-metadata.json", nil, "", ""},
+		{"document on a loopback host", true, "https://localhost:8080/api/oauth/client-metadata.json", nil, "", ""},
+		{"no document", true, "", nil, "", ""},
+		{"configured client_id", true, documentURL, schemas.NewSecretVar("preset"), "", "preset"},
+		{"endpoints entered by hand, supported", true, documentURL, nil, "own", documentURL},
+		{"endpoints entered by hand, not advertised", false, documentURL, nil, "own", ""},
+		{"endpoints entered by hand for another authorization server", true, documentURL, nil, "other", ""},
+		{"token endpoint entered by hand for another authorization server", true, documentURL, nil, "other-token", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			as := newDiscoverableAuthServer(t, tc.supportsCIMD)
+			provider, _ := newDCRProvider(t)
+			config := &schemas.OAuth2Config{
+				ClientID:          tc.clientID,
+				ServerURL:         as.server.URL + "/mcp",
+				RedirectURI:       "https://bifrost.example.com/api/oauth/callback",
+				ClientMetadataURL: tc.documentURL,
+			}
+			switch tc.endpoints {
+			case "own":
+				config.AuthorizeURL, config.TokenURL = as.server.URL+"/authorize", as.server.URL+"/token"
+			case "other":
+				config.AuthorizeURL, config.TokenURL = "https://other.example.com/authorize", "https://other.example.com/token"
+			case "other-token":
+				config.TokenURL = "https://other.example.com/token" // authorize_url is discovered
+			}
+			if tc.endpoints != "" && tc.endpoints != "other-token" {
+				registrationURL := as.server.URL + "/register"
+				config.RegistrationURL = &registrationURL
+			}
+			initiation, err := provider.InitiateOAuthFlow(context.Background(), config)
+			require.NoError(t, err)
+			authorize, err := url.Parse(initiation.AuthorizeURL)
+			require.NoError(t, err)
+			got := authorize.Query().Get("client_id")
+			if tc.wantClientID == "" {
+				assert.Equal(t, "dyn-1", got, "falls back to dynamic client registration")
+				assert.Equal(t, 1, as.registrations)
+				return
+			}
+			assert.Equal(t, tc.wantClientID, got)
+			assert.Zero(t, as.registrations, "no dynamic registration")
+		})
+	}
+}
+
+// A Client ID Metadata Document client is public (its document declares no token endpoint auth), so a
+// client_secret entered without a client_id is not kept for it.
+func TestInitiateOAuthFlow_ClientIDMetadataDocumentDropsSuppliedSecret(t *testing.T) {
+	const documentURL = "https://bifrost.example.com/api/oauth/client-metadata.json"
+	as := newDiscoverableAuthServer(t, true)
+	provider, store := newDCRProvider(t)
+	initiation, err := provider.InitiateOAuthFlow(context.Background(), &schemas.OAuth2Config{
+		ClientSecret:      schemas.NewSecretVar("entered-secret"),
+		ServerURL:         as.server.URL + "/mcp",
+		RedirectURI:       "https://bifrost.example.com/api/oauth/callback",
+		ClientMetadataURL: documentURL,
+	})
+	require.NoError(t, err)
+	stored, err := store.GetOauthConfigByID(context.Background(), initiation.OauthConfigID)
+	require.NoError(t, err)
+	assert.Equal(t, documentURL, stored.GetResolvedClientID())
+	assert.False(t, stored.ClientSecret.IsSet(), "no secret belongs to a metadata document client")
+}
+
+// A metadata-document client_id is the URL of Bifrost's document, so it follows Bifrost's address: a
+// sign-in under another base (the external URL changed, or none is set and another host is used)
+// moves the stored client_id to that base's document, and tokens issued to the old one must sign in
+// again. Under the same base nothing changes.
+func TestSignIn_ClientIDMetadataDocumentFollowsBaseURL(t *testing.T) {
+	const (
+		oldBase = "https://bifrost.example.com"
+		newBase = "https://gateway.example.com"
+	)
+	for _, tc := range []struct {
+		name, signInBase, wantClientID string
+	}{
+		{"base changed", newBase, newBase + "/api/oauth/client-metadata.json"},
+		{"same base", oldBase, oldBase + "/api/oauth/client-metadata.json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			as := newDiscoverableAuthServer(t, true)
+			provider, store := newDCRProvider(t)
+			provider.SetClientMetadataDocumentPaths("/api/oauth/callback", "/api/oauth/client-metadata.json")
+			ctx := context.Background()
+			initiation, err := provider.InitiateOAuthFlow(ctx, &schemas.OAuth2Config{
+				ServerURL:         as.server.URL + "/mcp",
+				RedirectURI:       oldBase + "/api/oauth/callback",
+				ClientMetadataURL: oldBase + "/api/oauth/client-metadata.json",
+			})
+			require.NoError(t, err)
+			require.NoError(t, store.db.Create(&tables.TableMCPClient{ClientID: dcrMCPClientID, Name: "grafana", OauthConfigID: bifrost.Ptr(initiation.OauthConfigID)}).Error)
+			require.NoError(t, store.db.Create(&tables.TableMCPOauthToken{
+				ID: "cimd-token", AuthMode: "shared", MCPClientID: dcrMCPClientID, OauthConfigID: initiation.OauthConfigID,
+				Status: "active", AccessToken: "at", TokenType: "Bearer",
+			}).Error)
+
+			_, flowID, err := provider.InitiateUserOAuthFlow(ctx, initiation.OauthConfigID, dcrMCPClientID, tc.signInBase+"/api/oauth/callback", schemas.MCPAuthModeAdmin)
+			require.NoError(t, err)
+			authorizeURL, err := provider.BuildAdminUpstreamAuthorizeURL(ctx, flowID)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.wantClientID, authorizeURLClientID(t, authorizeURL))
+			stored, err := store.GetOauthConfigByID(ctx, initiation.OauthConfigID)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantClientID, stored.GetResolvedClientID())
+			token, err := store.GetOauthTokenByID(ctx, "cimd-token")
+			require.NoError(t, err)
+			wantStatus := "active"
+			if tc.signInBase != oldBase {
+				wantStatus = "needs_reauth"
+			}
+			assert.Equal(t, wantStatus, token.Status, "tokens issued to the old client_id cannot be refreshed under the new one")
+		})
+	}
+}

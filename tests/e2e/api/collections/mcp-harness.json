@@ -99977,6 +99977,2494 @@
           ]
         },
         {
+          "name": "INF-60 Provider-injected tool, chat loop",
+          "description": "Setup: the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; alpha (search, echo) registered as client alpha, per call, tools_to_execute [\"*\"]; openai's injected_tools expose alpha's search as web_search; turn 1 calls web_search, turn 2 answers \"answer\".",
+          "item": [
+            {
+              "name": "INF-60 setup: read the openai provider",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 setup: read the openai provider: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "var p = pm.response.json(); pm.collectionVariables.set('openai_provider', JSON.stringify({ network_config: p.network_config, concurrency_and_buffer_size: p.concurrency_and_buffer_size }));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai"
+              }
+            },
+            {
+              "name": "INF-60 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-60 setup: alpha serves search, echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 setup: alpha serves search, echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"search\"},{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-60 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-60-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-60 setup: openai injects alpha's search as web_search",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"}];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 setup: openai injects alpha's search as web_search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-60 setup: script the mock LLM for inf60",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 setup: script the mock LLM for inf60: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf60\",\"turns\":[{\"tool_calls\":[{\"id\":\"w1\",\"name\":\"web_search\",\"arguments\":{\"text\":\"q\"}}]},{\"text\":\"answer\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-60 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-60 chat: content is \\\"answer\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].message.content, 'body: ' + pm.response.text()).to.equal(\"answer\");",
+                      "});",
+                      "pm.test(\"INF-60 chat: no tool_calls\", function () {",
+                      "  pm.expect((pm.response.json().choices[0].message.tool_calls || []).map(function (c) { return c.function.name; }), 'body: ' + pm.response.text()).to.eql([]);",
+                      "});",
+                      "pm.test(\"INF-60 chat: the client never sees web_search\", function () {",
+                      "  pm.expect(pm.response.text()).to.not.include('web_search');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf60] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-60 turn 1 has function web_search and not alpha-search; turn 2 has the result",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 turn 1 has function web_search and not alpha-search; turn 2 has the result: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-60 turn 1 has function web_search and not alpha-search; turn 2 has the result: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});",
+                      "pm.test(\"INF-60 turn 1 has function web_search and not alpha-search; turn 2 has the result: turn 1 declares function web_search and no alpha-search\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  var t = reqs[0].json.tools.filter(function (x) { return x.function && x.function.name === 'web_search'; });",
+                      "  pm.expect(t.length, JSON.stringify(reqs[0].json.tools)).to.equal(1);",
+                      "  pm.expect(t[0].type).to.equal('function');",
+                      "  pm.expect(reqs[0].tools).to.not.include('alpha-search');",
+                      "});",
+                      "pm.test(\"INF-60 turn 1 has function web_search and not alpha-search; turn 2 has the result: turn 2 has the search result for w1\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  var tm = {}; (reqs[1].json.messages || []).forEach(function (m) { if (m.role === 'tool') { tm[m.tool_call_id] = m.content; } });",
+                      "  pm.expect(tm.w1, JSON.stringify(reqs[1].json.messages)).to.equal(\"search:{\\\"text\\\":\\\"q\\\"}\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf60"
+              }
+            },
+            {
+              "name": "INF-60 alpha ran search once",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 alpha ran search once: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-60 alpha ran search once: calls[search] is 1\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"search\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-60 teardown: clear openai's injected_tools",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 teardown: clear openai's injected_tools: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-60 teardown: delete client inf-60-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-60 teardown: delete client inf-60-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-60-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-61 Injected loop depth cap",
+          "description": "Setup: the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; alpha (search, echo) registered as client alpha, per call, tools_to_execute [\"*\"]; openai's injected_tools expose alpha's search as web_search; mcp_agent_depth 2; the model always calls web_search.",
+          "item": [
+            {
+              "name": "INF-61 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "INF-61 setup: read the openai provider",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 setup: read the openai provider: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "var p = pm.response.json(); pm.collectionVariables.set('openai_provider', JSON.stringify({ network_config: p.network_config, concurrency_and_buffer_size: p.concurrency_and_buffer_size }));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai"
+              }
+            },
+            {
+              "name": "INF-61 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-61 setup: alpha serves search, echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 setup: alpha serves search, echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"search\"},{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-61 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-61-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-61 setup: openai injects alpha's search as web_search",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"}];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 setup: openai injects alpha's search as web_search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-61 setup: mcp_agent_depth 2",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_agent_depth = 2;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 setup: mcp_agent_depth 2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-61 setup: script the mock LLM for inf61",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 setup: script the mock LLM for inf61: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf61\",\"then\":{\"tool_calls\":[{\"id\":\"w1\",\"name\":\"web_search\",\"arguments\":{\"text\":\"q\"}}]}}"
+                }
+              }
+            },
+            {
+              "name": "INF-61 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-61 chat: finish_reason is \\\"stop\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].finish_reason, 'body: ' + pm.response.text()).to.equal(\"stop\");",
+                      "});",
+                      "pm.test(\"INF-61 chat: no tool_calls\", function () {",
+                      "  pm.expect((pm.response.json().choices[0].message.tool_calls || []).map(function (c) { return c.function.name; }), 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf61] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-61 two model requests",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 two model requests: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-61 two model requests: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf61"
+              }
+            },
+            {
+              "name": "INF-61 alpha ran search once",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 alpha ran search once: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-61 alpha ran search once: calls[search] is 1\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"search\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-61 teardown: clear openai's injected_tools",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 teardown: clear openai's injected_tools: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-61 teardown: delete client inf-61-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 teardown: delete client inf-61-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-61-alpha"
+              }
+            },
+            {
+              "name": "INF-61 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-61 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-62 Injected tool failure goes to the model",
+          "description": "Setup: the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; alpha (search, echo) registered as client alpha, per call, tools_to_execute [\"*\"]; openai's injected_tools expose alpha's search as web_search; alpha's search fails every call with a JSON-RPC error (err_kind protocol); turn 1 calls web_search, turn 2 answers \"answer\".",
+          "item": [
+            {
+              "name": "INF-62 setup: read the openai provider",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 setup: read the openai provider: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "var p = pm.response.json(); pm.collectionVariables.set('openai_provider', JSON.stringify({ network_config: p.network_config, concurrency_and_buffer_size: p.concurrency_and_buffer_size }));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai"
+              }
+            },
+            {
+              "name": "INF-62 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-62 setup: alpha serves search (failing with a JSON-RPC error) and echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 setup: alpha serves search (failing with a JSON-RPC error) and echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"search\",\"fault\":{\"err_rate\":1,\"err_kind\":\"protocol\"}},{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-62 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-62-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-62 setup: openai injects alpha's search as web_search",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"}];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 setup: openai injects alpha's search as web_search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-62 setup: script the mock LLM for inf62",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 setup: script the mock LLM for inf62: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf62\",\"turns\":[{\"tool_calls\":[{\"id\":\"w1\",\"name\":\"web_search\",\"arguments\":{\"text\":\"q\"}}]},{\"text\":\"answer\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-62 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-62 chat: content is \\\"answer\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].message.content, 'body: ' + pm.response.text()).to.equal(\"answer\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf62] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-62 turn 2's tool content reports the failure",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 turn 2's tool content reports the failure: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-62 turn 2's tool content reports the failure: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});",
+                      "pm.test(\"INF-62 turn 2's tool content reports the failure: the tool content contains \\\"MCP tool call failed\\\"\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  var tm = {}; (reqs[1].json.messages || []).forEach(function (m) { if (m.role === 'tool') { tm[m.tool_call_id] = m.content; } });",
+                      "  pm.expect(tm.w1 || '', JSON.stringify(reqs[1].json.messages)).to.include('MCP tool call failed');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf62"
+              }
+            },
+            {
+              "name": "INF-62 teardown: clear openai's injected_tools",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 teardown: clear openai's injected_tools: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-62 teardown: delete client inf-62-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-62 teardown: delete client inf-62-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-62-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-63 Injected tool fails open",
+          "description": "Setup: the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; alpha (search, echo) registered as client alpha, per call, tools_to_execute [\"*\"]; openai's injected_tools expose alpha's search as web_search; alpha is then disabled; a Responses request declares the native web_search tool.",
+          "item": [
+            {
+              "name": "INF-63 setup: read the openai provider",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 setup: read the openai provider: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "var p = pm.response.json(); pm.collectionVariables.set('openai_provider', JSON.stringify({ network_config: p.network_config, concurrency_and_buffer_size: p.concurrency_and_buffer_size }));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai"
+              }
+            },
+            {
+              "name": "INF-63 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-63 setup: alpha serves search, echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 setup: alpha serves search, echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"search\"},{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-63 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-63-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-63 setup: openai injects alpha's search as web_search",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"}];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 setup: openai injects alpha's search as web_search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-63 setup: script the mock LLM for inf63-on",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 setup: script the mock LLM for inf63-on: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf63-on\",\"then\":{\"text\":\"ok\"}}"
+                }
+              }
+            },
+            {
+              "name": "INF-63 control: with alpha enabled, a Responses request with native web_search",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 control: with alpha enabled, a Responses request with native web_search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/responses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"input\":\"[scenario:inf63-on] hi\",\"tools\":[{\"type\":\"web_search\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-63 control: the injected function replaces the native tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 control: the injected function replaces the native tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-63 control: the injected function replaces the native tool: 1 model request logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"INF-63 control: the injected function replaces the native tool: request 1 declares web_search\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs[0] && reqs[0].tools, 'body: ' + pm.response.text()).to.include(\"web_search\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf63-on"
+              }
+            },
+            {
+              "name": "INF-63 setup: disable alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 setup: disable alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-63-alpha",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"disabled\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-63 setup: script the mock LLM for inf63",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 setup: script the mock LLM for inf63: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf63\",\"then\":{\"text\":\"ok\"}}"
+                }
+              }
+            },
+            {
+              "name": "INF-63 Responses request with native web_search",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 Responses request with native web_search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/responses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"input\":\"[scenario:inf63] hi\",\"tools\":[{\"type\":\"web_search\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-63 no function web_search; the native web_search is kept",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 no function web_search; the native web_search is kept: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-63 no function web_search; the native web_search is kept: 1 model request logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"INF-63 no function web_search; the native web_search is kept: request 1 declares exactly [\\\"type:web_search\\\"]\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs[0] && reqs[0].tools, 'body: ' + pm.response.text()).to.eql([\"type:web_search\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf63"
+              }
+            },
+            {
+              "name": "INF-63 teardown: clear openai's injected_tools",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 teardown: clear openai's injected_tools: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-63 teardown: delete client inf-63-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-63 teardown: delete client inf-63-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-63-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-64 Injected tools on streams",
+          "description": "Setup: the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; alpha (search, echo) registered as client alpha, per call, tools_to_execute [\"*\"]; openai's injected_tools expose alpha's search as web_search; a streamed chat with stream_options.include_usage; turn 1 calls web_search (10 and 5 tokens), turn 2 answers \"answer\" (20 and 7 tokens).",
+          "item": [
+            {
+              "name": "INF-64 setup: read the openai provider",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 setup: read the openai provider: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "var p = pm.response.json(); pm.collectionVariables.set('openai_provider', JSON.stringify({ network_config: p.network_config, concurrency_and_buffer_size: p.concurrency_and_buffer_size }));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai"
+              }
+            },
+            {
+              "name": "INF-64 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-64 setup: alpha serves search, echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 setup: alpha serves search, echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"search\"},{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-64 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-64-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-64 setup: openai injects alpha's search as web_search",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"}];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 setup: openai injects alpha's search as web_search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-64 setup: script the mock LLM for inf64",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 setup: script the mock LLM for inf64: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf64\",\"turns\":[{\"tool_calls\":[{\"id\":\"w1\",\"name\":\"web_search\",\"arguments\":{\"text\":\"q\"}}],\"usage\":{\"input\":10,\"output\":5}},{\"text\":\"answer\",\"usage\":{\"input\":20,\"output\":7}}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-64 streamed chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 streamed chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-64 streamed chat: one stream: no web_search delta, one terminal chunk, usage for both turns\", function () {",
+                      "  var text = pm.response.text();",
+                      "  pm.expect(text, 'stream').to.not.include('web_search');",
+                      "  var finals = 0, usages = [];",
+                      "  text.split('\\n').forEach(function (l) { if (l.indexOf('data: {') !== 0) { return; } var d = JSON.parse(l.slice(6)); if (d.choices && d.choices[0] && d.choices[0].finish_reason) { finals++; } if (d.usage) { usages.push(d.usage); } });",
+                      "  pm.expect(finals, text).to.equal(1);",
+                      "  pm.expect(usages.length, text).to.equal(1);",
+                      "  pm.expect(usages[0].prompt_tokens).to.equal(30);",
+                      "  pm.expect(usages[0].completion_tokens).to.equal(12);",
+                      "  pm.expect(usages[0].total_tokens).to.equal(42);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf64] hi\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-64 alpha ran search once",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 alpha ran search once: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-64 alpha ran search once: calls[search] is 1\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"search\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-64 teardown: clear openai's injected_tools",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 teardown: clear openai's injected_tools: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-64 teardown: delete client inf-64-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-64 teardown: delete client inf-64-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-64-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-65 Injected tool and client allow-lists",
+          "description": "Setup: the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; alpha (search, echo) registered as client alpha, per call, tools_to_execute []; beta (zz) as client beta; openai's injected_tools expose alpha's search as web_search; the chat sends x-bf-mcp-include-clients beta; turn 1 calls web_search, turn 2 answers \"answer\".",
+          "item": [
+            {
+              "name": "INF-65 setup: read the openai provider",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 setup: read the openai provider: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "var p = pm.response.json(); pm.collectionVariables.set('openai_provider', JSON.stringify({ network_config: p.network_config, concurrency_and_buffer_size: p.concurrency_and_buffer_size }));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai"
+              }
+            },
+            {
+              "name": "INF-65 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-65 setup: alpha serves search, echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 setup: alpha serves search, echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"search\"},{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-65 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-65-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[]}"
+                }
+              }
+            },
+            {
+              "name": "INF-65 setup: openai injects alpha's search as web_search",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [{\"name\":\"web_search\",\"mcp_client_name\":\"alpha\",\"tool_name\":\"search\"}];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 setup: openai injects alpha's search as web_search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-65 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-65 setup: beta serves zz",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 setup: beta serves zz: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"zz\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-65 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-65-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-65 setup: script the mock LLM for inf65",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 setup: script the mock LLM for inf65: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf65\",\"turns\":[{\"tool_calls\":[{\"id\":\"w1\",\"name\":\"web_search\",\"arguments\":{\"text\":\"q\"}}]},{\"text\":\"answer\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-65 chat with include-clients beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 chat with include-clients beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-65 chat with include-clients beta: content is \\\"answer\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].message.content, 'body: ' + pm.response.text()).to.equal(\"answer\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-include-clients",
+                    "value": "beta"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf65] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-65 the chat still ran search",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 the chat still ran search: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-65 the chat still ran search: calls[search] is 1\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"search\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-65 execute alpha-search directly",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 execute alpha-search directly: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-65 execute alpha-search directly: error message contains \\\"not in client's ToolsToExecute allow-list\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"not in client's ToolsToExecute allow-list\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-search\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-65 teardown: delete client inf-65-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 teardown: delete client inf-65-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-65-beta"
+              }
+            },
+            {
+              "name": "INF-65 teardown: clear openai's injected_tools",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var p = JSON.parse(pm.collectionVariables.get('openai_provider'));",
+                      "p.injected_tools = [];",
+                      "pm.variables.set('provider_body', JSON.stringify(p));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 teardown: clear openai's injected_tools: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/providers/openai",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{provider_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-65 teardown: delete client inf-65-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-65 teardown: delete client inf-65-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-65-alpha"
+              }
+            }
+          ]
+        },
+        {
           "name": "INF-66 Injected tools validation",
           "description": "Setup: PUT /api/providers/openai with concurrency_and_buffer_size set and one bad injected_tools value per request.",
           "item": [

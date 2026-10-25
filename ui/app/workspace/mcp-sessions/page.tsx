@@ -2,10 +2,11 @@ import FullPageLoader from "@/components/fullPageLoader";
 import { useDebouncedValue } from "@/hooks/useDebounce";
 import { getErrorMessage, useGetMCPSessionsQuery } from "@/lib/store";
 import { AuthMode, MCPSessionKind, MCPSessionStatus } from "@/lib/types/mcpSessions";
-import { parseAsArrayOf, parseAsInteger, parseAsString, useQueryStates } from "nuqs";
+import { parseAsArrayOf, parseAsInteger, parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { useCallback, useEffect, useMemo } from "react";
 import { MCPSessionFilters, MCPSessionsFilterSidebar } from "./views/mcpSessionsFilterSidebar";
 import SessionsTable from "./views/sessionsTable";
+import { ToolsPendingNotice } from "./views/toolsPendingNotice";
 
 // Page size larger than the governance default (25) since session rows are
 // denser than VK rows and the page is the only screen of MCP-auth content.
@@ -26,6 +27,10 @@ export default function MCPSessionsPage() {
 		},
 		{ history: "push" },
 	);
+	// Set by the OAuth callback when sign-in stored the token but could not load
+	// the client's tools with it.
+	const [tools] = useQueryState("tools");
+	const [pendingClient] = useQueryState("client");
 
 	const debouncedSearch = useDebouncedValue(urlState.q, 300);
 	const normalizedIdentity = urlState.identity.trim();
@@ -106,17 +111,20 @@ export default function MCPSessionsPage() {
 	const handleOffsetChange = (offset: number) => setUrlState({ offset });
 
 	const table = (
-		<SessionsTable
-			sessions={data?.sessions ?? []}
-			totalCount={totalCount}
-			isFetching={isFetching}
-			search={urlState.q}
-			onSearchChange={handleSearchChange}
-			hasActiveFilters={hasActiveFilters}
-			offset={urlState.offset}
-			limit={PAGE_SIZE}
-			onOffsetChange={handleOffsetChange}
-		/>
+		<>
+			{tools === "pending" && pendingClient && <ToolsPendingNotice clientName={pendingClient} className="mb-3 shrink-0" />}
+			<SessionsTable
+				sessions={data?.sessions ?? []}
+				totalCount={totalCount}
+				isFetching={isFetching}
+				search={urlState.q}
+				onSearchChange={handleSearchChange}
+				hasActiveFilters={hasActiveFilters}
+				offset={urlState.offset}
+				limit={PAGE_SIZE}
+				onOffsetChange={handleOffsetChange}
+			/>
+		</>
 	);
 
 	// No sessions at all and no active filters/search: render full-width

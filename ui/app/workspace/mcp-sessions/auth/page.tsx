@@ -42,6 +42,7 @@ import { CheckCircle2, ExternalLink, Fingerprint, KeyRound, Loader2, LogIn, Shie
 import { useQueryState } from "nuqs";
 import React from "react";
 import { useEffect, useMemo, useState } from "react";
+import { ToolsPendingNotice } from "../views/toolsPendingNotice";
 
 // Mirrors handlers.TempTokenRejectedCode: a presented token was refused.
 const TEMP_TOKEN_REJECTED_CODE = "temp_token_rejected";
@@ -230,6 +231,9 @@ function HeadersAuthView({ flowId }: { flowId: string }) {
 	// "expired" view on top of a freshly successful submission.
 	const { data: detail, isLoading, isError, error } = useGetMCPPerUserHeadersFlowQuery(flowId, { skip: submitted === "true" });
 	const [submit, { isLoading: submitting }] = useSubmitMCPPerUserHeadersFlowMutation();
+	// Kept from the submit response, which is the only place it is reported:
+	// the flow row is gone once the submit succeeds.
+	const [toolsPending, setToolsPending] = useState<{ clientName: string; error: string } | null>(null);
 
 	if (submitted === "true") {
 		return (
@@ -241,6 +245,7 @@ function HeadersAuthView({ flowId }: { flowId: string }) {
 				<p className="text-muted-foreground mt-2 text-sm">
 					Bifrost verified the connection and stored your credentials. You can close this tab and retry the original action.
 				</p>
+				{toolsPending && <ToolsPendingNotice clientName={toolsPending.clientName} error={toolsPending.error} className="mt-6" />}
 				<div className="mt-6 flex gap-3">
 					<SessionsTabLink />
 				</div>
@@ -302,9 +307,14 @@ function HeadersAuthView({ flowId }: { flowId: string }) {
 		);
 	}
 
+	const mcpClientName = detail.mcp_client?.name || detail.mcp_client?.client_id || "MCP server";
+
 	const handleSubmit = async (values: Record<string, string>) => {
 		try {
-			await submit({ flowId, body: { headers: values } }).unwrap();
+			const result = await submit({ flowId, body: { headers: values } }).unwrap();
+			if (result.discovery_error) {
+				setToolsPending({ clientName: mcpClientName, error: result.discovery_error });
+			}
 			void setSubmitted("true");
 		} catch (err) {
 			toast({
@@ -315,7 +325,6 @@ function HeadersAuthView({ flowId }: { flowId: string }) {
 		}
 	};
 
-	const mcpClientName = detail.mcp_client?.name || detail.mcp_client?.client_id || "MCP server";
 	const isEdit = detail.has_active_credential;
 	const title = isEdit ? `Update credentials for ${mcpClientName}` : `Submit credentials for ${mcpClientName}`;
 

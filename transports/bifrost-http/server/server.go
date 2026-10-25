@@ -208,8 +208,15 @@ type ServerCallbacks interface {
 	// EvictMCPPerUserDiscoveryCache drops one caller's cached per-user
 	// discovery of one MCP client. The server forwards every write the
 	// per-user discovery store makes here, since the store's own eviction
-	// reaches only this process.
+	// reaches only this process; handlers call it after deleting a caller's
+	// credential, whose discovery is deleted with it.
 	EvictMCPPerUserDiscoveryCache(ctx context.Context, mode schemas.MCPAuthMode, identity, mcpClientID string)
+	// EvictMCPPerUserDiscoveryCacheByMCPClient drops every caller's cached
+	// per-user discovery of one MCP client after a client-level write deleted
+	// them with the credentials or settings they were made under (OAuth
+	// credential rotation, required header keys added, connection settings
+	// edited).
+	EvictMCPPerUserDiscoveryCacheByMCPClient(ctx context.Context, mcpClientID string)
 	// ResolveAccess answers what a request may reach, resolving it once onto the request's grant,
 	// for the listing routes that run outside the request pipeline and so cannot wait for a hook
 	// to resolve it.
@@ -1573,6 +1580,16 @@ func (s *BifrostHTTPServer) EvictMCPPerUserDiscoveryCache(ctx context.Context, m
 		return
 	}
 	s.Config.MCPPerUserDiscoveryStore.EvictDiscovery(mode, identity, mcpClientID)
+}
+
+// EvictMCPPerUserDiscoveryCacheByMCPClient drops every caller's cached per-user
+// discovery of one MCP client from the in-memory cache after a client-level
+// write. A clustered deployment overrides this to also notify peers.
+func (s *BifrostHTTPServer) EvictMCPPerUserDiscoveryCacheByMCPClient(ctx context.Context, mcpClientID string) {
+	if s.Config == nil || s.Config.MCPPerUserDiscoveryStore == nil {
+		return
+	}
+	s.Config.MCPPerUserDiscoveryStore.EvictDiscoveriesByMCPClient(mcpClientID)
 }
 
 // FlushMCPHeaderCredentialCache drops every cached per-user MCP header
@@ -2969,7 +2986,7 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	if s.Config.ConfigStore != nil {
 		virtualMCPHandler = handlers.NewVirtualMCPHandler(s.Config, s.Client, callbacks, logger)
 	}
-	mcpPerUserHeadersHandler := handlers.NewMCPPerUserHeadersHandler(callbacks, s.Config, s.TempTokens)
+	mcpPerUserHeadersHandler := handlers.NewMCPPerUserHeadersHandler(callbacks, callbacks, s.Config, s.TempTokens)
 	// The per-user discovery store evicts a discovery it writes only from this
 	// process's cache. Forward those evictions to callbacks so a deployment
 	// that overrides EvictMCPPerUserDiscoveryCache reaches every process, off

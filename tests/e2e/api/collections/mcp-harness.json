@@ -86107,6 +86107,266 @@
           ]
         },
         {
+          "name": "INF-08 Async chat",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; turn 1 calls alpha-echo, turn 2 answers \"done\"; the chat is submitted to /v1/async/chat/completions.",
+          "item": [
+            {
+              "name": "INF-08 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-08 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-08 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-08 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-08 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-08 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-08-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-08 setup: script the mock LLM for inf08",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-08 setup: script the mock LLM for inf08: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf08\",\"turns\":[{\"tool_calls\":[{\"id\":\"t1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-08 submit the async chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-08 submit the async chat: status is 202\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(202);",
+                      "});",
+                      "pm.collectionVariables.set('inf08_job', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/async/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf08] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-08 the job completes with \"done\"",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var left = 20;",
+                      "function poll() {",
+                      "  pm.sendRequest({ url: pm.variables.get('base_url') + '/v1/async/chat/completions/' + pm.collectionVariables.get('inf08_job') + '', method: 'GET' }, function (err, res) {",
+                      "    var st = (!err && res.code === 200) ? res.json().status : '';",
+                      "    if ((st && st !== 'pending' && st !== 'processing') || --left <= 0) { return; }",
+                      "    setTimeout(poll, 500);",
+                      "  });",
+                      "}",
+                      "poll();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-08 the job completes with \\\"done\\\": status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-08 the job completes with \\\"done\\\": status \\\"completed\\\", content \\\"done\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.status, 'body: ' + pm.response.text()).to.equal('completed');",
+                      "  pm.expect(b.result.choices[0].message.content).to.equal('done');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/v1/async/chat/completions/{{inf08_job}}"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-08 alpha ran echo once",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-08 alpha ran echo once: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-08 alpha ran echo once: calls[echo] is 1\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-08 teardown: delete client inf-08-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-08 teardown: delete client inf-08-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-08-alpha"
+              }
+            }
+          ]
+        },
+        {
           "name": "INF-09 Caller tools merge with injected tools",
           "description": "Setup: alpha (echo, add, greet) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], nothing auto-executed; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; the caller sends my_tool and its own alpha-echo with description \"CALLER\".",
           "item": [
@@ -92830,6 +93090,3593 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/inf-33-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-34 Agent mode, chat",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; turn 1 calls alpha-echo with id t1, turn 2 answers \"done\".",
+          "item": [
+            {
+              "name": "INF-34 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-34 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-34 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-34 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-34 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-34 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-34-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-34 setup: script the mock LLM for inf34",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-34 setup: script the mock LLM for inf34: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf34\",\"turns\":[{\"tool_calls\":[{\"id\":\"t1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-34 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-34 chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-34 chat: content is \\\"done\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].message.content, 'body: ' + pm.response.text()).to.equal(\"done\");",
+                      "});",
+                      "pm.test(\"INF-34 chat: no tool_calls\", function () {",
+                      "  pm.expect((pm.response.json().choices[0].message.tool_calls || []).map(function (c) { return c.function.name; }), 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf34] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-34 two model requests; turn 2 has t1's echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-34 two model requests; turn 2 has t1's echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-34 two model requests; turn 2 has t1's echo: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});",
+                      "pm.test(\"INF-34 two model requests; turn 2 has t1's echo: turn 2 has a tool message for t1 with the echo\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  var tm = {}; (reqs[1].json.messages || []).forEach(function (m) { if (m.role === 'tool') { tm[m.tool_call_id] = m.content; } });",
+                      "  pm.expect(tm.t1, JSON.stringify(reqs[1].json.messages)).to.equal(\"echo:{\\\"text\\\":\\\"hi\\\"}\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf34"
+              }
+            },
+            {
+              "name": "INF-34 alpha ran echo once",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-34 alpha ran echo once: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-34 alpha ran echo once: calls[echo] is 1\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-34 teardown: delete client inf-34-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-34 teardown: delete client inf-34-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-34-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-35 Agent mode, Responses",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; on /v1/responses, turn 1 calls alpha-echo with id t1, turn 2 answers \"done\".",
+          "item": [
+            {
+              "name": "INF-35 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-35 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-35 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-35 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-35 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-35 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-35-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-35 setup: script the mock LLM for inf35",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-35 setup: script the mock LLM for inf35: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf35\",\"turns\":[{\"tool_calls\":[{\"id\":\"t1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-35 Responses request",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-35 Responses request: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-35 Responses request: the output is the final message and no function_call\", function () {",
+                      "  var out = pm.response.json().output || [];",
+                      "  pm.expect(out.map(function (o) { return o.type; }), 'body: ' + pm.response.text()).to.eql(['message']);",
+                      "  pm.expect(out[0].content[0].text).to.equal('done');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/responses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"input\":\"[scenario:inf35] hi\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-35 turn 2's input has the function_call_output for t1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-35 turn 2's input has the function_call_output for t1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-35 turn 2's input has the function_call_output for t1: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});",
+                      "pm.test(\"INF-35 turn 2's input has the function_call_output for t1: a function_call_output with call_id t1\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  var outs = (reqs[1].json.input || []).filter(function (i) { return i.type === 'function_call_output'; });",
+                      "  pm.expect(outs.map(function (o) { return o.call_id; }), JSON.stringify(reqs[1].json.input)).to.eql(['t1']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf35"
+              }
+            },
+            {
+              "name": "INF-35 teardown: delete client inf-35-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-35 teardown: delete client inf-35-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-35-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-36 Nothing auto-executable",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute []; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; the model calls alpha-echo, then (in a second chat that declares the caller's own my_tool) my_tool.",
+          "item": [
+            {
+              "name": "INF-36 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-36 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-36 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-36-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[]}"
+                }
+              }
+            },
+            {
+              "name": "INF-36 setup: script the mock LLM for inf36-mcp",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 setup: script the mock LLM for inf36-mcp: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf36-mcp\",\"then\":{\"tool_calls\":[{\"id\":\"t1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]}}"
+                }
+              }
+            },
+            {
+              "name": "INF-36 chat where the model calls alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 chat where the model calls alpha-echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-36 chat where the model calls alpha-echo: finish_reason is \\\"tool_calls\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].finish_reason, 'body: ' + pm.response.text()).to.equal(\"tool_calls\");",
+                      "});",
+                      "pm.test(\"INF-36 chat where the model calls alpha-echo: tool_calls are [\\\"alpha-echo\\\"]\", function () {",
+                      "  pm.expect((pm.response.json().choices[0].message.tool_calls || []).map(function (c) { return c.function.name; }), 'body: ' + pm.response.text()).to.eql([\"alpha-echo\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf36-mcp] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-36 one model request for the alpha-echo chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 one model request for the alpha-echo chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-36 one model request for the alpha-echo chat: 1 model request logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf36-mcp"
+              }
+            },
+            {
+              "name": "INF-36 setup: script the mock LLM for inf36-own",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 setup: script the mock LLM for inf36-own: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf36-own\",\"then\":{\"tool_calls\":[{\"id\":\"m1\",\"name\":\"my_tool\",\"arguments\":{}}]}}"
+                }
+              }
+            },
+            {
+              "name": "INF-36 chat where the model calls my_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 chat where the model calls my_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-36 chat where the model calls my_tool: finish_reason is \\\"tool_calls\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].finish_reason, 'body: ' + pm.response.text()).to.equal(\"tool_calls\");",
+                      "});",
+                      "pm.test(\"INF-36 chat where the model calls my_tool: tool_calls are [\\\"my_tool\\\"]\", function () {",
+                      "  pm.expect((pm.response.json().choices[0].message.tool_calls || []).map(function (c) { return c.function.name; }), 'body: ' + pm.response.text()).to.eql([\"my_tool\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf36-own] hi\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"my_tool\",\"parameters\":{\"type\":\"object\",\"properties\":{}}}}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-36 one model request for the my_tool chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 one model request for the my_tool chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-36 one model request for the my_tool chat: 1 model request logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf36-own"
+              }
+            },
+            {
+              "name": "INF-36 alpha ran nothing",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 alpha ran nothing: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-36 alpha ran nothing: calls is empty\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls || {}, 'body: ' + pm.response.text()).to.eql({});",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-36 teardown: delete client inf-36-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-36 teardown: delete client inf-36-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-36-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-37 Mixed auto and non-auto, chat",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; the model calls alpha-echo and alpha-add in one turn.",
+          "item": [
+            {
+              "name": "INF-37 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-37 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-37 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-37 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-37 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-37 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-37-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-37 setup: script the mock LLM for inf37",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-37 setup: script the mock LLM for inf37: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf37\",\"turns\":[{\"tool_calls\":[{\"id\":\"e1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}},{\"id\":\"a1\",\"name\":\"alpha-add\",\"arguments\":{\"a\":1,\"b\":2}}]}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-37 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-37 chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-37 chat: finish_reason is \\\"stop\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].finish_reason, 'body: ' + pm.response.text()).to.equal(\"stop\");",
+                      "});",
+                      "pm.test(\"INF-37 chat: tool_calls are [\\\"alpha-add\\\"]\", function () {",
+                      "  pm.expect((pm.response.json().choices[0].message.tool_calls || []).map(function (c) { return c.function.name; }), 'body: ' + pm.response.text()).to.eql([\"alpha-add\"]);",
+                      "});",
+                      "pm.test(\"INF-37 chat: content reports the echo output and the pending call\", function () {",
+                      "  var c = pm.response.json().choices[0].message.content;",
+                      "  pm.expect(c.indexOf(\"The Output from allowed tools calls is - {\\\"alpha-echo\\\":\"), 'content: ' + c).to.equal(0);",
+                      "  pm.expect(c.slice(-36), 'content: ' + c).to.equal(\"Now I shall call these tools next...\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf37] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-37 one model request",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-37 one model request: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-37 one model request: 1 model request logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf37"
+              }
+            },
+            {
+              "name": "INF-37 teardown: delete client inf-37-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-37 teardown: delete client inf-37-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-37-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-38 Mixed calls, Responses",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; on /v1/responses the model calls alpha-echo and alpha-add (call_id a1) in one turn.",
+          "item": [
+            {
+              "name": "INF-38 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-38 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-38 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-38 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-38 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-38 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-38-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-38 setup: script the mock LLM for inf38",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-38 setup: script the mock LLM for inf38: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf38\",\"turns\":[{\"tool_calls\":[{\"id\":\"e1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}},{\"id\":\"a1\",\"name\":\"alpha-add\",\"arguments\":{\"a\":1,\"b\":2}}]}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-38 Responses request",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-38 Responses request: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-38 Responses request: output[0] is the message, output[1] the alpha-add call a1, and no echo call\", function () {",
+                      "  var out = pm.response.json().output || [];",
+                      "  pm.expect(out.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "  pm.expect(out[0].type).to.equal('message');",
+                      "  var t = out[0].content[0].text;",
+                      "  pm.expect(t.indexOf(\"The Output from allowed tools calls is - {\\\"alpha-echo\\\":\"), t).to.equal(0);",
+                      "  pm.expect(t.slice(-36), t).to.equal(\"Now I shall call these tools next...\");",
+                      "  pm.expect(out[1].type).to.equal('function_call');",
+                      "  pm.expect(out[1].name).to.equal('alpha-add');",
+                      "  pm.expect(out[1].call_id).to.equal('a1');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/responses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"input\":\"[scenario:inf38] hi\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-38 teardown: delete client inf-38-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-38 teardown: delete client inf-38-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-38-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-39 Max depth",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; mcp_agent_depth 2; the model always calls alpha-echo, reporting 10 input and 5 output tokens each turn.",
+          "item": [
+            {
+              "name": "INF-39 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "INF-39 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-39 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-39 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-39-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-39 setup: mcp_agent_depth 2",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_agent_depth = 2;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 setup: mcp_agent_depth 2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "INF-39 setup: script the mock LLM for inf39",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 setup: script the mock LLM for inf39: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf39\",\"then\":{\"tool_calls\":[{\"id\":\"d1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}],\"usage\":{\"input\":10,\"output\":5}}}"
+                }
+              }
+            },
+            {
+              "name": "INF-39 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-39 chat: tool_calls are [\\\"alpha-echo\\\"]\", function () {",
+                      "  pm.expect((pm.response.json().choices[0].message.tool_calls || []).map(function (c) { return c.function.name; }), 'body: ' + pm.response.text()).to.eql([\"alpha-echo\"]);",
+                      "});",
+                      "pm.test(\"INF-39 chat: usage sums the three turns\", function () {",
+                      "  var u = pm.response.json().usage;",
+                      "  pm.expect(u.prompt_tokens, 'body: ' + pm.response.text()).to.equal(30);",
+                      "  pm.expect(u.completion_tokens).to.equal(15);",
+                      "  pm.expect(u.total_tokens).to.equal(45);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf39] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-39 three model requests",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 three model requests: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-39 three model requests: 3 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(3);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf39"
+              }
+            },
+            {
+              "name": "INF-39 alpha ran echo twice",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 alpha ran echo twice: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-39 alpha ran echo twice: calls[echo] is 2\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-39 teardown: delete client inf-39-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 teardown: delete client inf-39-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-39-alpha"
+              }
+            },
+            {
+              "name": "INF-39 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-39 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-40 Parallel calls in one turn",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; turn 1 calls alpha-echo twice (p1 with \"a\", p2 with \"b\"), turn 2 answers \"done\".",
+          "item": [
+            {
+              "name": "INF-40 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-40 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-40 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-40 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-40 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-40 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-40-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-40 setup: script the mock LLM for inf40",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-40 setup: script the mock LLM for inf40: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf40\",\"turns\":[{\"tool_calls\":[{\"id\":\"p1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"a\"}},{\"id\":\"p2\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"b\"}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-40 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-40 chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-40 chat: content is \\\"done\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].message.content, 'body: ' + pm.response.text()).to.equal(\"done\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf40] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-40 turn 2 has tool messages for p1 and p2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-40 turn 2 has tool messages for p1 and p2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-40 turn 2 has tool messages for p1 and p2: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});",
+                      "pm.test(\"INF-40 turn 2 has tool messages for p1 and p2: tool messages p1 and p2 with their echoes\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  var tm = {}; (reqs[1].json.messages || []).forEach(function (m) { if (m.role === 'tool') { tm[m.tool_call_id] = m.content; } });",
+                      "  pm.expect(tm, JSON.stringify(reqs[1].json.messages)).to.eql({ p1: \"echo:{\\\"text\\\":\\\"a\\\"}\", p2: \"echo:{\\\"text\\\":\\\"b\\\"}\" });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf40"
+              }
+            },
+            {
+              "name": "INF-40 alpha ran echo twice",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-40 alpha ran echo twice: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-40 alpha ran echo twice: calls[echo] is 2\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-40 teardown: delete client inf-40-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-40 teardown: delete client inf-40-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-40-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-41 Tool failure inside the loop",
+          "description": "Setup: the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; alpha (echo, add, greet) with echo failing every call with a JSON-RPC error (err_kind protocol), registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; on chat and on /anthropic, turn 1 calls alpha-echo, turn 2 answers \"final\".",
+          "item": [
+            {
+              "name": "INF-41 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-41 setup: alpha serves echo (failing with a JSON-RPC error), add and greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 setup: alpha serves echo (failing with a JSON-RPC error), add and greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\",\"fault\":{\"err_rate\":1,\"err_kind\":\"protocol\"}},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-41 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-41-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-41 setup: script the mock LLM for inf41-chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 setup: script the mock LLM for inf41-chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf41-chat\",\"turns\":[{\"tool_calls\":[{\"id\":\"f1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]},{\"text\":\"final\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-41 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-41 chat: content is \\\"final\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].message.content, 'body: ' + pm.response.text()).to.equal(\"final\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf41-chat] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-41 turn 2's tool message reports the failure",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 turn 2's tool message reports the failure: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-41 turn 2's tool message reports the failure: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});",
+                      "pm.test(\"INF-41 turn 2's tool message reports the failure: the tool content starts \\\"Error executing tool alpha-echo: tool execution failed:\\\"\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  var tm = {}; (reqs[1].json.messages || []).forEach(function (m) { if (m.role === 'tool') { tm[m.tool_call_id] = m.content; } });",
+                      "  pm.expect((tm.f1 || '').indexOf(\"Error executing tool alpha-echo: tool execution failed:\"), JSON.stringify(reqs[1].json.messages)).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf41-chat"
+              }
+            },
+            {
+              "name": "INF-41 setup: script the mock LLM for inf41-anth",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 setup: script the mock LLM for inf41-anth: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf41-anth\",\"turns\":[{\"tool_calls\":[{\"id\":\"f2\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]},{\"text\":\"final\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-41 Anthropic request",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 Anthropic request: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-41 Anthropic request: the client gets the final text\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.eql([{ type: 'text', text: 'final' }]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/anthropic/v1/messages",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"mock-model\",\"max_tokens\":64,\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf41-anth] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-41 turn 2's tool_result is marked is_error",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 turn 2's tool_result is marked is_error: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-41 turn 2's tool_result is marked is_error: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});",
+                      "pm.test(\"INF-41 turn 2's tool_result is marked is_error: tool_result for f2 has is_error true\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  var results = []; (reqs[1].json.messages || []).forEach(function (m) { (Array.isArray(m.content) ? m.content : []).forEach(function (b) { if (b.type === 'tool_result') { results.push(b); } }); });",
+                      "  pm.expect(results.length, JSON.stringify(reqs[1].json.messages)).to.equal(1);",
+                      "  pm.expect(results[0].tool_use_id).to.equal('f2');",
+                      "  pm.expect(results[0].is_error).to.equal(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf41-anth"
+              }
+            },
+            {
+              "name": "INF-41 teardown: delete client inf-41-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-41 teardown: delete client inf-41-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-41-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-42 Streaming does not run the agent loop",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; streamed chat and streamed Responses requests; the model calls alpha-echo.",
+          "item": [
+            {
+              "name": "INF-42 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-42 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-42 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-42-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-42 setup: script the mock LLM for inf42-chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 setup: script the mock LLM for inf42-chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf42-chat\",\"then\":{\"tool_calls\":[{\"id\":\"s1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]}}"
+                }
+              }
+            },
+            {
+              "name": "INF-42 streamed chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 streamed chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-42 streamed chat: the stream carries the alpha-echo call and finish_reason tool_calls\", function () {",
+                      "  var names = [], finish = [];",
+                      "  pm.response.text().split('\\n').forEach(function (l) { if (l.indexOf('data: {') !== 0) { return; } var d = JSON.parse(l.slice(6)); ((d.choices || [])[0] || {}).delta && (((d.choices[0].delta.tool_calls) || []).forEach(function (c) { if (c.function && c.function.name) { names.push(c.function.name); } })); if (d.choices && d.choices[0] && d.choices[0].finish_reason) { finish.push(d.choices[0].finish_reason); } });",
+                      "  pm.expect(names, pm.response.text()).to.eql(['alpha-echo']);",
+                      "  pm.expect(finish).to.eql(['tool_calls']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf42-chat] hi\"}],\"stream\":true}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-42 one model request for the streamed chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 one model request for the streamed chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-42 one model request for the streamed chat: 1 model request logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf42-chat"
+              }
+            },
+            {
+              "name": "INF-42 setup: script the mock LLM for inf42-resp",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 setup: script the mock LLM for inf42-resp: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf42-resp\",\"then\":{\"tool_calls\":[{\"id\":\"s2\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]}}"
+                }
+              }
+            },
+            {
+              "name": "INF-42 streamed Responses request",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 streamed Responses request: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-42 streamed Responses request: the stream completes with the alpha-echo function call\", function () {",
+                      "  var calls = [], completed = false;",
+                      "  pm.response.text().split('\\n').forEach(function (l) { if (l.indexOf('data: {') !== 0) { return; } var d = JSON.parse(l.slice(6)); if (d.type === 'response.output_item.done' && d.item.type === 'function_call') { calls.push(d.item.name); } if (d.type === 'response.completed') { completed = true; } });",
+                      "  pm.expect(calls, pm.response.text()).to.eql(['alpha-echo']);",
+                      "  pm.expect(completed).to.equal(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/responses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"stream\":true,\"input\":\"[scenario:inf42-resp] hi\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-42 one model request for the streamed Responses request",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 one model request for the streamed Responses request: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-42 one model request for the streamed Responses request: 1 model request logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf42-resp"
+              }
+            },
+            {
+              "name": "INF-42 alpha ran nothing",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 alpha ran nothing: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-42 alpha ran nothing: calls is empty\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls || {}, 'body: ' + pm.response.text()).to.eql({});",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-42 teardown: delete client inf-42-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-42 teardown: delete client inf-42-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-42-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-43 Continuation keeps text, usage and route",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; the chat names model openai/inf43-a with fallback anthropic/inf43-b; the first model request fails with 500, so the fallback serves turn 1 (\"Checking\" plus a call to alpha-echo, 10 and 5 tokens) and turn 2 (\"Final\", 20 and 7 tokens).",
+          "item": [
+            {
+              "name": "INF-43 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-43 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-43 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-43 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-43 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-43 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-43-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-43 setup: script the mock LLM for inf43",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-43 setup: script the mock LLM for inf43: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf43\",\"turns\":[{\"error\":{\"status\":500,\"message\":\"primary down\"}},{\"text\":\"Checking\",\"tool_calls\":[{\"id\":\"k1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}],\"usage\":{\"input\":10,\"output\":5}},{\"text\":\"Final\",\"usage\":{\"input\":20,\"output\":7}}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-43 chat with a fallback",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-43 chat with a fallback: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-43 chat with a fallback: content is \\\"Checking\\\\n\\\\nFinal\\\"\", function () {",
+                      "  pm.expect(pm.response.json().choices[0].message.content, 'body: ' + pm.response.text()).to.equal(\"Checking\\n\\nFinal\");",
+                      "});",
+                      "pm.test(\"INF-43 chat with a fallback: usage is the sum of the two served turns\", function () {",
+                      "  var u = pm.response.json().usage;",
+                      "  pm.expect(u.prompt_tokens, 'body: ' + pm.response.text()).to.equal(30);",
+                      "  pm.expect(u.completion_tokens).to.equal(12);",
+                      "  pm.expect(u.total_tokens).to.equal(42);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/inf43-a\",\"fallbacks\":[\"anthropic/inf43-b\"],\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf43] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-43 turn 2 goes to turn 1's provider and model",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-43 turn 2 goes to turn 1's provider and model: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-43 turn 2 goes to turn 1's provider and model: 3 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(3);",
+                      "});",
+                      "pm.test(\"INF-43 turn 2 goes to turn 1's provider and model: openai inf43-a (500), then anthropic inf43-b twice\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.map(function (r) { return r.format + ':' + r.model + ':' + r.status; })).to.eql(['openai.chat:inf43-a:500', 'anthropic.messages:inf43-b:200', 'anthropic.messages:inf43-b:200']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf43"
+              }
+            },
+            {
+              "name": "INF-43 teardown: delete client inf-43-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-43 teardown: delete client inf-43-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-43-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-44 Agent on Anthropic and GenAI",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; on /anthropic and on /genai (bare model mock-model), turn 1 calls alpha-echo, turn 2 answers \"done\".",
+          "item": [
+            {
+              "name": "INF-44 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-44 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-44 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-44-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-44 setup: script the mock LLM for inf44-anth",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 setup: script the mock LLM for inf44-anth: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf44-anth\",\"turns\":[{\"tool_calls\":[{\"id\":\"x1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-44 Anthropic request",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 Anthropic request: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-44 Anthropic request: the client gets only the final text\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.eql([{ type: 'text', text: 'done' }]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/anthropic/v1/messages",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"mock-model\",\"max_tokens\":64,\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf44-anth] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-44 two model requests on Anthropic",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 two model requests on Anthropic: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-44 two model requests on Anthropic: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf44-anth"
+              }
+            },
+            {
+              "name": "INF-44 alpha ran echo once for Anthropic",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 alpha ran echo once for Anthropic: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-44 alpha ran echo once for Anthropic: calls[echo] is 1\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-44 setup: reset alpha's counters",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 setup: reset alpha's counters: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/counters/reset",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "INF-44 setup: script the mock LLM for inf44-gen",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 setup: script the mock LLM for inf44-gen: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf44-gen\",\"turns\":[{\"tool_calls\":[{\"id\":\"x2\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-44 generateContent",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 generateContent: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-44 generateContent: the client gets only the final text\", function () {",
+                      "  pm.expect(pm.response.json().candidates[0].content.parts, 'body: ' + pm.response.text()).to.eql([{ text: 'done' }]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/genai/v1beta/models/mock-model:generateContent",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"[scenario:inf44-gen] hi\"}]}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-44 two model requests on GenAI",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 two model requests on GenAI: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-44 two model requests on GenAI: 2 model requests logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf44-gen"
+              }
+            },
+            {
+              "name": "INF-44 alpha ran echo once for GenAI",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 alpha ran echo once for GenAI: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-44 alpha ran echo once for GenAI: calls[echo] is 1\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-44 teardown: delete client inf-44-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-44 teardown: delete client inf-44-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-44-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-45 Per-user auth stops the loop",
+          "description": "Setup: the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; fleet server u (echo) that accepts only X-Api-Key key-a; a per_user_headers client u on it with per_user_header_keys [\"x-api-key\"], sample key-a, tools_to_execute [\"*\"], tools_to_auto_execute [\"*\"]; the caller (x-bf-mcp-session-id inf45-s) has submitted no headers; the model calls u-echo.",
+          "item": [
+            {
+              "name": "INF-45 setup: fresh mcpchaos server u",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-45 setup: fresh mcpchaos server u: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"u\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-45 setup: u serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-45 setup: u serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/u/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-45 setup: u accepts only X-Api-Key key-a",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-45 setup: u accepts only X-Api-Key key-a: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/u/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"auth\":{\"identity_header\":\"X-Api-Key\",\"require_headers\":{\"X-Api-Key\":\"key-a\"}}}"
+                }
+              }
+            },
+            {
+              "name": "INF-45 setup: create the per_user_headers client u",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-45 setup: create the per_user_headers client u: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-45-u\",\"name\":\"u\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/u/mcp\",\"auth_type\":\"per_user_headers\",\"per_user_header_keys\":[\"x-api-key\"],\"user_headers\":{\"x-api-key\":\"key-a\"},\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-45 setup: script the mock LLM for inf45",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-45 setup: script the mock LLM for inf45: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf45\",\"then\":{\"tool_calls\":[{\"id\":\"u1\",\"name\":\"u-echo\",\"arguments\":{\"text\":\"hi\"}}]}}"
+                }
+              }
+            },
+            {
+              "name": "INF-45 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-45 chat: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"INF-45 chat: error.type mcp_auth_required naming client u\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.type, 'body: ' + pm.response.text()).to.equal('mcp_auth_required');",
+                      "  pm.expect(b.extra_fields.mcp_auth_required.mcp_client_name).to.equal('u');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "inf45-s"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf45] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-45 teardown: delete client inf-45-u",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-45 teardown: delete client inf-45-u: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-45-u"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-46 Log entry for an agent call",
+          "description": "Setup: as INF-34 (alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"echo\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; turn 1 calls alpha-echo, turn 2 answers \"done\"), sent with x-request-id inf46-r.",
+          "item": [
+            {
+              "name": "INF-46 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-46 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-46 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-46 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-46 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-46 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-46-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"echo\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-46 setup: script the mock LLM for inf46",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-46 setup: script the mock LLM for inf46: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf46\",\"turns\":[{\"tool_calls\":[{\"id\":\"t1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-46 chat with x-request-id inf46-r",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-46 chat with x-request-id inf46-r: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-request-id",
+                    "value": "inf46-r"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf46] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-46 the call's log entry",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var left = 30;",
+                      "function poll() {",
+                      "  pm.sendRequest({ url: pm.variables.get('base_url') + '/api/mcp-logs?llm_request_ids=inf46-r', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) {",
+                      "    if ((!err && res.code === 200 && res.json().pagination.total_count >= 1) || --left <= 0) { return; }",
+                      "    setTimeout(poll, 500);",
+                      "  });",
+                      "}",
+                      "poll();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-46 the call's log entry: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-46 the call's log entry: one entry: echo on alpha, success, llm_request_id inf46-r\", function () {",
+                      "  var logs = pm.response.json().logs || [];",
+                      "  pm.expect(logs.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "  pm.expect(logs[0].tool_name).to.equal('echo');",
+                      "  pm.expect(logs[0].server_label).to.equal('alpha');",
+                      "  pm.expect(logs[0].status).to.equal('success');",
+                      "  pm.expect(logs[0].llm_request_id).to.equal('inf46-r');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?llm_request_ids=inf46-r"
+              }
+            },
+            {
+              "name": "INF-46 teardown: delete client inf-46-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-46 teardown: delete client inf-46-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-46-alpha"
               }
             }
           ]
@@ -102966,6 +106813,732 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/log-05-a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LOG-06 Agent mode on chat: one log entry per tool call",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"*\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; the model calls alpha-echo and alpha-add in parallel, then answers \"done\"; the chat is sent with x-request-id log06-r.",
+          "item": [
+            {
+              "name": "LOG-06 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-06 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "LOG-06 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-06 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "LOG-06 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-06 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"log-06-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "LOG-06 setup: script the mock LLM for log06",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-06 setup: script the mock LLM for log06: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"log06\",\"turns\":[{\"tool_calls\":[{\"id\":\"e1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}},{\"id\":\"a1\",\"name\":\"alpha-add\",\"arguments\":{\"a\":1,\"b\":2}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "LOG-06 chat with x-request-id log06-r",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-06 chat with x-request-id log06-r: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-request-id",
+                    "value": "log06-r"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:log06] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LOG-06 the log entries for log06-r",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var left = 30;",
+                      "function poll() {",
+                      "  pm.sendRequest({ url: pm.variables.get('base_url') + '/api/mcp-logs?llm_request_ids=log06-r', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) {",
+                      "    if ((!err && res.code === 200 && res.json().pagination.total_count >= 2) || --left <= 0) { return; }",
+                      "    setTimeout(poll, 500);",
+                      "  });",
+                      "}",
+                      "poll();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-06 the log entries for log06-r: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LOG-06 the log entries for log06-r: 2 entries, each llm_request_id log06-r, with distinct ids that are not log06-r\", function () {",
+                      "  var logs = pm.response.json().logs || [];",
+                      "  pm.expect(pm.response.json().pagination.total_count, 'body: ' + pm.response.text()).to.equal(2);",
+                      "  logs.forEach(function (r) { pm.expect(r.llm_request_id).to.equal(\"log06-r\"); pm.expect(r.id).to.not.equal(\"log06-r\"); });",
+                      "  pm.expect(logs[0].id).to.not.equal(logs[1].id);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?llm_request_ids=log06-r"
+              }
+            },
+            {
+              "name": "LOG-06 teardown: delete client log-06-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-06 teardown: delete client log-06-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/log-06-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LOG-07 Agent mode on Responses",
+          "description": "Setup: as LOG-06 (alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"*\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; parallel alpha-echo and alpha-add, then \"done\") on /v1/responses with x-request-id log07-r.",
+          "item": [
+            {
+              "name": "LOG-07 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-07 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "LOG-07 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-07 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "LOG-07 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-07 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"log-07-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "LOG-07 setup: script the mock LLM for log07",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-07 setup: script the mock LLM for log07: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"log07\",\"turns\":[{\"tool_calls\":[{\"id\":\"e1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"hi\"}},{\"id\":\"a1\",\"name\":\"alpha-add\",\"arguments\":{\"a\":1,\"b\":2}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "LOG-07 Responses request with x-request-id log07-r",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-07 Responses request with x-request-id log07-r: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-request-id",
+                    "value": "log07-r"
+                  }
+                ],
+                "url": "{{base_url}}/v1/responses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"input\":\"[scenario:log07] hi\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LOG-07 the log entries for log07-r",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var left = 30;",
+                      "function poll() {",
+                      "  pm.sendRequest({ url: pm.variables.get('base_url') + '/api/mcp-logs?llm_request_ids=log07-r', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) {",
+                      "    if ((!err && res.code === 200 && res.json().pagination.total_count >= 2) || --left <= 0) { return; }",
+                      "    setTimeout(poll, 500);",
+                      "  });",
+                      "}",
+                      "poll();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-07 the log entries for log07-r: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LOG-07 the log entries for log07-r: 2 entries, each llm_request_id log07-r, with distinct ids that are not log07-r\", function () {",
+                      "  var logs = pm.response.json().logs || [];",
+                      "  pm.expect(pm.response.json().pagination.total_count, 'body: ' + pm.response.text()).to.equal(2);",
+                      "  logs.forEach(function (r) { pm.expect(r.llm_request_id).to.equal(\"log07-r\"); pm.expect(r.id).to.not.equal(\"log07-r\"); });",
+                      "  pm.expect(logs[0].id).to.not.equal(logs[1].id);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?llm_request_ids=log07-r"
+              }
+            },
+            {
+              "name": "LOG-07 teardown: delete client log-07-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-07 teardown: delete client log-07-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/log-07-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LOG-08 Agent mode over two turns",
+          "description": "Setup: alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], tools_to_auto_execute [\"*\"]; the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; the model calls alpha-echo with \"one\", then alpha-echo with \"two\", then answers \"done\"; the chat is sent with x-request-id log08-r.",
+          "item": [
+            {
+              "name": "LOG-08 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-08 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "LOG-08 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-08 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "LOG-08 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-08 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"log-08-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"tools_to_auto_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "LOG-08 setup: script the mock LLM for log08",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-08 setup: script the mock LLM for log08: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"log08\",\"turns\":[{\"tool_calls\":[{\"id\":\"e1\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"one\"}}]},{\"tool_calls\":[{\"id\":\"e2\",\"name\":\"alpha-echo\",\"arguments\":{\"text\":\"two\"}}]},{\"text\":\"done\"}]}"
+                }
+              }
+            },
+            {
+              "name": "LOG-08 chat with x-request-id log08-r",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-08 chat with x-request-id log08-r: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-request-id",
+                    "value": "log08-r"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:log08] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LOG-08 the log entries for log08-r",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var left = 30;",
+                      "function poll() {",
+                      "  pm.sendRequest({ url: pm.variables.get('base_url') + '/api/mcp-logs?llm_request_ids=log08-r', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) {",
+                      "    if ((!err && res.code === 200 && res.json().pagination.total_count >= 2) || --left <= 0) { return; }",
+                      "    setTimeout(poll, 500);",
+                      "  });",
+                      "}",
+                      "poll();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-08 the log entries for log08-r: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LOG-08 the log entries for log08-r: both entries carry llm_request_id log08-r; the second turn's entry has a new request_id\", function () {",
+                      "  var logs = pm.response.json().logs || [];",
+                      "  pm.expect(logs.length, 'body: ' + pm.response.text()).to.equal(2);",
+                      "  logs.forEach(function (r) { pm.expect(r.llm_request_id).to.equal('log08-r'); });",
+                      "  var second = logs.filter(function (r) { return JSON.stringify(r.arguments).indexOf('two') >= 0; });",
+                      "  pm.expect(second.length, 'logs: ' + pm.response.text()).to.equal(1);",
+                      "  pm.expect(second[0].request_id).to.be.a('string').and.not.equal('log08-r');",
+                      "  pm.expect(second[0].request_id).to.not.equal('');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs?llm_request_ids=log08-r"
+              }
+            },
+            {
+              "name": "LOG-08 teardown: delete client log-08-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-08 teardown: delete client log-08-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/log-08-alpha"
               }
             }
           ]

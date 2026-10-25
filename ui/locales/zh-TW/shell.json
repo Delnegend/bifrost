@@ -169,6 +169,22 @@
 		"unlockTitle": "解鎖你的個人主頁",
 		"unlockDescription": "此功能屬於 Bifrost 企業版許可證。主頁會向每位使用者展示自己的用量、金鑰、預算和存取權限。"
 	},
+	"commandPalette": {
+		"title": "命令選單",
+		"placeholder": "搜尋頁面或跳至…",
+		"empty": "沒有符合「{{query}}」的結果",
+		"groups": {
+			"general": "一般",
+			"pages": "頁面"
+		},
+		"current": "目前",
+		"footer": {
+			"navigate": "導覽",
+			"open": "開啟",
+			"newTab": "新分頁"
+		},
+		"openHint": "開啟命令選單"
+	},
 	"search": {
 		"placeholder": "搜尋…",
 		"ariaLabel": "搜尋側欄導航"

@@ -169,6 +169,22 @@
 		"unlockTitle": "개인 홈 잠금 해제",
 		"unlockDescription": "이 기능은 Bifrost 엔터프라이즈 라이선스의 일부입니다. 홈에서는 각 사용자 자신의 사용량, 키, 예산, 접근 권한을 보여 줍니다."
 	},
+	"commandPalette": {
+		"title": "명령 메뉴",
+		"placeholder": "페이지 검색 또는 이동…",
+		"empty": "“{{query}}”에 대한 결과가 없습니다",
+		"groups": {
+			"general": "일반",
+			"pages": "페이지"
+		},
+		"current": "현재",
+		"footer": {
+			"navigate": "이동",
+			"open": "열기",
+			"newTab": "새 탭"
+		},
+		"openHint": "명령 메뉴 열기"
+	},
 	"search": {
 		"placeholder": "검색...",
 		"ariaLabel": "사이드바 탐색 검색"

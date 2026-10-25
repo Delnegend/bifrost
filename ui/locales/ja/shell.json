@@ -169,6 +169,22 @@
 		"unlockTitle": "個人用ホームを解除",
 		"unlockDescription": "この機能は Bifrost エンタープライズライセンスの一部です。ホームでは、各ユーザー自身の利用量、キー、予算、アクセスが表示されます。"
 	},
+	"commandPalette": {
+		"title": "コマンドメニュー",
+		"placeholder": "ページを検索、または移動…",
+		"empty": "「{{query}}」に一致する結果はありません",
+		"groups": {
+			"general": "一般",
+			"pages": "ページ"
+		},
+		"current": "現在",
+		"footer": {
+			"navigate": "移動",
+			"open": "開く",
+			"newTab": "新しいタブ"
+		},
+		"openHint": "コマンドメニューを開く"
+	},
 	"search": {
 		"placeholder": "検索…",
 		"ariaLabel": "サイドバーナビゲーションを検索"

@@ -169,6 +169,22 @@
 		"unlockTitle": "Unlock your personal Home page",
 		"unlockDescription": "This feature is a part of the Bifrost enterprise license. Home shows each user their own usage, keys, budgets and access."
 	},
+	"commandPalette": {
+		"title": "Command menu",
+		"placeholder": "Search pages or jump to…",
+		"empty": "No results for “{{query}}”",
+		"groups": {
+			"general": "General",
+			"pages": "Pages"
+		},
+		"current": "Current",
+		"footer": {
+			"navigate": "Navigate",
+			"open": "Open",
+			"newTab": "New tab"
+		},
+		"openHint": "Open command menu"
+	},
 	"search": {
 		"placeholder": "Search...",
 		"ariaLabel": "Search sidebar navigation"

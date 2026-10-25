@@ -169,6 +169,22 @@
 		"unlockTitle": "Débloquez votre page d'accueil personnelle",
 		"unlockDescription": "Cette fonctionnalité fait partie de la licence entreprise Bifrost. L'accueil montre à chaque utilisateur sa propre utilisation, ses clés, ses budgets et ses accès."
 	},
+	"commandPalette": {
+		"title": "Menu de commandes",
+		"placeholder": "Rechercher des pages ou aller à…",
+		"empty": "Aucun résultat pour « {{query}} »",
+		"groups": {
+			"general": "Général",
+			"pages": "Pages"
+		},
+		"current": "Actuelle",
+		"footer": {
+			"navigate": "Naviguer",
+			"open": "Ouvrir",
+			"newTab": "Nouvel onglet"
+		},
+		"openHint": "Ouvrir le menu de commandes"
+	},
 	"search": {
 		"placeholder": "Rechercher…",
 		"ariaLabel": "Rechercher dans la navigation latérale"

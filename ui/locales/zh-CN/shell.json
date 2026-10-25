@@ -169,6 +169,22 @@
 		"unlockTitle": "解锁你的个人主页",
 		"unlockDescription": "此功能属于 Bifrost 企业版许可证。主页会向每位用户展示自己的用量、密钥、预算和访问权限。"
 	},
+	"commandPalette": {
+		"title": "命令菜单",
+		"placeholder": "搜索页面或跳转到…",
+		"empty": "没有与“{{query}}”匹配的结果",
+		"groups": {
+			"general": "通用",
+			"pages": "页面"
+		},
+		"current": "当前",
+		"footer": {
+			"navigate": "导航",
+			"open": "打开",
+			"newTab": "新标签页"
+		},
+		"openHint": "打开命令菜单"
+	},
 	"search": {
 		"placeholder": "搜索…",
 		"ariaLabel": "搜索侧栏导航"

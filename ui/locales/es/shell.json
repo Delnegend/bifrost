@@ -169,6 +169,22 @@
 		"unlockTitle": "Desbloquea tu página de inicio personal",
 		"unlockDescription": "Esta función forma parte de la licencia empresarial de Bifrost. Inicio muestra a cada usuario su propio uso, claves, presupuestos y acceso."
 	},
+	"commandPalette": {
+		"title": "Menú de comandos",
+		"placeholder": "Busca páginas o salta a…",
+		"empty": "Sin resultados para “{{query}}”",
+		"groups": {
+			"general": "General",
+			"pages": "Páginas"
+		},
+		"current": "Actual",
+		"footer": {
+			"navigate": "Navegar",
+			"open": "Abrir",
+			"newTab": "Nueva pestaña"
+		},
+		"openHint": "Abrir menú de comandos"
+	},
 	"search": {
 		"placeholder": "Buscar...",
 		"ariaLabel": "Buscar en la navegación lateral"

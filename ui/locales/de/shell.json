@@ -169,6 +169,22 @@
 		"unlockTitle": "Persönliche Startseite freischalten",
 		"unlockDescription": "Diese Funktion ist Teil der Bifrost-Enterprise-Lizenz. Die Startseite zeigt jeder Person die eigene Nutzung, Schlüssel, Budgets und Zugriffe."
 	},
+	"commandPalette": {
+		"title": "Befehlsmenü",
+		"placeholder": "Seiten suchen oder springen zu…",
+		"empty": "Keine Ergebnisse für „{{query}}“",
+		"groups": {
+			"general": "Allgemein",
+			"pages": "Seiten"
+		},
+		"current": "Aktuell",
+		"footer": {
+			"navigate": "Navigieren",
+			"open": "Öffnen",
+			"newTab": "Neuer Tab"
+		},
+		"openHint": "Befehlsmenü öffnen"
+	},
 	"search": {
 		"placeholder": "Suchen...",
 		"ariaLabel": "Seitenleistennavigation durchsuchen"

@@ -3580,6 +3580,15 @@ func (p *LoggerPlugin) PostMCPHook(ctx *schemas.BifrostContext, resp *schemas.Bi
 		mcpLogID = requestID
 	}
 
+	// A sign-in prompt is not a failed call: the caller still has to connect
+	// their account, and the sign-in link it carries must stay out of the store.
+	// Drop what PreMCPHook held so the stale sweeper does not write it either.
+	if bifrostErr != nil && bifrostErr.ExtraFields.MCPAuthRequired != nil {
+		p.pendingMCPLogsToInject.Delete(mcpLogID)
+		p.provisionalMCPArguments.Delete(mcpLogID)
+		return resp, bifrostErr, nil
+	}
+
 	pendingVal, hasPending := p.pendingMCPLogsToInject.LoadAndDelete(mcpLogID)
 	var entry *logstore.MCPToolLog
 	if hasPending {

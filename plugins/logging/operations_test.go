@@ -1947,6 +1947,85 @@ func TestPostMCPHookDropsArgumentsWhenContentIsDisabledLate(t *testing.T) {
 	}
 }
 
+// TestPostMCPHookSkipsSignInPrompts: a tool call that stops because the caller
+// still has to sign in is a prompt, not a failed call, so it leaves no MCP log
+// row, and the sign-in link it carries stays out of the store. Arguments
+// PreMCPHook held aside for a governance decision still pending are dropped
+// with the pending entry.
+func TestPostMCPHookSkipsSignInPrompts(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		decisionPending bool
+	}{
+		{name: "governance decision made"},
+		{name: "governance decision pending", decisionPending: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := newTestStore(t)
+			plugin, err := Init(context.Background(), &Config{}, testLogger{}, store, nil, nil, nil)
+			if err != nil {
+				t.Fatalf("Init() error = %v", err)
+			}
+
+			ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+			ctx.SetValue(schemas.BifrostContextKeyRequestID, "req-mcp-sign-in")
+			ctx.SetValue(schemas.BifrostContextKeyMCPLogID, "mcp-sign-in")
+			if tc.decisionPending {
+				// A project the request names that governance has not admitted yet.
+				ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, map[string]string{schemas.HeaderGovernanceProjectID: "project-1"})
+			}
+
+			toolName := "github-create_issue"
+			_, _, err = plugin.PreMCPHook(ctx, &schemas.BifrostMCPRequest{
+				RequestType: schemas.MCPRequestTypeChatToolCall,
+				ChatAssistantMessageToolCall: &schemas.ChatAssistantMessageToolCall{
+					Function: schemas.ChatAssistantMessageToolCallFunction{
+						Name:      &toolName,
+						Arguments: `{"title":"crash on start"}`,
+					},
+				},
+			})
+			if err != nil {
+				t.Fatalf("PreMCPHook() error = %v", err)
+			}
+			if _, held := plugin.provisionalMCPArguments.Load("mcp-sign-in"); held != tc.decisionPending {
+				t.Fatalf("arguments held before PostMCPHook = %v, want %v", held, tc.decisionPending)
+			}
+
+			authURL := "https://bifrost.example.com/workspace/mcp-auth/flow-1#t=temp-token"
+			authErr := &schemas.MCPAuthRequiredError{
+				Kind:          schemas.MCPAuthRequiredKindOAuth,
+				MCPClientName: "github",
+				AuthorizeURL:  authURL,
+				Message:       "Authentication required for github. Visit " + authURL + " to connect your account.",
+			}
+			_, _, err = plugin.PostMCPHook(ctx, nil, &schemas.BifrostError{
+				Error: &schemas.ErrorField{Message: authErr.Message, Error: authErr},
+				ExtraFields: schemas.BifrostErrorExtraFields{
+					MCPRequestType:  schemas.MCPRequestTypeChatToolCall,
+					MCPAuthRequired: authErr,
+				},
+			})
+			if err != nil {
+				t.Fatalf("PostMCPHook() error = %v", err)
+			}
+			if err := plugin.Cleanup(); err != nil {
+				t.Fatalf("Cleanup() error = %v", err)
+			}
+
+			if logEntry, err := store.FindMCPToolLog(context.Background(), "mcp-sign-in"); !errors.Is(err, logstore.ErrNotFound) {
+				t.Fatalf("a sign-in prompt must not be logged as a tool call, got entry %#v (err %v)", logEntry, err)
+			}
+			if _, ok := plugin.pendingMCPLogsToInject.Load("mcp-sign-in"); ok {
+				t.Fatal("the pending entry must be dropped, not left for the stale sweeper to write")
+			}
+			if _, ok := plugin.provisionalMCPArguments.Load("mcp-sign-in"); ok {
+				t.Fatal("the held arguments must be dropped with the pending entry")
+			}
+		})
+	}
+}
+
 // TestPostLLMHookDropsCapturedInputWhenContentIsDisabledLate pins the passthrough ordering hole:
 // governance skips PreRequestHook for passthrough and stamps the key's decision in its own
 // PreLLMHook, which runs after ours, so the passthrough body is captured while nothing has turned

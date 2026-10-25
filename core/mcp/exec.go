@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/mark3labs/mcp-go/client"
-	"github.com/maximhq/bifrost/core/internal/injectedauth"
+	"github.com/maximhq/bifrost/core/internal/mcpvouch"
 	"github.com/maximhq/bifrost/core/schemas"
 )
 
@@ -82,7 +82,23 @@ func (m *MCPManager) executeToolWithHooks(
 		}
 	}
 
+	// A connect call is decided before the gate and marked on a context of its
+	// own, so a policy plugin can authorize it by the caller's access to the
+	// client (see mcpvouch) and the mark covers this call only.
+	var connectState *schemas.MCPClientState
+	if toolName := request.GetToolName(); strings.HasSuffix(toolName, connectToolSuffix) {
+		if connectState = m.ConnectToolClient(ctx, toolName); connectState != nil {
+			ctx = schemas.NewBifrostContext(ctx, schemas.NoDeadline)
+			mcpvouch.Set(ctx, schemas.MCPToolCallKindConnect, connectState.ExecutionConfig.Name, toolName)
+		}
+	}
+
 	resp, bErr := m.RunWithPluginPipeline(ctx, request, func(preReq *schemas.BifrostMCPRequest) (*schemas.BifrostMCPResponse, error) {
+		// A plugin may have retargeted the request; connect runs only for the
+		// tool it was decided on.
+		if connectState != nil && preReq.GetToolName() == connectToolName(connectState.ExecutionConfig.Name) {
+			return m.runConnect(ctx, preReq, connectState)
+		}
 		// Resolve and acquire after PreMCPHook so policy plugins can reject denied
 		// MCP clients before any auth or transport work.
 		state, discovery, conn, release, prepErr := m.prepareToolExecution(ctx, preReq)
@@ -190,7 +206,7 @@ func (m *MCPManager) prepareToolExecution(ctx *schemas.BifrostContext, request *
 //  3. Tool allow-list   — client-level ToolsToExecute (most restrictive).
 //  4. Tool narrowing    — request-context MCPContextKeyIncludeTools.
 //
-// A provider-injected tool (core's injectedauth marker names it) skips 2-4.
+// A provider-injected tool (core's mcpvouch mark names it) skips 2-4.
 // The operator chose it in the provider config, and the caller never saw it in the
 // request, so neither the client's allow-list nor the caller's include lists apply.
 // The marker names one client and one exact prefixed tool, and both must match, so it
@@ -200,7 +216,7 @@ func checkToolExecutionPermitted(ctx *schemas.BifrostContext, state *schemas.MCP
 	if state.State == schemas.MCPConnectionStateDisabled {
 		return fmt.Errorf("tool '%s' is not permitted (client %s is disabled)", toolName, clientName)
 	}
-	if injectedauth.Authorizes(ctx, clientName, toolName) {
+	if mcpvouch.Kind(ctx, clientName, toolName) == schemas.MCPToolCallKindInjected {
 		return nil
 	}
 	var includeClients []string

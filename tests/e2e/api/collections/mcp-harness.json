@@ -21371,6 +21371,449 @@
           ]
         },
         {
+          "name": "ADM-80 OpenAPI preview",
+          "description": "Setup: dashboard auth on, admin credentials; alpha serves an inline OpenAPI document with GET /pets/{petId}, GET /pets?limit and POST /pets at GET /openapi.json on its REST surface. The unauthenticated case whitelists /api/mcp/openapi/preview and sends no credential; the config is restored before the admin case.",
+          "item": [
+            {
+              "name": "ADM-80 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "ADM-80 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-80 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-80 setup: alpha serves the document at GET /openapi.json",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 setup: alpha serves the document at GET /openapi.json: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/routes/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"route\":{\"method\":\"GET\",\"path\":\"/openapi.json\",\"json\":{\"openapi\":\"3.0.3\",\"info\":{\"title\":\"Pets\",\"version\":\"1.0.0\"},\"paths\":{\"/pets\":{\"get\":{\"operationId\":\"listPets\",\"parameters\":[{\"name\":\"limit\",\"in\":\"query\",\"schema\":{\"type\":\"integer\"}}],\"responses\":{\"200\":{\"description\":\"ok\"}}},\"post\":{\"operationId\":\"createPet\",\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}}}},\"responses\":{\"201\":{\"description\":\"created\"}}}},\"/pets/{petId}\":{\"get\":{\"operationId\":\"getPetById\",\"parameters\":[{\"name\":\"petId\",\"in\":\"path\",\"required\":true,\"schema\":{\"type\":\"string\"}}],\"responses\":{\"200\":{\"description\":\"ok\"}}}}}}}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-80 body \"x\"",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 body \\\"x\\\": status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/openapi/preview",
+                "body": {
+                  "mode": "raw",
+                  "raw": "x"
+                }
+              }
+            },
+            {
+              "name": "ADM-80 body {}",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 body {}: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-80 body {}: error message is \\\"spec or spec_url is required\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"spec or spec_url is required\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/openapi/preview",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "ADM-80 a document that is not OpenAPI",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 a document that is not OpenAPI: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"ADM-80 a document that is not OpenAPI: error message starts with \\\"Invalid OpenAPI spec:\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(b.error.message.indexOf(\"Invalid OpenAPI spec:\"), 'message: ' + b.error.message).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/openapi/preview",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"spec\":\"{\\\"foo\\\":1}\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-80 setup: whitelist /api/mcp/openapi/preview",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.whitelisted_routes = [\"/api/mcp/openapi/preview\"];",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 setup: whitelist /api/mcp/openapi/preview: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-80 loopback spec_url with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 loopback spec_url with no credential: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/openapi/preview",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"spec_url\":\"{{chaos_url}}/s/alpha/rest/openapi.json\"}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-80 control: alpha served nothing",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 control: alpha served nothing: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-80 control: alpha served nothing: the REST log is empty\", function () {",
+                      "  var calls = ((pm.response.json().rest || {}).calls || []);",
+                      "  pm.expect(calls, 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "ADM-80 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-80 loopback spec_url with admin credentials",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 loopback spec_url with admin credentials: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/openapi/preview",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"spec_url\":\"{{chaos_url}}/s/alpha/rest/openapi.json\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-80 control: alpha served one GET /openapi.json to Bifrost",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-80 control: alpha served one GET /openapi.json to Bifrost: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"ADM-80 control: alpha served one GET /openapi.json to Bifrost: one REST call, GET /openapi.json, User-Agent Bifrost-OpenAPI-MCP/1.0\", function () {",
+                      "  var calls = ((pm.response.json().rest || {}).calls || []);",
+                      "  pm.expect(calls.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "  pm.expect(calls[0].method).to.equal('GET');",
+                      "  pm.expect(calls[0].path).to.equal('/openapi.json');",
+                      "  pm.expect(calls[0].headers['User-Agent']).to.equal('Bifrost-OpenAPI-MCP/1.0');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            }
+          ]
+        },
+        {
           "name": "ADM-81 OpenAPI create validation",
           "description": "Setup: admin credentials; an inline Petstore OpenAPI document with an absolute server URL.",
           "item": [
@@ -42983,6 +43426,1409 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/conn22-c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "CONN-23 OpenAPI request mapping",
+          "description": "Setup: fleet server conn23, whose REST surface echoes every request; an OpenAPI client conn23 from an inline OpenAPI document with GET /pets/{petId}, GET /pets?limit and POST /pets, base_url conn23's REST surface, tools_to_execute [\"*\"].",
+          "item": [
+            {
+              "name": "CONN-23 setup: fresh mcpchaos server conn23",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-23 setup: fresh mcpchaos server conn23: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"conn23\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-23 setup: conn23 serves echo_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-23 setup: conn23 serves echo_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/conn23/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-23 setup: create the OpenAPI client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-23 setup: create the OpenAPI client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn23-c\",\"name\":\"conn23\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{\"spec\":\"{\\\"openapi\\\":\\\"3.0.3\\\",\\\"info\\\":{\\\"title\\\":\\\"Pets\\\",\\\"version\\\":\\\"1.0.0\\\"},\\\"paths\\\":{\\\"/pets\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"listPets\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"limit\\\",\\\"in\\\":\\\"query\\\",\\\"schema\\\":{\\\"type\\\":\\\"integer\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}},\\\"post\\\":{\\\"operationId\\\":\\\"createPet\\\",\\\"requestBody\\\":{\\\"required\\\":true,\\\"content\\\":{\\\"application/json\\\":{\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"name\\\":{\\\"type\\\":\\\"string\\\"}}}}}},\\\"responses\\\":{\\\"201\\\":{\\\"description\\\":\\\"created\\\"}}}},\\\"/pets/{petId}\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"getPetById\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"petId\\\",\\\"in\\\":\\\"path\\\",\\\"required\\\":true,\\\"schema\\\":{\\\"type\\\":\\\"string\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}}}}}\",\"base_url\":\"{{chaos_url}}/s/conn23/rest\"}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-23 tools listed, no spec, operation_count 3",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-23 tools listed, no spec, operation_count 3: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-23 tools listed, no spec, operation_count 3: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"CONN-23 tools listed, no spec, operation_count 3: tools createPet, getPetById and listPets; no spec; operation_count 3\", function () {",
+                      "  var c = pm.response.json().clients[0];",
+                      "  pm.expect(c.tools.map(function (t) { return t.name; }).sort(), 'body: ' + pm.response.text()).to.eql(['createPet', 'getPetById', 'listPets']);",
+                      "  pm.expect(c.config.openapi_config).to.not.have.property('spec');",
+                      "  pm.expect(c.config.openapi_config.operation_count).to.equal(3);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=conn23-c"
+              }
+            },
+            {
+              "name": "CONN-23 execute getPetById with petId 7",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-23 execute getPetById with petId 7: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-23 execute getPetById with petId 7: content is \\\"{\\\\\\\"body\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"method\\\\\\\":\\\\\\\"GET\\\\\\\",\\\\\\\"path\\\\\\\":\\\\\\\"/pets/7\\\\\\\",\\\\\\\"query\\\\\\\":\\\\\\\"\\\\\\\"}\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"{\\\"body\\\":\\\"\\\",\\\"method\\\":\\\"GET\\\",\\\"path\\\":\\\"/pets/7\\\",\\\"query\\\":\\\"\\\"}\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn23-getPetById\",\"arguments\":\"{\\\"petId\\\":\\\"7\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-23 execute listPets with limit 2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-23 execute listPets with limit 2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-23 execute listPets with limit 2: content is \\\"{\\\\\\\"body\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"method\\\\\\\":\\\\\\\"GET\\\\\\\",\\\\\\\"path\\\\\\\":\\\\\\\"/pets\\\\\\\",\\\\\\\"query\\\\\\\":\\\\\\\"limit=2\\\\\\\"}\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"{\\\"body\\\":\\\"\\\",\\\"method\\\":\\\"GET\\\",\\\"path\\\":\\\"/pets\\\",\\\"query\\\":\\\"limit=2\\\"}\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn23-listPets\",\"arguments\":\"{\\\"limit\\\":2}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-23 execute createPet with name x",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-23 execute createPet with name x: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-23 execute createPet with name x: content is \\\"{\\\\\\\"body\\\\\\\":\\\\\\\"{\\\\\\\\\\\\\\\"name\\\\\\\\\\\\\\\":\\\\\\\\\\\\\\\"x\\\\\\\\\\\\\\\"}\\\\\\\",\\\\\\\"method\\\\\\\":\\\\\\\"POST\\\\\\\",\\\\\\\"path\\\\\\\":\\\\\\\"/pets\\\\\\\",\\\\\\\"query\\\\\\\":\\\\\\\"\\\\\\\"}\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"{\\\"body\\\":\\\"{\\\\\\\"name\\\\\\\":\\\\\\\"x\\\\\\\"}\\\",\\\"method\\\":\\\"POST\\\",\\\"path\\\":\\\"/pets\\\",\\\"query\\\":\\\"\\\"}\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn23-createPet\",\"arguments\":\"{\\\"name\\\":\\\"x\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-23 the REST log shows the three requests",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-23 the REST log shows the three requests: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-23 the REST log shows the three requests: GET /pets/7, GET /pets?limit=2, POST /pets with {\\\"name\\\":\\\"x\\\"}\", function () {",
+                      "  var calls = ((pm.response.json().rest || {}).calls || []);",
+                      "  pm.expect(calls.map(function (x) { return [x.method, x.path, x.query, x.body]; }), 'body: ' + pm.response.text()).to.eql([['GET', '/pets/7', '', ''], ['GET', '/pets', 'limit=2', ''], ['POST', '/pets', '', '{\"name\":\"x\"}']]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/conn23"
+              }
+            },
+            {
+              "name": "CONN-23 teardown: delete client conn23-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-23 teardown: delete client conn23-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn23-c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "CONN-24 OpenAPI responses",
+          "description": "Setup: fleet server conn24, whose REST surface answers GET /pets/404 with 404 {\"e\":1}, GET /pets/png with a 68-byte image/png and GET /pets/big with the 20-byte text 0123456789ABCDEFGHIJ; two OpenAPI clients from an inline OpenAPI document with GET /pets/{petId}, GET /pets?limit and POST /pets with base_url conn24's REST surface: conn24 with the default response cap and conn24_t with max_response_bytes 10.",
+          "item": [
+            {
+              "name": "CONN-24 setup: fresh mcpchaos server conn24",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 setup: fresh mcpchaos server conn24: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"conn24\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-24 setup: conn24 serves echo_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 setup: conn24 serves echo_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/conn24/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-24 setup: conn24 serves the 404, the PNG and the 20-byte text",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 setup: conn24 serves the 404, the PNG and the 20-byte text: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/conn24/routes/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"routes\":[{\"method\":\"GET\",\"path\":\"/pets/404\",\"status\":404,\"content_type\":\"application/json\",\"body\":\"{\\\"e\\\":1}\"},{\"method\":\"GET\",\"path\":\"/pets/png\",\"content_type\":\"image/png\",\"body_base64\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=\"},{\"method\":\"GET\",\"path\":\"/pets/big\",\"content_type\":\"text/plain\",\"body\":\"0123456789ABCDEFGHIJ\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-24 setup: create the OpenAPI client with the default cap",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 setup: create the OpenAPI client with the default cap: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn24-c\",\"name\":\"conn24\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{\"spec\":\"{\\\"openapi\\\":\\\"3.0.3\\\",\\\"info\\\":{\\\"title\\\":\\\"Pets\\\",\\\"version\\\":\\\"1.0.0\\\"},\\\"paths\\\":{\\\"/pets\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"listPets\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"limit\\\",\\\"in\\\":\\\"query\\\",\\\"schema\\\":{\\\"type\\\":\\\"integer\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}},\\\"post\\\":{\\\"operationId\\\":\\\"createPet\\\",\\\"requestBody\\\":{\\\"required\\\":true,\\\"content\\\":{\\\"application/json\\\":{\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"name\\\":{\\\"type\\\":\\\"string\\\"}}}}}},\\\"responses\\\":{\\\"201\\\":{\\\"description\\\":\\\"created\\\"}}}},\\\"/pets/{petId}\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"getPetById\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"petId\\\",\\\"in\\\":\\\"path\\\",\\\"required\\\":true,\\\"schema\\\":{\\\"type\\\":\\\"string\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}}}}}\",\"base_url\":\"{{chaos_url}}/s/conn24/rest\"}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-24 setup: create the OpenAPI client with max_response_bytes 10",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 setup: create the OpenAPI client with max_response_bytes 10: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn24-t\",\"name\":\"conn24_t\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{\"spec\":\"{\\\"openapi\\\":\\\"3.0.3\\\",\\\"info\\\":{\\\"title\\\":\\\"Pets\\\",\\\"version\\\":\\\"1.0.0\\\"},\\\"paths\\\":{\\\"/pets\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"listPets\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"limit\\\",\\\"in\\\":\\\"query\\\",\\\"schema\\\":{\\\"type\\\":\\\"integer\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}},\\\"post\\\":{\\\"operationId\\\":\\\"createPet\\\",\\\"requestBody\\\":{\\\"required\\\":true,\\\"content\\\":{\\\"application/json\\\":{\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"name\\\":{\\\"type\\\":\\\"string\\\"}}}}}},\\\"responses\\\":{\\\"201\\\":{\\\"description\\\":\\\"created\\\"}}}},\\\"/pets/{petId}\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"getPetById\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"petId\\\",\\\"in\\\":\\\"path\\\",\\\"required\\\":true,\\\"schema\\\":{\\\"type\\\":\\\"string\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}}}}}\",\"base_url\":\"{{chaos_url}}/s/conn24/rest\",\"max_response_bytes\":10}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-24 execute the 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 execute the 404: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-24 execute the 404: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"CONN-24 execute the 404: content is \\\"HTTP 404 Not Found\\\\n{\\\\\\\"e\\\\\\\":1}\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"HTTP 404 Not Found\\n{\\\"e\\\":1}\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn24-getPetById\",\"arguments\":\"{\\\"petId\\\":\\\"404\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-24 execute the PNG",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 execute the PNG: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-24 execute the PNG: content is \\\"[binary response: image/png, 68 bytes]\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"[binary response: image/png, 68 bytes]\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn24-getPetById\",\"arguments\":\"{\\\"petId\\\":\\\"png\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-24 execute the oversized body with the 10-byte cap",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 execute the oversized body with the 10-byte cap: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-24 execute the oversized body with the 10-byte cap: content ends \\\"[response truncated at 10 bytes]\\\"\", function () {",
+                      "  var t = pm.response.json().content;",
+                      "  pm.expect(t, 'body: ' + pm.response.text()).to.be.a('string');",
+                      "  pm.expect(t.slice(-'[response truncated at 10 bytes]'.length)).to.equal('[response truncated at 10 bytes]');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn24_t-getPetById\",\"arguments\":\"{\\\"petId\\\":\\\"big\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-24 setup: record conn24's REST call count",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 setup: record conn24's REST call count: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('conn24_calls', ((pm.response.json().rest || {}).calls || []).length);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/conn24"
+              }
+            },
+            {
+              "name": "CONN-24 execute getPetById without petId",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 execute getPetById without petId: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-24 execute getPetById without petId: is_error is true\", function () {",
+                      "  pm.expect(pm.response.json().is_error, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});",
+                      "pm.test(\"CONN-24 execute getPetById without petId: content is \\\"missing required path parameter \\\\\\\"petId\\\\\\\"\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"missing required path parameter \\\"petId\\\"\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn24-getPetById\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-24 control: no REST call for the missing path parameter",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 control: no REST call for the missing path parameter: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-24 control: no REST call for the missing path parameter: the REST call count is unchanged\", function () {",
+                      "  var calls = ((pm.response.json().rest || {}).calls || []);",
+                      "  pm.expect(calls.length, 'body: ' + pm.response.text()).to.equal(Number(pm.collectionVariables.get('conn24_calls')));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/conn24"
+              }
+            },
+            {
+              "name": "CONN-24 teardown: delete client conn24-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 teardown: delete client conn24-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn24-c"
+              }
+            },
+            {
+              "name": "CONN-24 teardown: delete client conn24-t",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-24 teardown: delete client conn24-t: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn24-t"
+              }
+            }
+          ]
+        },
+        {
+          "name": "CONN-25 OpenAPI credentials",
+          "description": "Setup: admin credentials; fleet servers conn25h, conn25k and conn25u, each with a REST surface that echoes and logs every request; OpenAPI clients from an inline OpenAPI document with GET /pets/{petId}, GET /pets?limit and POST /pets: conn25h with auth_type headers and headers Authorization \"Bearer T1\" and X-Static \"s\"; conn25k from the same document with an apiKey scheme sent in header X-Key, credential k-1; conn25u with auth_type per_user_headers and per_user_header_keys [\"x-user\"], called as session conn25-sess1. Each points base_url at its own server's REST surface.",
+          "item": [
+            {
+              "name": "CONN-25 setup: fresh mcpchaos server conn25h",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: fresh mcpchaos server conn25h: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"conn25h\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 setup: conn25h serves echo_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: conn25h serves echo_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/conn25h/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 setup: fresh mcpchaos server conn25k",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: fresh mcpchaos server conn25k: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"conn25k\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 setup: conn25k serves echo_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: conn25k serves echo_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/conn25k/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 setup: fresh mcpchaos server conn25u",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: fresh mcpchaos server conn25u: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"conn25u\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 setup: conn25u serves echo_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: conn25u serves echo_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/conn25u/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 setup: create the headers OpenAPI client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: create the headers OpenAPI client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn25h-c\",\"name\":\"conn25h\",\"connection_type\":\"openapi\",\"auth_type\":\"headers\",\"tools_to_execute\":[\"*\"],\"headers\":{\"Authorization\":\"Bearer T1\",\"X-Static\":\"s\"},\"openapi_config\":{\"spec\":\"{\\\"openapi\\\":\\\"3.0.3\\\",\\\"info\\\":{\\\"title\\\":\\\"Pets\\\",\\\"version\\\":\\\"1.0.0\\\"},\\\"paths\\\":{\\\"/pets\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"listPets\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"limit\\\",\\\"in\\\":\\\"query\\\",\\\"schema\\\":{\\\"type\\\":\\\"integer\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}},\\\"post\\\":{\\\"operationId\\\":\\\"createPet\\\",\\\"requestBody\\\":{\\\"required\\\":true,\\\"content\\\":{\\\"application/json\\\":{\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"name\\\":{\\\"type\\\":\\\"string\\\"}}}}}},\\\"responses\\\":{\\\"201\\\":{\\\"description\\\":\\\"created\\\"}}}},\\\"/pets/{petId}\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"getPetById\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"petId\\\",\\\"in\\\":\\\"path\\\",\\\"required\\\":true,\\\"schema\\\":{\\\"type\\\":\\\"string\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}}}}}\",\"base_url\":\"{{chaos_url}}/s/conn25h/rest\"}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 setup: create the apiKey OpenAPI client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: create the apiKey OpenAPI client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn25k-c\",\"name\":\"conn25k\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{\"spec\":\"{\\\"openapi\\\":\\\"3.0.3\\\",\\\"info\\\":{\\\"title\\\":\\\"Pets\\\",\\\"version\\\":\\\"1.0.0\\\"},\\\"paths\\\":{\\\"/pets\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"listPets\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"limit\\\",\\\"in\\\":\\\"query\\\",\\\"schema\\\":{\\\"type\\\":\\\"integer\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}},\\\"post\\\":{\\\"operationId\\\":\\\"createPet\\\",\\\"requestBody\\\":{\\\"required\\\":true,\\\"content\\\":{\\\"application/json\\\":{\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"name\\\":{\\\"type\\\":\\\"string\\\"}}}}}},\\\"responses\\\":{\\\"201\\\":{\\\"description\\\":\\\"created\\\"}}}},\\\"/pets/{petId}\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"getPetById\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"petId\\\",\\\"in\\\":\\\"path\\\",\\\"required\\\":true,\\\"schema\\\":{\\\"type\\\":\\\"string\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}}}},\\\"components\\\":{\\\"securitySchemes\\\":{\\\"KeyAuth\\\":{\\\"type\\\":\\\"apiKey\\\",\\\"in\\\":\\\"header\\\",\\\"name\\\":\\\"X-Key\\\"}}},\\\"security\\\":[{\\\"KeyAuth\\\":[]}]}\",\"base_url\":\"{{chaos_url}}/s/conn25k/rest\",\"security_credentials\":{\"KeyAuth\":{\"value\":\"k-1\"}}}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 setup: create the per_user_headers OpenAPI client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: create the per_user_headers OpenAPI client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn25u-c\",\"name\":\"conn25u\",\"connection_type\":\"openapi\",\"auth_type\":\"per_user_headers\",\"tools_to_execute\":[\"*\"],\"per_user_header_keys\":[\"x-user\"],\"openapi_config\":{\"spec\":\"{\\\"openapi\\\":\\\"3.0.3\\\",\\\"info\\\":{\\\"title\\\":\\\"Pets\\\",\\\"version\\\":\\\"1.0.0\\\"},\\\"paths\\\":{\\\"/pets\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"listPets\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"limit\\\",\\\"in\\\":\\\"query\\\",\\\"schema\\\":{\\\"type\\\":\\\"integer\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}},\\\"post\\\":{\\\"operationId\\\":\\\"createPet\\\",\\\"requestBody\\\":{\\\"required\\\":true,\\\"content\\\":{\\\"application/json\\\":{\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"name\\\":{\\\"type\\\":\\\"string\\\"}}}}}},\\\"responses\\\":{\\\"201\\\":{\\\"description\\\":\\\"created\\\"}}}},\\\"/pets/{petId}\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"getPetById\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"petId\\\",\\\"in\\\":\\\"path\\\",\\\"required\\\":true,\\\"schema\\\":{\\\"type\\\":\\\"string\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}}}}}\",\"base_url\":\"{{chaos_url}}/s/conn25u/rest\"}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 execute on the headers client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 execute on the headers client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn25h-getPetById\",\"arguments\":\"{\\\"petId\\\":\\\"1\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-25 the REST log shows Bearer T1 and X-Static",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 the REST log shows Bearer T1 and X-Static: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-25 the REST log shows Bearer T1 and X-Static: the latest REST call carries Authorization: Bearer T1 and X-Static: s\", function () {",
+                      "  var calls = ((pm.response.json().rest || {}).calls || []);",
+                      "  pm.expect(calls.length, 'body: ' + pm.response.text()).to.be.above(0);",
+                      "  var h = calls[calls.length - 1].headers;",
+                      "  pm.expect(h[\"Authorization\"], 'headers: ' + JSON.stringify(h)).to.equal(\"Bearer T1\");",
+                      "  pm.expect(h[\"X-Static\"], 'headers: ' + JSON.stringify(h)).to.equal(\"s\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/conn25h"
+              }
+            },
+            {
+              "name": "CONN-25 execute on the apiKey client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 execute on the apiKey client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn25k-getPetById\",\"arguments\":\"{\\\"petId\\\":\\\"1\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-25 the REST log shows the X-Key value",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 the REST log shows the X-Key value: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-25 the REST log shows the X-Key value: the latest REST call carries X-Key: k-1\", function () {",
+                      "  var calls = ((pm.response.json().rest || {}).calls || []);",
+                      "  pm.expect(calls.length, 'body: ' + pm.response.text()).to.be.above(0);",
+                      "  var h = calls[calls.length - 1].headers;",
+                      "  pm.expect(h[\"X-Key\"], 'headers: ' + JSON.stringify(h)).to.equal(\"k-1\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/conn25k"
+              }
+            },
+            {
+              "name": "CONN-25 execute on the per_user_headers client without a credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 execute on the per_user_headers client without a credential: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"CONN-25 execute on the per_user_headers client without a credential: mcp_auth_required kind \\\"headers\\\", submit_url ...auth?flow=<flow id>&kind=headers\", function () {",
+                      "  var b = pm.response.json();",
+                      "  var r = b.extra_fields && b.extra_fields.mcp_auth_required;",
+                      "  pm.expect(r, 'body: ' + pm.response.text()).to.be.an('object');",
+                      "  pm.expect(r.kind).to.equal('headers');",
+                      "  var m = /auth\\?flow=([^&#]+)&kind=headers$/.exec(r.submit_url);",
+                      "  pm.expect(m, 'submit_url: ' + r.submit_url).to.not.equal(null);",
+                      "  pm.collectionVariables.set(\"conn25_hf\", m[1]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "conn25-sess1"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn25u-getPetById\",\"arguments\":\"{\\\"petId\\\":\\\"1\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-25 control: no REST call without a credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 control: no REST call without a credential: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-25 control: no REST call without a credential: the REST log is empty\", function () {",
+                      "  var calls = ((pm.response.json().rest || {}).calls || []);",
+                      "  pm.expect(calls, 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/conn25u"
+              }
+            },
+            {
+              "name": "CONN-25 setup: submit x-user u-1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 setup: submit x-user u-1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/per-user-headers/flows/{{conn25_hf}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"headers\":{\"x-user\":\"u-1\"}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 execute on the per_user_headers client with a credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 execute on the per_user_headers client with a credential: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "conn25-sess1"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn25u-getPetById\",\"arguments\":\"{\\\"petId\\\":\\\"1\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-25 the REST log shows the caller's value",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 the REST log shows the caller's value: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-25 the REST log shows the caller's value: the latest REST call carries X-User: u-1\", function () {",
+                      "  var calls = ((pm.response.json().rest || {}).calls || []);",
+                      "  pm.expect(calls.length, 'body: ' + pm.response.text()).to.be.above(0);",
+                      "  var h = calls[calls.length - 1].headers;",
+                      "  pm.expect(h[\"X-User\"], 'headers: ' + JSON.stringify(h)).to.equal(\"u-1\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/conn25u"
+              }
+            },
+            {
+              "name": "CONN-25 create an OpenAPI client with auth_type oauth",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 create an OpenAPI client with auth_type oauth: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"CONN-25 create an OpenAPI client with auth_type oauth: error message contains \\\"not supported for connection_type 'openapi'\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"not supported for connection_type 'openapi'\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn25o-c\",\"name\":\"conn25o\",\"connection_type\":\"openapi\",\"auth_type\":\"oauth\",\"tools_to_execute\":[\"*\"],\"oauth_config\":{},\"openapi_config\":{\"spec\":\"{\\\"openapi\\\":\\\"3.0.3\\\",\\\"info\\\":{\\\"title\\\":\\\"Pets\\\",\\\"version\\\":\\\"1.0.0\\\"},\\\"paths\\\":{\\\"/pets\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"listPets\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"limit\\\",\\\"in\\\":\\\"query\\\",\\\"schema\\\":{\\\"type\\\":\\\"integer\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}},\\\"post\\\":{\\\"operationId\\\":\\\"createPet\\\",\\\"requestBody\\\":{\\\"required\\\":true,\\\"content\\\":{\\\"application/json\\\":{\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"name\\\":{\\\"type\\\":\\\"string\\\"}}}}}},\\\"responses\\\":{\\\"201\\\":{\\\"description\\\":\\\"created\\\"}}}},\\\"/pets/{petId}\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"getPetById\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"petId\\\",\\\"in\\\":\\\"path\\\",\\\"required\\\":true,\\\"schema\\\":{\\\"type\\\":\\\"string\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}}}}}\",\"base_url\":\"{{chaos_url}}/s/conn25h/rest\"}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-25 teardown: delete client conn25h-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 teardown: delete client conn25h-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn25h-c"
+              }
+            },
+            {
+              "name": "CONN-25 teardown: delete client conn25k-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 teardown: delete client conn25k-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn25k-c"
+              }
+            },
+            {
+              "name": "CONN-25 teardown: delete client conn25u-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-25 teardown: delete client conn25u-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn25u-c"
               }
             }
           ]

@@ -34,7 +34,7 @@ const (
 // the guidance of a server it was never granted.
 //
 // The text is read from the caller's discovery for each client, the same one its visible
-// tools came from, so a store serving a caller its own discovery serves it its own
+// tools came from, so a client with per_user_discovery on serves each caller its own
 // instructions with no extra wiring.
 //
 // Code mode clients are excluded: their tools are never sent, so their guidance rides in the
@@ -46,7 +46,7 @@ func (m *MCPManager) GetServerInstructions(ctx context.Context) []schemas.MCPSer
 	// discovery outside it: the same per-caller discovery that made the client visible, and
 	// a ctx-aware store may read through to slower backing, which must not run under m.mu.
 	type candidate struct {
-		id        string
+		config    *schemas.MCPClientConfig
 		maxLength int
 	}
 	m.mu.RLock()
@@ -55,7 +55,7 @@ func (m *MCPManager) GetServerInstructions(ctx context.Context) []schemas.MCPSer
 		if client.ExecutionConfig.IsCodeModeClient {
 			continue
 		}
-		candidates[client.ExecutionConfig.Name] = candidate{id: client.ExecutionConfig.ID, maxLength: client.ExecutionConfig.MaxInstructionsLength}
+		candidates[client.ExecutionConfig.Name] = candidate{config: client.ExecutionConfig, maxLength: client.ExecutionConfig.MaxInstructionsLength}
 	}
 	m.mu.RUnlock()
 
@@ -65,7 +65,7 @@ func (m *MCPManager) GetServerInstructions(ctx context.Context) []schemas.MCPSer
 		if !ok || len(tools) == 0 {
 			continue
 		}
-		instructions := m.discoveryStore.GetDiscovery(ctx, c.id).GetInstructions()
+		instructions := m.discoveryStore.GetDiscovery(ctx, c.config).GetInstructions()
 		if instructions == "" {
 			continue
 		}

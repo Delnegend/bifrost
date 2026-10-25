@@ -147,6 +147,8 @@ type Bifrost struct {
 	MCPManager                mcp.MCPManagerInterface             // MCP integration manager (nil if MCP not configured)
 	mcpCredStore              schemas.MCPCredentialStore          // Per-call credential resolver for MCP tool execution (wraps oauth2Provider for OAuth-flavored auth types)
 	mcpInProcessServerFactory schemas.InProcessServerFactory      // Carried from MCPConfig so a lazily created manager still synthesizes openapi servers
+	mcpSharedDiscoveryStore   schemas.MCPDiscoveryStore           // From BifrostConfig, so a lazily created manager still keeps shared discoveries there
+	mcpPerUserDiscoveryStore  schemas.MCPDiscoveryStore           // From BifrostConfig, so a lazily created manager still serves per-user discoveries
 	mcpInitOnce               sync.Once                           // Ensures MCP manager is initialized only once
 	mcpFactoryMu              sync.Mutex                          // Orders factory registration against lazy MCP manager creation
 	dropExcessRequests        atomic.Bool                         // If true, in cases where the queue is full, requests will not wait for the queue to be empty and will be dropped instead.
@@ -307,6 +309,9 @@ func Init(ctx context.Context, config schemas.BifrostConfig) (*Bifrost, error) {
 		logger:        config.Logger,
 		kvStore:       config.KVStore,
 		modelCatalog:  config.ModelCatalog,
+
+		mcpSharedDiscoveryStore:  config.MCPSharedDiscoveryStore,
+		mcpPerUserDiscoveryStore: config.MCPPerUserDiscoveryStore,
 	}
 	bifrost.tracer.Store(&tracerWrapper{tracer: tracer})
 	if config.LLMPlugins == nil {
@@ -397,6 +402,12 @@ func Init(ctx context.Context, config schemas.BifrostConfig) (*Bifrost, error) {
 		bifrost.mcpInitOnce.Do(func() {
 			// Set up plugin pipeline provider functions for executeCode tool hooks
 			mcpConfig := *config.MCPConfig
+			if mcpConfig.SharedDiscoveryStore == nil {
+				mcpConfig.SharedDiscoveryStore = bifrost.mcpSharedDiscoveryStore
+			}
+			if mcpConfig.PerUserDiscoveryStore == nil {
+				mcpConfig.PerUserDiscoveryStore = bifrost.mcpPerUserDiscoveryStore
+			}
 			mcpConfig.PluginPipelineProvider = func() interface{} {
 				return bifrost.getPluginPipeline()
 			}
@@ -4555,9 +4566,11 @@ func (bifrost *Bifrost) SetMCPStateChangeCallback(cb func(clientID, name string,
 
 // SetMCPToolsChangeCallback registers cb to be invoked whenever an MCP
 // client's tool map is freshly (re)discovered — connect/reconnect, per-call
-// discovery, and the periodic checker's own refresh. core/mcp has no DB
-// access; this is the seam the transport layer persists through. Pass nil to
-// clear a previously registered callback. A no-op if MCP is not configured.
+// discovery, and the periodic checker's own refresh. Persisting the tools is
+// the discovery store's job (BifrostConfig.MCPSharedDiscoveryStore); the
+// callback is for reacting to the change, such as re-syncing a hosted MCP
+// server. Pass nil to clear a previously registered callback. A no-op if MCP
+// is not configured.
 func (bifrost *Bifrost) SetMCPToolsChangeCallback(cb func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string)) {
 	if bifrost.MCPManager == nil {
 		return
@@ -4677,6 +4690,8 @@ func (bifrost *Bifrost) lazyMCPConfig() schemas.MCPConfig {
 			}
 		},
 		InProcessServerFactory: bifrost.mcpInProcessServerFactory,
+		SharedDiscoveryStore:   bifrost.mcpSharedDiscoveryStore,
+		PerUserDiscoveryStore:  bifrost.mcpPerUserDiscoveryStore,
 	}
 }
 

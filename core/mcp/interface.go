@@ -91,9 +91,10 @@ type MCPManagerInterface interface {
 
 	// SetToolsChangeCallback registers cb to be invoked whenever a client's
 	// tool map is freshly (re)discovered — connect/reconnect, per-call
-	// discovery, and the periodic checker's own refresh. core/mcp has no DB
-	// access; this is the seam the transport layer persists through. Pass
-	// nil to clear a previously registered callback.
+	// discovery, and the periodic checker's own refresh. Persisting the tools
+	// is the discovery store's job; the callback is for reacting to the
+	// change, such as re-syncing a hosted MCP server. Pass nil to clear a
+	// previously registered callback.
 	SetToolsChangeCallback(cb func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string))
 
 	// SetInProcessServerFactory replaces the factory that synthesizes

@@ -43,7 +43,7 @@ type MCPManager struct {
 	toolsManager           *ToolsManager                      // Handler for MCP tools
 	server                 *server.MCPServer                  // Local MCP server instance for hosting tools (STDIO-based)
 	clientMap              map[string]*schemas.MCPClientState // Map of MCP client names to their configurations
-	discoveryStore         schemas.MCPDiscoveryStore          // Discoveries (tools, name mapping, instructions) keyed by client ID; the single owner of that data, which client state never carries
+	discoveryStore         schemas.MCPDiscoveryStore          // Discoveries (tools, name mapping, instructions); the single owner of that data, which client state never carries
 	mu                     sync.RWMutex                       // Read-write mutex for thread-safe operations
 	serverRunning          bool                               // Track whether local MCP server is running
 	checkerManager         *ConnectionCheckerManager          // Manager for per-client periodic connection checkers (liveness + discovery refresh, drives Healthy/Unstable/NeedsReauth)
@@ -90,13 +90,13 @@ type MCPManager struct {
 	// and per-call variants). Deliberately NOT fired when AddClient restores
 	// an already-known tool set from a config that was just read back out of
 	// the DB (clientmanager.go's per-call restore branch) — nothing changed
-	// in that case, so there is nothing new to persist.
+	// in that case, so there is nothing new to report.
 	//
-	// core/mcp has no DB access of its own; this is the seam a caller (the
-	// transport layer) uses to persist the fresh result, mirroring
-	// stateChangeCallback's own role for state transitions. Fired outside
-	// m.mu for the same reason: a registered callback may do arbitrary work,
-	// including I/O.
+	// It lets a caller react to the fresh result (the transport re-syncs its
+	// hosted /mcp from it), mirroring stateChangeCallback's own role for
+	// state transitions; persisting the result is the discovery store's job.
+	// Fired outside m.mu for the same reason: a registered callback may do
+	// arbitrary work, including I/O.
 	toolsChangeCallback func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string)
 }
 
@@ -125,7 +125,7 @@ func (m *MCPManager) SetToolsChangeCallback(cb func(clientID, name string, tools
 // clientState.LastToolsHash — gating the funnel to genuine changes only, so
 // a rediscovery that returns byte-identical tools (the common case on most
 // periodic ticks and reconnects) doesn't re-trigger a registered callback's
-// work (DB persist, external MCP server resync). On a genuine change,
+// work (such as an external MCP server resync). On a genuine change,
 // updates the stored hash and returns a closure that invokes the callback;
 // returns nil if nothing changed or no callback is registered.
 //
@@ -189,10 +189,7 @@ func NewMCPManager(ctx context.Context, config schemas.MCPConfig, credStore sche
 		}
 	}
 	// Creating new instance
-	discoveryStore := config.DiscoveryStore
-	if discoveryStore == nil {
-		discoveryStore = NewDiscoveryStore()
-	}
+	discoveryStore := NewDiscoveryStore(config.SharedDiscoveryStore, config.PerUserDiscoveryStore)
 	manager := &MCPManager{
 		ctx:                    ctx,
 		logger:                 logger,

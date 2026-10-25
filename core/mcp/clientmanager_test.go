@@ -349,7 +349,7 @@ func TestSetClientTools_ReplacesStaleTools(t *testing.T) {
 		ExecutionConfig: config,
 		State:           schemas.MCPConnectionStateHealthy,
 	}
-	m.discoveryStore.SetDiscovery(context.Background(), config.ID, &schemas.MCPDiscovery{
+	m.discoveryStore.SetDiscovery(context.Background(), config, &schemas.MCPDiscovery{
 		Tools:           map[string]schemas.ChatTool{"replace-tools-client-removed": {}},
 		ToolNameMapping: map[string]string{"replace-tools-client-removed": "removed"},
 	})
@@ -1020,7 +1020,7 @@ func TestSetClientToolsRecordsInstructionsForRestart(t *testing.T) {
 
 	m.SetClientTools(config.ID, map[string]schemas.ChatTool{"t": {Type: "function"}}, map[string]string{"t": "t"}, "Use me carefully.")
 
-	assert.Equal(t, "Use me carefully.", m.discoveryStore.GetDiscovery(context.Background(), config.ID).GetInstructions())
+	assert.Equal(t, "Use me carefully.", m.discoveryStore.GetDiscovery(context.Background(), config).GetInstructions())
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	assert.Equal(t, "Use me carefully.", m.clientMap[config.ID].ExecutionConfig.DiscoveredInstructions)
@@ -1056,12 +1056,12 @@ func TestWriteBackDiscoveredToolsKeepsInstructionsWhenNotRediscovered(t *testing
 	config := &schemas.MCPClientConfig{ID: "c", Name: "c"}
 	m.mu.Lock()
 	m.clientMap[config.ID] = &schemas.MCPClientState{Name: config.Name, ExecutionConfig: config}
-	m.discoveryStore.SetDiscovery(context.Background(), config.ID, &schemas.MCPDiscovery{Instructions: "keep me"})
+	m.discoveryStore.SetDiscovery(context.Background(), config, &schemas.MCPDiscovery{Instructions: "keep me"})
 	m.mu.Unlock()
 
 	require.True(t, m.writeBackDiscoveredTools(config.ID, 0, map[string]schemas.ChatTool{"a": {Type: "function"}}, map[string]string{"a": "a"}, nil))
 
-	got := m.discoveryStore.GetDiscovery(context.Background(), config.ID)
+	got := m.discoveryStore.GetDiscovery(context.Background(), config)
 	assert.Equal(t, "keep me", got.GetInstructions())
 	assert.Contains(t, got.GetTools(), "a", "the rediscovered tools replace the old ones alongside the kept text")
 }
@@ -1081,7 +1081,7 @@ func TestAddClient_DisabledPerCallRestore_ServesPersistedInstructionsOnEnable(t 
 	config.Disabled = true
 
 	require.NoError(t, m.AddClient(context.Background(), config))
-	assert.Equal(t, "Restored rule.", m.discoveryStore.GetDiscovery(context.Background(), config.ID).GetInstructions(),
+	assert.Equal(t, "Restored rule.", m.discoveryStore.GetDiscovery(context.Background(), config).GetInstructions(),
 		"the restore must bring back the instructions persisted with the tools")
 
 	require.NoError(t, m.EnableClient(config.ID))
@@ -1114,7 +1114,7 @@ func TestUpdateClientCredentials_PendingVerificationRestore_InstallsPersistedIns
 
 	require.NoError(t, m.UpdateClientCredentials(config.ID, config))
 
-	got := m.discoveryStore.GetDiscovery(context.Background(), config.ID)
+	got := m.discoveryStore.GetDiscovery(context.Background(), config)
 	assert.Contains(t, got.GetTools(), "pendingrestore-echo")
 	assert.Equal(t, "Pending rule.", got.GetInstructions())
 }

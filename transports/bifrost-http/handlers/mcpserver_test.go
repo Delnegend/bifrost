@@ -83,6 +83,33 @@ func (f *fakeInstructionsToolManager) ExecuteResponsesMCPTool(context.Context, *
 	return nil, nil
 }
 
+// syncCtxToolManager records the context SyncMCPServer reads the tool list with.
+type syncCtxToolManager struct {
+	fakeInstructionsToolManager
+	toolsCtx context.Context
+}
+
+func (f *syncCtxToolManager) GetAvailableMCPTools(ctx context.Context) []schemas.ChatTool {
+	f.toolsCtx = ctx
+	return nil
+}
+
+// Some syncs run on an admin's request. The shared server is built from no caller's identity,
+// or a client with per_user_discovery on would publish that admin's own discovery to everyone.
+func TestSyncMCPServer_ReadsToolsWithoutTheTriggersIdentity(t *testing.T) {
+	tm := &syncCtxToolManager{}
+	h := &MCPServerHandler{
+		toolManager: tm,
+		config:      &lib.Config{ClientConfig: &configstore.ClientConfig{}},
+	}
+	admin := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	admin.SetValue(schemas.BifrostContextKeyUserID, "admin-user")
+
+	require.NoError(t, h.SyncMCPServer(admin))
+	require.NotNil(t, tm.toolsCtx)
+	assert.Nil(t, tm.toolsCtx.Value(schemas.BifrostContextKeyUserID), "the shared tool list must not be read as the admin who triggered the sync")
+}
+
 // initializeResult drives a real initialize through the built server and returns the decoded
 // result, which is what a connecting MCP client would actually receive.
 func initializeResult(t *testing.T, tm MCPToolManager, ctx context.Context) map[string]any {

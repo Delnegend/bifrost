@@ -205,6 +205,11 @@ type ServerCallbacks interface {
 	// client-level mutation that invalidates its credential rows as a set
 	// (needs_update schema flip, access reconciliation, client deletion).
 	EvictMCPHeaderCredentialCacheByMCPClient(ctx context.Context, mcpClientID string)
+	// EvictMCPPerUserDiscoveryCache drops one caller's cached per-user
+	// discovery of one MCP client. The server forwards every write the
+	// per-user discovery store makes here, since the store's own eviction
+	// reaches only this process.
+	EvictMCPPerUserDiscoveryCache(ctx context.Context, mode schemas.MCPAuthMode, identity, mcpClientID string)
 	// ResolveAccess answers what a request may reach, resolving it once onto the request's grant,
 	// for the listing routes that run outside the request pipeline and so cannot wait for a hook
 	// to resolve it.
@@ -491,30 +496,13 @@ func (s *BifrostHTTPServer) UpdateMCPClient(ctx context.Context, id string, upda
 	return nil
 }
 
-// PersistMCPClientTools writes a freshly (re)discovered tool set to the DB
-// via ConfigStore's targeted column update. core/mcp has no DB access of its
-// own; this is registered as the MCP manager's tools-change callback so
-// every discovery path — connect/reconnect, per-call discovery, and the
-// periodic checker's own refresh — persists uniformly. Best-effort: a
-// failure here is logged, not propagated, since this runs from a callback
-// with no caller to return an error to — the next discovery event (or the
-// periodic checker's own retry) tries again.
-func (s *BifrostHTTPServer) PersistMCPClientTools(ctx context.Context, clientID string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string) {
-	if s.Config == nil || s.Config.ConfigStore == nil {
-		return
-	}
-	if err := s.Config.ConfigStore.UpdateMCPClientTools(ctx, clientID, tools, toolNameMapping, instructions); err != nil {
-		logger.Error(fmt.Sprintf("Failed to persist discovered tools for MCP client %s: %v", clientID, err))
-	}
-}
-
 // SyncMCPServersAfterToolsChange re-syncs Bifrost's own hosted MCP server(s)
 // so a freshly (re)discovered tool list is immediately visible via /mcp.
 // SetClientTools (below) already does this for handler-driven updates
 // (verify-headers, complete-oauth, admin-repair) — this is the same resync,
 // reachable from the tools-change callback so periodic-checker refreshes and
-// sticky reconnects get it too, not just one-time admin actions. Best-effort,
-// same reasoning as PersistMCPClientTools.
+// sticky reconnects get it too, not just one-time admin actions. Best-effort:
+// a failure is logged, since the callback has no caller to return it to.
 func (s *BifrostHTTPServer) SyncMCPServersAfterToolsChange(ctx context.Context, clientID string) {
 	if s.MCPServerHandler == nil {
 		return
@@ -545,6 +533,7 @@ func (s *BifrostHTTPServer) RemoveMCPClient(ctx context.Context, id string) erro
 	}
 	s.Config.OAuthProvider.EvictUserTokensByMCPClient(id)
 	s.Config.MCPHeadersProvider.EvictCredentialsByMCPClient(id)
+	s.Config.MCPPerUserDiscoveryStore.EvictDiscoveriesByMCPClient(id)
 	return nil
 }
 
@@ -757,6 +746,7 @@ func (s *BifrostHTTPServer) applyVirtualKeyReload(ctx context.Context, store gov
 	}
 	s.Config.OAuthProvider.EvictUserTokensByVirtualKey(id)
 	s.Config.MCPHeadersProvider.EvictCredentialsByVirtualKey(id)
+	s.Config.MCPPerUserDiscoveryStore.EvictDiscoveriesByVirtualKey(id)
 }
 
 // virtualKeysByIDs is the batched key read ReloadVirtualKeys needs;
@@ -958,11 +948,13 @@ func (s *BifrostHTTPServer) RemoveVirtualKey(ctx context.Context, id string) err
 		governancePlugin.GetGovernanceStore().DeleteVirtualKeyInMemory(ctx, id)
 		s.Config.OAuthProvider.EvictUserTokensByVirtualKey(id)
 		s.Config.MCPHeadersProvider.EvictCredentialsByVirtualKey(id)
+		s.Config.MCPPerUserDiscoveryStore.EvictDiscoveriesByVirtualKey(id)
 		return nil
 	}
 	governancePlugin.GetGovernanceStore().DeleteVirtualKeyInMemory(ctx, id)
 	s.Config.OAuthProvider.EvictUserTokensByVirtualKey(id)
 	s.Config.MCPHeadersProvider.EvictCredentialsByVirtualKey(id)
+	s.Config.MCPPerUserDiscoveryStore.EvictDiscoveriesByVirtualKey(id)
 	return nil
 }
 
@@ -1571,6 +1563,16 @@ func (s *BifrostHTTPServer) EvictMCPHeaderCredentialCacheByVirtualKey(ctx contex
 		return
 	}
 	s.Config.MCPHeadersProvider.EvictCredentialsByVirtualKey(virtualKeyID)
+}
+
+// EvictMCPPerUserDiscoveryCache drops one caller's cached per-user discovery
+// of one MCP client from the in-memory cache after a write. A clustered
+// deployment overrides this to also notify peers.
+func (s *BifrostHTTPServer) EvictMCPPerUserDiscoveryCache(ctx context.Context, mode schemas.MCPAuthMode, identity, mcpClientID string) {
+	if s.Config == nil || s.Config.MCPPerUserDiscoveryStore == nil {
+		return
+	}
+	s.Config.MCPPerUserDiscoveryStore.EvictDiscovery(mode, identity, mcpClientID)
 }
 
 // FlushMCPHeaderCredentialCache drops every cached per-user MCP header
@@ -2968,6 +2970,15 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 		virtualMCPHandler = handlers.NewVirtualMCPHandler(s.Config, s.Client, callbacks, logger)
 	}
 	mcpPerUserHeadersHandler := handlers.NewMCPPerUserHeadersHandler(callbacks, s.Config, s.TempTokens)
+	// The per-user discovery store evicts a discovery it writes only from this
+	// process's cache. Forward those evictions to callbacks so a deployment
+	// that overrides EvictMCPPerUserDiscoveryCache reaches every process, off
+	// the write path so a slow listener never delays the write.
+	if s.Config.MCPPerUserDiscoveryStore != nil {
+		s.Config.MCPPerUserDiscoveryStore.SetOnDiscoveryWritten(func(ctx context.Context, mode schemas.MCPAuthMode, identity, mcpClientID string) {
+			go callbacks.EvictMCPPerUserDiscoveryCache(context.WithoutCancel(ctx), mode, identity, mcpClientID)
+		})
+	}
 	mcpSessionsHandler := handlers.NewMCPSessionsHandler(s.Config, callbacks)
 	// The headers provider evicts a credential it writes only from this
 	// process's cache. Forward those evictions to callbacks so a deployment
@@ -3406,6 +3417,14 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 	// Create account backed by the high-performance store (all processing is done in LoadFromDatabase)
 	// The account interface now benefits from ultra-fast config access times via in-memory storage
 	account := lib.NewBaseAccount(s.Config)
+	// An interface holding a nil store pointer would not read as unset.
+	var sharedDiscoveryStore, perUserDiscoveryStore schemas.MCPDiscoveryStore
+	if s.Config.MCPSharedDiscoveryStore != nil {
+		sharedDiscoveryStore = s.Config.MCPSharedDiscoveryStore
+	}
+	if s.Config.MCPPerUserDiscoveryStore != nil {
+		perUserDiscoveryStore = s.Config.MCPPerUserDiscoveryStore
+	}
 	s.Client, err = bifrost.Init(ctx, schemas.BifrostConfig{
 		Account:            account,
 		InitialPoolSize:    s.Config.ClientConfig.InitialPoolSize,
@@ -3419,6 +3438,9 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 		Logger:             logger,
 		KVStore:            s.Config.KVStore,
 		ModelCatalog:       s.Config.ModelCatalog,
+
+		MCPSharedDiscoveryStore:  sharedDiscoveryStore,
+		MCPPerUserDiscoveryStore: perUserDiscoveryStore,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize bifrost: %v", err)
@@ -3631,9 +3653,10 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize inference routes: %v", err)
 	}
 	// Registered before ConnectConfiguredMCPClients so even the very first
-	// boot dial's discovered tools get persisted, not just later reconnects.
+	// boot dial's discovered tools reach the hosted /mcp, not just later
+	// reconnects. Writing them to the client's row is the shared discovery
+	// store's job.
 	s.Client.SetMCPToolsChangeCallback(func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string) {
-		go s.PersistMCPClientTools(s.Ctx, clientID, tools, toolNameMapping, instructions)
 		go s.SyncMCPServersAfterToolsChange(s.Ctx, clientID)
 	})
 	// Dial configured MCP clients now that every plugin is registered in the core.

@@ -361,8 +361,12 @@ func (h *MCPServerHandler) handleMCPServerSSE(ctx *fasthttp.RequestCtx) {
 // SyncMCPServer rebuilds the server from the tools currently available and swaps it in. Called
 // whenever the set of MCP clients or their tools changes. Every caller is served from this one
 // server; what each of them sees is decided per request.
-func (h *MCPServerHandler) SyncMCPServer(ctx context.Context) error {
-	availableTools := h.toolManager.GetAvailableMCPTools(ctx)
+//
+// The tool list is read without the trigger's identity: some syncs run on an admin's request,
+// and a client with per_user_discovery on would otherwise publish that admin's own discovery to
+// every caller.
+func (h *MCPServerHandler) SyncMCPServer(_ context.Context) error {
+	availableTools := h.toolManager.GetAvailableMCPTools(context.Background())
 	h.mcpServer.Store(h.buildServer(availableTools))
 	logger.Debug("Synced MCP server with %d tools", len(availableTools))
 	return nil

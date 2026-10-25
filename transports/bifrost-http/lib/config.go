@@ -1766,6 +1766,10 @@ func loadClientConfig(ctx context.Context, config *Config, configData *ConfigDat
 		sanitizeMCPExternalOAuthURLs(configData.Client)
 		config.ClientConfig = configData.Client
 		config.ClientConfig.ConfigHash = fileHash
+		// Declared under mcp, not client: the client section replacing the row must not lift it.
+		if config.ClientConfig.MCPMaxProtocolVersion == "" {
+			config.ClientConfig.MCPMaxProtocolVersion = clientConfig.MCPMaxProtocolVersion
+		}
 		applyClientConfigDefaults(config.ClientConfig)
 		applyToolManagerToClientConfig(config.ClientConfig, toolManagerFromFile)
 		if err = persistReconciledClientConfig(ctx, config); err != nil {
@@ -2872,6 +2876,15 @@ func applyMCPGlobalSettingsToClientConfig(ctx context.Context, config *Config, m
 	mcpCfg.ToolManagerConfig.CodeModeLimits = config.ClientConfig.MCPCodeModeLimits
 	mcpCfg.ToolManagerConfig.OAuthPrivateAllowlist = config.ClientConfig.MCPOAuthPrivateAllowlist
 
+	persist := func() {
+		if config.ConfigStore != nil {
+			if err := config.ConfigStore.UpdateClientConfig(ctx, config.ClientConfig); err != nil {
+				logger.Warn("failed to update client config with MCP global settings: %v", err)
+			}
+		}
+	}
+	protocolVersionChanged := applyMCPMaxProtocolVersion(config.ClientConfig, mcpCfg)
+
 	// ToolSyncInterval is declared under the file's mcp section rather than
 	// client_config, so it sits outside the hash-driven client config load and
 	// is reconciled here. The stored setting is kept in whole minutes.
@@ -2903,9 +2916,12 @@ func applyMCPGlobalSettingsToClientConfig(ctx context.Context, config *Config, m
 		if config.ClientConfig.MCPToolSyncInterval > 0 {
 			mcpCfg.ToolSyncInterval = time.Duration(config.ClientConfig.MCPToolSyncInterval) * time.Minute
 		}
+		if protocolVersionChanged {
+			persist()
+		}
 		return
 	}
-	changed := false
+	changed := protocolVersionChanged
 	switch {
 	case mcpCfg.ToolSyncInterval == 0:
 		if fileIsSourceOfTruth {
@@ -2930,11 +2946,27 @@ func applyMCPGlobalSettingsToClientConfig(ctx context.Context, config *Config, m
 		}
 	}
 
-	if changed && config.ConfigStore != nil {
-		if err := config.ConfigStore.UpdateClientConfig(ctx, config.ClientConfig); err != nil {
-			logger.Warn("failed to update client config with MCP global settings: %v", err)
+	if changed {
+		persist()
+	}
+}
+
+// applyMCPMaxProtocolVersion reconciles mcp.max_protocol_version into the stored client config and
+// hands the result to core. An absent value keeps the stored one even when the file is the source
+// of truth, so an upgrade never lifts the cap the migration set. Reports whether the stored value
+// changed.
+func applyMCPMaxProtocolVersion(cc *configstore.ClientConfig, mcpCfg *schemas.MCPConfig) bool {
+	changed := false
+	if v := mcpCfg.MaxProtocolVersion; v != "" {
+		if err := schemas.ValidateMCPMaxProtocolVersion("mcp.max_protocol_version", v); err != nil {
+			logger.Warn("ignoring %v", err)
+		} else if v != cc.MCPMaxProtocolVersion {
+			cc.MCPMaxProtocolVersion = v
+			changed = true
 		}
 	}
+	mcpCfg.MaxProtocolVersion = cc.MCPMaxProtocolVersion
+	return changed
 }
 
 func mcpClientConfigToTable(clientConfig *schemas.MCPClientConfig) (configstoreTables.TableMCPClient, error) {
@@ -2952,6 +2984,9 @@ func mcpClientConfigToTable(clientConfig *schemas.MCPClientConfig) (configstoreT
 			"tool_sync_interval must be a whole number of seconds, got %q",
 			clientConfig.ToolSyncInterval.String(),
 		)
+	}
+	if err := schemas.ValidateMCPMaxProtocolVersion("max_protocol_version", clientConfig.MaxProtocolVersion); err != nil {
+		return configstoreTables.TableMCPClient{}, err
 	}
 	if clientConfig.ToolExecutionTimeout < 0 {
 		return configstoreTables.TableMCPClient{}, fmt.Errorf(
@@ -2981,6 +3016,7 @@ func mcpClientConfigToTable(clientConfig *schemas.MCPClientConfig) (configstoreT
 		NeedsSessionStickiness:    clientConfig.NeedsSessionStickiness,
 		RequirePublicTarget:       clientConfig.RequirePublicTarget,
 		ToolSyncInterval:          int(clientConfig.ToolSyncInterval / time.Second),
+		MaxProtocolVersion:        clientConfig.MaxProtocolVersion,
 		ToolExecutionTimeout:      int(math.Ceil(clientConfig.ToolExecutionTimeout.Seconds())),
 		ToolPricing:               clientConfig.ToolPricing,
 		AllowByDefault:            clientConfig.AllowByDefault,
@@ -9269,6 +9305,7 @@ func (c *Config) UpdateMCPClient(ctx context.Context, id string, updatedConfig *
 	c.MCPConfig.ClientConfigs[configIndex].IsPingAvailable = updatedConfig.IsPingAvailable
 	c.MCPConfig.ClientConfigs[configIndex].NeedsSessionStickiness = updatedConfig.NeedsSessionStickiness
 	c.MCPConfig.ClientConfigs[configIndex].ToolSyncInterval = updatedConfig.ToolSyncInterval
+	c.MCPConfig.ClientConfigs[configIndex].MaxProtocolVersion = updatedConfig.MaxProtocolVersion
 	c.MCPConfig.ClientConfigs[configIndex].ToolExecutionTimeout = updatedConfig.ToolExecutionTimeout
 	c.MCPConfig.ClientConfigs[configIndex].MaxInstructionsLength = updatedConfig.MaxInstructionsLength
 	c.MCPConfig.ClientConfigs[configIndex].TLSConfig = updatedConfig.TLSConfig

@@ -7927,6 +7927,25 @@ func TestLazyMCPManager_ConcurrentFirstCallersDoNotRace(t *testing.T) {
 	}
 }
 
+// TestUpdateMCPMaxProtocolVersion_CarriesIntoLazyManager: a global cap saved before the MCP
+// manager exists must reach the manager created lazily for the first client.
+func TestUpdateMCPMaxProtocolVersion_CarriesIntoLazyManager(t *testing.T) {
+	b, err := Init(context.Background(), schemas.BifrostConfig{Account: NewMockAccount(), Logger: NewNoOpLogger()})
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer b.Shutdown()
+	if err := b.UpdateMCPMaxProtocolVersion("latest"); err == nil {
+		t.Fatal("an unsupported version must be refused before a manager exists")
+	}
+	if err := b.UpdateMCPMaxProtocolVersion(schemas.MCPProtocolVersion20250618); err != nil {
+		t.Fatalf("setting the cap before a manager exists: %v", err)
+	}
+	if got := b.lazyMCPConfig().MaxProtocolVersion; got != schemas.MCPProtocolVersion20250618 {
+		t.Fatalf("lazy manager config max protocol version = %q, want %q", got, schemas.MCPProtocolVersion20250618)
+	}
+}
+
 // TestSetMCPInProcessServerFactory_RacesLazyManagerCreation: the HTTP transport
 // registers the openapi factory after Init, while a request may be lazily
 // creating the MCP manager. Whichever wins, the manager that ends up serving

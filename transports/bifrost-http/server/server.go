@@ -1661,6 +1661,12 @@ func (s *BifrostHTTPServer) ReloadClientConfigFromConfigStore(ctx context.Contex
 		if err := s.Client.UpdateMCPToolSyncInterval(syncInterval); err != nil {
 			logger.Warn("failed to sync MCP tool sync interval during client config reload: %v", err)
 		}
+		if s.Config.MCPConfig != nil {
+			s.Config.MCPConfig.MaxProtocolVersion = s.Config.ClientConfig.MCPMaxProtocolVersion
+		}
+		if err := s.Client.UpdateMCPMaxProtocolVersion(s.Config.ClientConfig.MCPMaxProtocolVersion); err != nil {
+			logger.Warn("failed to sync MCP max protocol version during client config reload: %v", err)
+		}
 	}
 	return nil
 }
@@ -3424,6 +3430,12 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize bifrost: %v", err)
 	}
 	s.Client.SetMCPInProcessServerFactory(openAPIFactory)
+	// Without an mcp block the manager is created lazily; carry the stored cap into it.
+	if mcpConfig == nil && s.Config.ClientConfig != nil {
+		if err := s.Client.UpdateMCPMaxProtocolVersion(s.Config.ClientConfig.MCPMaxProtocolVersion); err != nil {
+			logger.Warn("failed to apply the stored MCP max protocol version: %v", err)
+		}
+	}
 	logger.Info("bifrost client initialized")
 	// Sync plugin execution order from config to core (defensive — Init receives sorted list,
 	// but this ensures order consistency if the loading path changes in the future)

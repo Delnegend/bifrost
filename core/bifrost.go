@@ -149,6 +149,7 @@ type Bifrost struct {
 	mcpInProcessServerFactory schemas.InProcessServerFactory      // Carried from MCPConfig so a lazily created manager still synthesizes openapi servers
 	mcpInitOnce               sync.Once                           // Ensures MCP manager is initialized only once
 	mcpFactoryMu              sync.Mutex                          // Orders factory registration against lazy MCP manager creation
+	mcpMaxProtocolVersion     string                              // Global MCP max protocol version for a lazily created manager; guarded by mcpFactoryMu
 	dropExcessRequests        atomic.Bool                         // If true, in cases where the queue is full, requests will not wait for the queue to be empty and will be dropped instead.
 	keySelector               schemas.KeySelector                 // Custom key selector function
 	keyPoolFilter             schemas.KeyPoolFilter               // optional hook to veto keys before selection (nil = all eligible)
@@ -4673,6 +4674,7 @@ func (bifrost *Bifrost) lazyMCPConfig() schemas.MCPConfig {
 			}
 		},
 		InProcessServerFactory: bifrost.mcpInProcessServerFactory,
+		MaxProtocolVersion:     bifrost.mcpMaxProtocolVersion,
 	}
 }
 
@@ -4969,6 +4971,29 @@ func (bifrost *Bifrost) UpdateMCPToolSyncInterval(interval time.Duration) error 
 		return fmt.Errorf("mcp is not configured in this bifrost instance")
 	}
 	bifrost.MCPManager.UpdateToolSyncInterval(interval)
+	return nil
+}
+
+// UpdateMCPMaxProtocolVersion hot-reloads the global max MCP protocol version ("" or "auto" =
+// newest supported) and renegotiates the clients that follow it.
+// Without a manager the value is kept for the one created lazily.
+func (bifrost *Bifrost) UpdateMCPMaxProtocolVersion(version string) error {
+	if err := schemas.ValidateMCPMaxProtocolVersion("max protocol version", version); err != nil {
+		return err
+	}
+	bifrost.mcpFactoryMu.Lock()
+	bifrost.mcpMaxProtocolVersion = version
+	manager := bifrost.MCPManager
+	bifrost.mcpFactoryMu.Unlock()
+	if manager == nil {
+		return nil
+	}
+	// An optional interface keeps MCPManagerInterface implementations source compatible.
+	updater, ok := manager.(interface{ UpdateMaxProtocolVersion(string) })
+	if !ok {
+		return fmt.Errorf("mcp manager does not support a max protocol version")
+	}
+	updater.UpdateMaxProtocolVersion(version)
 	return nil
 }
 

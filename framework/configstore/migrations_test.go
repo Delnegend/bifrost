@@ -4980,6 +4980,44 @@ func TestMigrationAddOAuthKeyConfigColumns_BoundsTheLockWait(t *testing.T) {
 	}
 }
 
+// TestMigrationAddMCPMaxProtocolVersionColumns: a deployment that already has MCP clients keeps
+// them on 2025-06-18, the version they used before the setting existed, through the global cap;
+// one with no MCP clients starts uncapped. Re-running is a no-op.
+func TestMigrationAddMCPMaxProtocolVersionColumns(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		mcpClients int
+		want       string
+	}{
+		{"existing MCP clients", 1, "2025-06-18"},
+		{"no MCP clients", 0, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+			require.NoError(t, err)
+			require.NoError(t, db.Exec("CREATE TABLE config_client (id INTEGER PRIMARY KEY)").Error)
+			require.NoError(t, db.Exec("INSERT INTO config_client (id) VALUES (1)").Error)
+			require.NoError(t, db.Exec("CREATE TABLE config_mcp_clients (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id VARCHAR(255) NOT NULL UNIQUE)").Error)
+			for i := range tc.mcpClients {
+				require.NoError(t, db.Exec("INSERT INTO config_mcp_clients (client_id) VALUES (?)", fmt.Sprintf("client-%d", i)).Error)
+			}
+			for range 2 {
+				require.NoError(t, migrationAddMCPMaxProtocolVersionColumns(context.Background(), db, testMigrationLogger))
+			}
+			require.True(t, db.Migrator().HasColumn(&tables.TableClientConfig{}, "mcp_max_protocol_version"))
+			require.True(t, db.Migrator().HasColumn(&tables.TableMCPClient{}, "max_protocol_version"))
+			var global string
+			require.NoError(t, db.Table("config_client").Select("mcp_max_protocol_version").Where("id = 1").Scan(&global).Error)
+			assert.Equal(t, tc.want, global)
+			var perClient []string
+			require.NoError(t, db.Table("config_mcp_clients").Pluck("max_protocol_version", &perClient).Error)
+			for _, v := range perClient {
+				assert.Empty(t, v, "existing MCP clients follow the global setting")
+			}
+		})
+	}
+}
+
 // TestA2ARawCaptureSettingMigration defaults existing deployments to capture disabled.
 func TestA2ARawCaptureSettingMigration(t *testing.T) {
 	db := setupTestDB(t)

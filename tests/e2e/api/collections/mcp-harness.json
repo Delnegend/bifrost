@@ -84584,6 +84584,553 @@
           ]
         },
         {
+          "name": "OAS-05 Spoofed Host",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; mcp_server_auth_mode both with issuer_url set to the base URL, temp-token auth on, enforce_auth_on_inference on (so /mcp answers 401 with WWW-Authenticate); a registered OAuth client. Requests send Host evil.example.",
+          "item": [
+            {
+              "name": "OAS-05 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "OAS-05 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"oas-05-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"oas-05-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 setup: mcp_server_auth_mode both, enforce_auth_on_inference on, issuer_url set to the base URL, temp-token auth on",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = \"both\";",
+                      "cc.enforce_auth_on_inference = true;",
+                      "cc.oauth2_server_config = { issuer_url: pm.variables.get('base_url') };",
+                      "cc.mcp_enable_temp_token_auth = true;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 setup: mcp_server_auth_mode both, enforce_auth_on_inference on, issuer_url set to the base URL, temp-token auth on: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 setup: register an OAuth client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 setup: register an OAuth client: status is 201\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(201);",
+                      "});",
+                      "pm.collectionVariables.set(\"oas05_client\", pm.response.json().client_id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/oauth2/register",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_name\":\"OAS-05 client\",\"redirect_uris\":[\"http://127.0.0.1:9999/cb\"]}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 authorization server metadata",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 authorization server metadata: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"OAS-05 authorization server metadata: no body field, Location or WWW-Authenticate contains evil.example\", function () {",
+                      "  pm.expect(pm.response.text(), 'body').to.not.include('evil.example');",
+                      "  pm.expect(pm.response.headers.get('Location') || '').to.not.include('evil.example');",
+                      "  pm.expect(pm.response.headers.get('WWW-Authenticate') || '').to.not.include('evil.example');",
+                      "});",
+                      "pm.test(\"OAS-05 authorization server metadata: issuer is the base URL\", function () {",
+                      "  pm.expect(pm.response.json().issuer, 'body: ' + pm.response.text()).to.equal(pm.variables.get('base_url'));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Host",
+                    "value": "evil.example"
+                  }
+                ],
+                "url": "{{base_url}}/.well-known/oauth-authorization-server"
+              }
+            },
+            {
+              "name": "OAS-05 protected resource metadata",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 protected resource metadata: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"OAS-05 protected resource metadata: no body field, Location or WWW-Authenticate contains evil.example\", function () {",
+                      "  pm.expect(pm.response.text(), 'body').to.not.include('evil.example');",
+                      "  pm.expect(pm.response.headers.get('Location') || '').to.not.include('evil.example');",
+                      "  pm.expect(pm.response.headers.get('WWW-Authenticate') || '').to.not.include('evil.example');",
+                      "});",
+                      "pm.test(\"OAS-05 protected resource metadata: resource is the base URL plus /mcp\", function () {",
+                      "  pm.expect(pm.response.json().resource, 'body: ' + pm.response.text()).to.equal(pm.variables.get('base_url') + '/mcp');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Host",
+                    "value": "evil.example"
+                  }
+                ],
+                "url": "{{base_url}}/.well-known/oauth-protected-resource/mcp"
+              }
+            },
+            {
+              "name": "OAS-05 authorize",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 authorize: status is 302\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(302);",
+                      "});",
+                      "pm.test(\"OAS-05 authorize: no body field, Location or WWW-Authenticate contains evil.example\", function () {",
+                      "  pm.expect(pm.response.text(), 'body').to.not.include('evil.example');",
+                      "  pm.expect(pm.response.headers.get('Location') || '').to.not.include('evil.example');",
+                      "  pm.expect(pm.response.headers.get('WWW-Authenticate') || '').to.not.include('evil.example');",
+                      "});",
+                      "pm.test(\"OAS-05 authorize: the consent Location starts with the issuer\", function () {",
+                      "  pm.expect((pm.response.headers.get('Location') || '').indexOf(pm.variables.get('base_url')), 'Location: ' + pm.response.headers.get('Location')).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Host",
+                    "value": "evil.example"
+                  }
+                ],
+                "url": "{{base_url}}/oauth2/authorize?response_type=code&client_id={{oas05_client}}&redirect_uri=http://127.0.0.1:9999/cb&state=s1&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&resource={{base_url}}/mcp&scope=mcp"
+              },
+              "protocolProfileBehavior": {
+                "followRedirects": false
+              }
+            },
+            {
+              "name": "OAS-05 /mcp tools/list with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 /mcp tools/list with no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"OAS-05 /mcp tools/list with no credential: no body field, Location or WWW-Authenticate contains evil.example\", function () {",
+                      "  pm.expect(pm.response.text(), 'body').to.not.include('evil.example');",
+                      "  pm.expect(pm.response.headers.get('Location') || '').to.not.include('evil.example');",
+                      "  pm.expect(pm.response.headers.get('WWW-Authenticate') || '').to.not.include('evil.example');",
+                      "});",
+                      "pm.test(\"OAS-05 /mcp tools/list with no credential: WWW-Authenticate points at the base URL's resource metadata\", function () {",
+                      "  pm.expect(pm.response.headers.get('WWW-Authenticate'), 'headers').to.equal('Bearer resource_metadata=\"' + pm.variables.get('base_url') + '/.well-known/oauth-protected-resource/mcp\"');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "Host",
+                    "value": "evil.example"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-05 teardown: delete client oas-05-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 teardown: delete client oas-05-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/oas-05-alpha"
+              }
+            },
+            {
+              "name": "OAS-05 teardown: delete client oas-05-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-05 teardown: delete client oas-05-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/oas-05-beta"
+              }
+            }
+          ]
+        },
+        {
           "name": "OAS-06 Issuance endpoints are public",
           "description": "Setup: mcp_server_auth_mode both with issuer_url set to the base URL, dashboard auth on; the issuance and discovery requests carry no credentials.",
           "item": [
@@ -88401,6 +88948,673 @@
                   "mode": "raw",
                   "raw": "{{config_body}}"
                 }
+              }
+            }
+          ]
+        },
+        {
+          "name": "OAS-17 Consent under the setup lock",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; the full-access VK; mcp_server_auth_mode both with issuer_url set to the base URL, temp-token auth on, enforce_auth_on_inference off; a registered OAuth client authorizes, giving a consent flow and its temp token; then dashboard auth turned off for the test, with the runner's setup token configured, and turned back on at the end.",
+          "item": [
+            {
+              "name": "OAS-17 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "OAS-17 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"oas-17-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"oas-17-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 setup: create the full-access VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: create the full-access VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"oas-17_full_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"oas-17_full\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"OAS-17 full-access VK\",\"mcp_configs\":[{\"mcp_client_name\":\"alpha\",\"tools_to_execute\":[\"*\"]},{\"mcp_client_name\":\"beta\",\"tools_to_execute\":[\"*\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 setup: mcp_server_auth_mode both, issuer_url set to the base URL, temp-token auth on, enforce_auth_on_inference off",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = \"both\";",
+                      "cc.oauth2_server_config = { issuer_url: pm.variables.get('base_url') };",
+                      "cc.mcp_enable_temp_token_auth = true;",
+                      "cc.enforce_auth_on_inference = false;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: mcp_server_auth_mode both, issuer_url set to the base URL, temp-token auth on, enforce_auth_on_inference off: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 setup: register an OAuth client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: register an OAuth client: status is 201\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(201);",
+                      "});",
+                      "pm.collectionVariables.set(\"oas17_client\", pm.response.json().client_id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/oauth2/register",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_name\":\"OAS-17 client\",\"redirect_uris\":[\"http://127.0.0.1:9999/cb\"]}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 setup: authorize",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: authorize: status is 302\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(302);",
+                      "});",
+                      "var loc = pm.response.headers.get('Location') || '';",
+                      "var m = /[?&]flow=([^#&]+)#t=(.+)$/.exec(loc);",
+                      "pm.collectionVariables.set(\"oas17_f_id\", m ? decodeURIComponent(m[1]) : '');",
+                      "pm.collectionVariables.set(\"oas17_f_tt\", m ? decodeURIComponent(m[2]) : '');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/oauth2/authorize?response_type=code&client_id={{oas17_client}}&redirect_uri=http://127.0.0.1:9999/cb&state=s1&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&resource={{base_url}}/mcp&scope=mcp"
+              },
+              "protocolProfileBehavior": {
+                "followRedirects": false
+              }
+            },
+            {
+              "name": "OAS-17 setup: turn dashboard auth off, so the setup lock applies",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: false, admin_username: user, admin_password: '<redacted>' } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 setup: turn dashboard auth off, so the setup lock applies: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 the flow with only its temp token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 the flow with only its temp token: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"OAS-17 the flow with only its temp token: error message is \\\"dashboard auth is not configured; send the setup token in the X-Bifrost-Setup-Token header\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"dashboard auth is not configured; send the setup token in the X-Bifrost-Setup-Token header\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Bifrost-Temp-Token",
+                    "value": "{{oas17_f_tt}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/oauth2/consent/flows/{{oas17_f_id}}"
+              }
+            },
+            {
+              "name": "OAS-17 the flow with a wrong setup token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 the flow with a wrong setup token: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Bifrost-Temp-Token",
+                    "value": "{{oas17_f_tt}}"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "mcp-harness-wrong-token"
+                  }
+                ],
+                "url": "{{base_url}}/api/oauth2/consent/flows/{{oas17_f_id}}"
+              }
+            },
+            {
+              "name": "OAS-17 the flow with the setup token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 the flow with the setup token: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"OAS-17 the flow with the setup token: available_modes [\\\"vk\\\",\\\"session\\\"]\", function () {",
+                      "  pm.expect(pm.response.json().available_modes, 'body: ' + pm.response.text()).to.eql(['vk', 'session']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Bifrost-Temp-Token",
+                    "value": "{{oas17_f_tt}}"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "{{setup_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/oauth2/consent/flows/{{oas17_f_id}}"
+              }
+            },
+            {
+              "name": "OAS-17 teardown: turn dashboard auth back on",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { 'X-Bifrost-Setup-Token': pm.variables.get('setup_token') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: true, admin_username: user, admin_password: pass, current_password: pass } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 teardown: turn dashboard auth back on: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "{{setup_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-17 teardown: delete the full-access VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 teardown: delete the full-access VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{oas-17_full_id}}"
+              }
+            },
+            {
+              "name": "OAS-17 teardown: delete client oas-17-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 teardown: delete client oas-17-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/oas-17-alpha"
+              }
+            },
+            {
+              "name": "OAS-17 teardown: delete client oas-17-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-17 teardown: delete client oas-17-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/oas-17-beta"
               }
             }
           ]
@@ -95968,6 +97182,152 @@
           ]
         },
         {
+          "name": "OAS-33 Sessions API needs admin",
+          "description": "Setup: dashboard auth on and no credential; then dashboard auth turned off for the test, with the runner's setup token configured, and turned back on at the end.",
+          "item": [
+            {
+              "name": "OAS-33 GET /api/oauth2/sessions with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-33 GET /api/oauth2/sessions with no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/api/oauth2/sessions"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "OAS-33 setup: turn dashboard auth off, so the setup lock applies",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: false, admin_username: user, admin_password: '<redacted>' } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-33 setup: turn dashboard auth off, so the setup lock applies: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-33 GET /api/oauth2/sessions under the setup lock with no token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-33 GET /api/oauth2/sessions under the setup lock with no token: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"OAS-33 GET /api/oauth2/sessions under the setup lock with no token: error message contains \\\"send the setup token in the X-Bifrost-Setup-Token header\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"send the setup token in the X-Bifrost-Setup-Token header\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/api/oauth2/sessions"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "OAS-33 teardown: turn dashboard auth back on",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { 'X-Bifrost-Setup-Token': pm.variables.get('setup_token') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: true, admin_username: user, admin_password: pass, current_password: pass } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-33 teardown: turn dashboard auth back on: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "{{setup_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
+              }
+            }
+          ]
+        },
+        {
           "name": "OAS-34 Access token expiry",
           "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; the full-access VK (every tool of alpha and beta); each grant registers a client with grant_types authorization_code and refresh_token, authorizes with S256, consents with that VK through the temp token and exchanges the code; mcp_server_auth_mode both with issuer_url set to the base URL, temp-token auth on, access_token_ttl 2.",
           "item": [
@@ -99553,6 +100913,504 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/set-09-a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "SET-19 Disabling a per-call client",
+          "description": "Setup: admin credentials; alpha (echo_tool, add_tool) registered as client alpha, auth none, per call, tools_to_execute [\"*\"], then disabled.",
+          "item": [
+            {
+              "name": "SET-19 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-19 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "SET-19 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-19 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "SET-19 setup: create client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-19 setup: create client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"set-19-a\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "SET-19 setup: disable client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-19 setup: disable client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/set-19-a",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"disabled\":true}"
+                }
+              }
+            },
+            {
+              "name": "SET-19 its tools are still listed and it is disabled",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-19 its tools are still listed and it is disabled: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"SET-19 its tools are still listed and it is disabled: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"SET-19 its tools are still listed and it is disabled: tools are [\\\"add_tool\\\",\\\"echo_tool\\\"]\", function () {",
+                      "  var c = pm.response.json().clients[0];",
+                      "  var names = (c.tools || []).map(function (t) { return t.name; }).sort();",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"add_tool\",\"echo_tool\"]);",
+                      "});",
+                      "pm.test(\"SET-19 its tools are still listed and it is disabled: state is \\\"disabled\\\"\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].state, 'body: ' + pm.response.text()).to.equal(\"disabled\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=set-19-a"
+              }
+            },
+            {
+              "name": "SET-19 execute alpha-echo_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-19 execute alpha-echo_tool: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"SET-19 execute alpha-echo_tool: error message contains \\\"is not permitted (client alpha is disabled)\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"is not permitted (client alpha is disabled)\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "SET-19 refresh-tools",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-19 refresh-tools: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/set-19-a/refresh-tools"
+              }
+            },
+            {
+              "name": "SET-19 reconnect",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-19 reconnect: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"SET-19 reconnect: error message contains \\\"cannot reconnect a disabled MCP client\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"cannot reconnect a disabled MCP client\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/set-19-a/reconnect"
+              }
+            },
+            {
+              "name": "SET-19 teardown: delete client set-19-a",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-19 teardown: delete client set-19-a: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/set-19-a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "SET-20 `disabled: true` on create",
+          "description": "Setup: admin credentials; alpha (echo_tool, add_tool); a sticky client on alpha created with disabled true. Honouring disabled on create is a known issue, so those checks are skipped.",
+          "item": [
+            {
+              "name": "SET-20 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-20 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "SET-20 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-20 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "SET-20 setup: record alpha's session count",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-20 setup: record alpha's session count: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"set20_sessions\", pm.response.json().counters.sessions);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "SET-20 create the sticky client with disabled true",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-20 create the sticky client with disabled true: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"set20-a\",\"name\":\"set20_a\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"needs_session_stickiness\":true,\"disabled\":true,\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "SET-20 it is stored and reported disabled",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-20 it is stored and reported disabled: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"SET-20 it is stored and reported disabled: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test.skip(\"SET-20 it is stored and reported disabled: disabled is true (skipped: known issue)\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].config[\"disabled\"], 'body: ' + pm.response.text()).to.eql(true);",
+                      "});",
+                      "pm.test.skip(\"SET-20 it is stored and reported disabled: state is \\\"disabled\\\" (skipped: known issue)\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].state, 'body: ' + pm.response.text()).to.equal(\"disabled\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=set20-a"
+              }
+            },
+            {
+              "name": "SET-20 no session was opened",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-20 no session was opened: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test.skip(\"SET-20 no session was opened: sessions is 0 more than the recorded count (skipped: known issue)\", function () {",
+                      "  var before = Number(pm.collectionVariables.get(\"set20_sessions\"));",
+                      "  pm.expect(pm.response.json().counters.sessions, 'body: ' + pm.response.text()).to.equal(before + 0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "SET-20 teardown: delete client set20-a",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-20 teardown: delete client set20-a: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/set20-a"
               }
             }
           ]
@@ -120848,6 +122706,361 @@
           ]
         },
         {
+          "name": "INF-48 listToolFiles, server binding",
+          "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"]; plus alpha (echo_tool, add_tool) registered as client alpha, auth none, per call, which is not a code-mode client. cm is then disabled.",
+          "item": [
+            {
+              "name": "INF-48 setup: fresh mcpchaos server cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 setup: fresh mcpchaos server cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"cm\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-48 setup: cm serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 setup: cm serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/cm/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-48 setup: register cm as a code-mode client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 setup: register cm as a code-mode client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-48-cm\",\"name\":\"cm\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/cm/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"is_code_mode_client\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-48 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-48 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-48 setup: create client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 setup: create client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-48-a\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-48 listToolFiles",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 listToolFiles: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-48 listToolFiles: starts \\\"# Workflow: listToolFiles -> readToolFile\\\" and lists servers/ with cm.pyi only\", function () {",
+                      "  var c = pm.response.json().content;",
+                      "  pm.expect(c.indexOf('# Workflow: listToolFiles -> readToolFile'), 'content: ' + c).to.equal(0);",
+                      "  pm.expect(c).to.include('servers/');",
+                      "  pm.expect(c.match(/[\\w.-]+\\.pyi/g)).to.eql(['cm.pyi']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"listToolFiles\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-48 setup: disable cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 setup: disable cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-48-cm",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"disabled\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-48 listToolFiles with cm disabled",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 listToolFiles with cm disabled: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-48 listToolFiles with cm disabled: says servers are connected but none are configured for code mode\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include('Servers are connected but none are configured for code mode.');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"listToolFiles\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-48 teardown: delete client inf-48-a",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 teardown: delete client inf-48-a: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-48-a"
+              }
+            },
+            {
+              "name": "INF-48 teardown: delete client inf-48-cm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-48 teardown: delete client inf-48-cm: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-48-cm"
+              }
+            }
+          ]
+        },
+        {
           "name": "INF-49 Tool binding",
           "description": "Setup: cm (echo, add) registered as a code-mode client, auth none, per call, tools_to_execute [\"*\"]; mcp_code_mode_binding_level \"tool\".",
           "item": [
@@ -128763,6 +130976,431 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/library/{{lib16_id}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIB-17 Library routes without credentials",
+          "description": "Setup: dashboard auth on and no credential; then dashboard auth turned off for the test, with the runner's setup token configured, and turned back on at the end. Every library route is called: list, filterdata, publish, delete and force-sync.",
+          "item": [
+            {
+              "name": "LIB-17 GET /api/mcp/library with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 GET /api/mcp/library with no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 GET /api/mcp/library with no credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/api/mcp/library"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 GET /api/mcp/library/filterdata with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 GET /api/mcp/library/filterdata with no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 GET /api/mcp/library/filterdata with no credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/api/mcp/library/filterdata"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 POST /api/mcp/library with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 POST /api/mcp/library with no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 POST /api/mcp/library with no credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 DELETE /api/mcp/library/1 with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 DELETE /api/mcp/library/1 with no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 DELETE /api/mcp/library/1 with no credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{base_url}}/api/mcp/library/1"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 POST /api/mcp/library/force-sync with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 POST /api/mcp/library/force-sync with no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 POST /api/mcp/library/force-sync with no credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 setup: turn dashboard auth off, so the setup lock applies",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: false, admin_username: user, admin_password: '<redacted>' } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 setup: turn dashboard auth off, so the setup lock applies: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
+              }
+            },
+            {
+              "name": "LIB-17 GET /api/mcp/library under the setup lock with no token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 GET /api/mcp/library under the setup lock with no token: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 GET /api/mcp/library under the setup lock with no token: error message contains \\\"X-Bifrost-Setup-Token\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"X-Bifrost-Setup-Token\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/api/mcp/library"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 GET /api/mcp/library/filterdata under the setup lock with no token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 GET /api/mcp/library/filterdata under the setup lock with no token: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 GET /api/mcp/library/filterdata under the setup lock with no token: error message contains \\\"X-Bifrost-Setup-Token\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"X-Bifrost-Setup-Token\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/api/mcp/library/filterdata"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 POST /api/mcp/library under the setup lock with no token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 POST /api/mcp/library under the setup lock with no token: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 POST /api/mcp/library under the setup lock with no token: error message contains \\\"X-Bifrost-Setup-Token\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"X-Bifrost-Setup-Token\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 DELETE /api/mcp/library/1 under the setup lock with no token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 DELETE /api/mcp/library/1 under the setup lock with no token: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 DELETE /api/mcp/library/1 under the setup lock with no token: error message contains \\\"X-Bifrost-Setup-Token\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"X-Bifrost-Setup-Token\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{base_url}}/api/mcp/library/1"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 POST /api/mcp/library/force-sync under the setup lock with no token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 POST /api/mcp/library/force-sync under the setup lock with no token: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LIB-17 POST /api/mcp/library/force-sync under the setup lock with no token: error message contains \\\"X-Bifrost-Setup-Token\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"X-Bifrost-Setup-Token\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{base_url}}/api/mcp/library/force-sync"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 GET /api/mcp/library with a wrong setup token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 GET /api/mcp/library with a wrong setup token: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"LIB-17 GET /api/mcp/library with a wrong setup token: error message is \\\"invalid setup token\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"invalid setup token\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "mcp-harness-wrong-token"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/library"
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LIB-17 teardown: turn dashboard auth back on",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { 'X-Bifrost-Setup-Token': pm.variables.get('setup_token') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: true, admin_username: user, admin_password: pass, current_password: pass } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LIB-17 teardown: turn dashboard auth back on: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "{{setup_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
               }
             }
           ]
@@ -139753,6 +142391,211 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/log-38-a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LOG-39 Delete without valid auth",
+          "description": "Setup: dashboard auth turned off for the test, with the runner's setup token configured, and turned back on at the end; then dashboard auth on with no credential. Each delete names an id that does not exist.",
+          "item": [
+            {
+              "name": "LOG-39 setup: turn dashboard auth off, so the setup lock applies",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: false, admin_username: user, admin_password: '<redacted>' } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-39 setup: turn dashboard auth off, so the setup lock applies: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
+              }
+            },
+            {
+              "name": "LOG-39 DELETE /api/mcp-logs under the setup lock with no token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-39 DELETE /api/mcp-logs under the setup lock with no token: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LOG-39 DELETE /api/mcp-logs under the setup lock with no token: error message contains \\\"X-Bifrost-Setup-Token\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"X-Bifrost-Setup-Token\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"ids\":[\"log39-none\"]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LOG-39 DELETE /api/mcp-logs with a wrong setup token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-39 DELETE /api/mcp-logs with a wrong setup token: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "mcp-harness-wrong-token"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"ids\":[\"log39-none\"]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "LOG-39 teardown: turn dashboard auth back on",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { 'X-Bifrost-Setup-Token': pm.variables.get('setup_token') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: true, admin_username: user, admin_password: pass, current_password: pass } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-39 teardown: turn dashboard auth back on: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "{{setup_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
+              }
+            },
+            {
+              "name": "LOG-39 DELETE /api/mcp-logs with auth on and no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-39 DELETE /api/mcp-logs with auth on and no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"LOG-39 DELETE /api/mcp-logs with auth on and no credential: error message is \\\"Unauthorized\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Unauthorized\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"ids\":[\"log39-none\"]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
               }
             }
           ]

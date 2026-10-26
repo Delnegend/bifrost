@@ -1023,6 +1023,301 @@
           ]
         },
         {
+          "name": "ADM-02 Setup-lock gating of `POST /api/mcp/client`",
+          "description": "Setup: alpha (echo_tool, add_tool) on loopback; dashboard auth turned off for the test, with the runner's setup token configured, and turned back on at the end. Each create is a sticky client on alpha.",
+          "item": [
+            {
+              "name": "ADM-02 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-02 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "ADM-02 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-02 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "ADM-02 setup: turn dashboard auth off, so the setup lock applies",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { Authorization: pm.variables.get('admin_auth_header') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: false, admin_username: user, admin_password: '<redacted>' } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-02 setup: turn dashboard auth off, so the setup lock applies: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-02 create with no setup token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-02 create with no setup token: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"ADM-02 create with no setup token: error message contains \\\"send the setup token in the X-Bifrost-Setup-Token header\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"send the setup token in the X-Bifrost-Setup-Token header\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm02-c\",\"name\":\"adm02_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"needs_session_stickiness\":true}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-02 create with a wrong setup token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-02 create with a wrong setup token: status is 403\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(403);",
+                      "});",
+                      "pm.test(\"ADM-02 create with a wrong setup token: error message is \\\"invalid setup token\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"invalid setup token\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "mcp-harness-wrong-token"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm02-c\",\"name\":\"adm02_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"needs_session_stickiness\":true}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-02 create with the setup token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-02 create with the setup token: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "{{setup_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"adm02-c\",\"name\":\"adm02_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"needs_session_stickiness\":true}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "ADM-02 teardown: turn dashboard auth back on",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var C = require('crypto-js'); var pair = C.enc.Base64.parse(pm.variables.get('admin_auth_header').replace(/^Basic /, '')).toString(C.enc.Utf8); var user = pair.slice(0, pair.indexOf(':')), pass = pair.slice(pair.indexOf(':') + 1);",
+                      "pm.sendRequest({ url: pm.variables.get('base_url') + '/api/config', method: 'GET', header: { 'X-Bifrost-Setup-Token': pm.variables.get('setup_token') } }, function (err, res) { var cc = res.json().client_config; if (!(cc.log_retention_days >= 1)) { cc.log_retention_days = 1; } pm.variables.set('auth_body', JSON.stringify({ client_config: cc, auth_config: { is_enabled: true, admin_username: user, admin_password: pass, current_password: pass } })); });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-02 teardown: turn dashboard auth back on: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Bifrost-Setup-Token",
+                    "value": "{{setup_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{auth_body}}"
+                }
+              }
+            },
+            {
+              "name": "ADM-02 teardown: delete client adm02-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"ADM-02 teardown: delete client adm02-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/adm02-c"
+              }
+            }
+          ]
+        },
+        {
           "name": "ADM-03 Wrong password and VKs are not admin credentials",
           "description": "Setup: dashboard auth on; a virtual key. Create and list carry a wrong Basic password, the key in x-bf-vk, or the key as a Bearer token.",
           "item": [
@@ -35016,6 +35311,300 @@
           ]
         },
         {
+          "name": "AUTH-07 Rotation applies to the live connection",
+          "description": "Setup: alpha (echo_tool, add_tool) requires a bearer token and maps T1 (auth-t1-token) to id1 and T2 (auth-t2-token) to id2; an HTTP client on alpha with auth headers \"Authorization: Bearer T1\", needs_session_stickiness true, tools_to_execute [\"*\"] (as AUTH-02); then a PUT sets Authorization: Bearer T2.",
+          "item": [
+            {
+              "name": "AUTH-07 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-07 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-07 setup: alpha requires a bearer token, T1 mapped to id1 and T2 to id2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 setup: alpha requires a bearer token, T1 mapped to id1 and T2 to id2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"auth\":{\"bearer\":{\"auth-t1-token\":\"id1\",\"auth-t2-token\":\"id2\"},\"require\":true}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-07 setup: create the sticky client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 setup: create the sticky client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"auth07-c\",\"name\":\"auth07_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"headers\",\"headers\":{\"Authorization\":\"Bearer auth-t1-token\"},\"tools_to_execute\":[\"*\"],\"needs_session_stickiness\":true}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-07 setup: record alpha's session count",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 setup: record alpha's session count: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"auth07_s\", pm.response.json().counters.sessions);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "AUTH-07 PUT Authorization: Bearer T2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 PUT Authorization: Bearer T2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/auth07-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"headers\":{\"Authorization\":\"Bearer auth-t2-token\"}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-07 two more sessions: the new header is verified on its own connection, then the client reconnects",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 two more sessions: the new header is verified on its own connection, then the client reconnects: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"AUTH-07 two more sessions: the new header is verified on its own connection, then the client reconnects: sessions is 2 more than the recorded count\", function () {",
+                      "  var before = Number(pm.collectionVariables.get(\"auth07_s\"));",
+                      "  pm.expect(pm.response.json().counters.sessions, 'body: ' + pm.response.text()).to.equal(before + 2);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "AUTH-07 execute after the rotation",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 execute after the rotation: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth07_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-07 the call was counted under id2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 the call was counted under id2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"AUTH-07 the call was counted under id2: calls_by_identity is {\\\"id2\\\":1}\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls_by_identity || {}, 'body: ' + pm.response.text()).to.eql({\"id2\":1});",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "AUTH-07 teardown: delete client auth07-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-07 teardown: delete client auth07-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/auth07-c"
+              }
+            }
+          ]
+        },
+        {
           "name": "AUTH-08 Secrets are masked on read",
           "description": "Setup: admin credentials; a headers client on alpha with X-Api-Key abcdefghijklmnopqrstuvwxyz125678 (32 characters), X-Short abcde and a TLS CA certificate; mcp_oauth_private_allowlist [\"127.0.0.1\"]; a fleet server auth08 as an OAuth protected resource whose authorization server knows client auth08-preregistered-client-id with secret auth08-preregistered-client-secret, and a completed OAuth client on it with those credentials; an OpenAPI client from a Petstore document with an API key scheme and the credential auth08-openapi-credential-value.",
           "item": [
@@ -53048,6 +53637,307 @@
       "name": "CONN Connection types",
       "description": "Connection type tests.",
       "item": [
+        {
+          "name": "CONN-01 HTTP sticky round trip",
+          "description": "Setup: alpha (echo_tool replying \"hi\", add_tool); an HTTP client on alpha named conn01, auth none, needs_session_stickiness true, tools_to_execute [\"*\"].",
+          "item": [
+            {
+              "name": "CONN-01 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-01 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-01 setup: alpha serves echo_tool (replying \"hi\") and add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-01 setup: alpha serves echo_tool (replying \\\"hi\\\") and add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\",\"reply\":{\"content\":[{\"type\":\"text\",\"text\":\"hi\"}]}},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-01 setup: create client conn01",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-01 setup: create client conn01: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn01-c\",\"name\":\"conn01\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"needs_session_stickiness\":true,\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-01 the client list shows healthy, the server's tool names and no last_failure",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-01 the client list shows healthy, the server's tool names and no last_failure: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-01 the client list shows healthy, the server's tool names and no last_failure: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"CONN-01 the client list shows healthy, the server's tool names and no last_failure: state is \\\"healthy\\\"\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].state, 'body: ' + pm.response.text()).to.equal(\"healthy\");",
+                      "});",
+                      "pm.test(\"CONN-01 the client list shows healthy, the server's tool names and no last_failure: tools are [\\\"add_tool\\\",\\\"echo_tool\\\"]\", function () {",
+                      "  var c = pm.response.json().clients[0];",
+                      "  var names = (c.tools || []).map(function (t) { return t.name; }).sort();",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"add_tool\",\"echo_tool\"]);",
+                      "});",
+                      "pm.test(\"CONN-01 the client list shows healthy, the server's tool names and no last_failure: there is no last_failure\", function () {",
+                      "  pm.expect(pm.response.json().clients[0].last_failure == null, 'body: ' + pm.response.text()).to.equal(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=conn01-c"
+              }
+            },
+            {
+              "name": "CONN-01 execute 1 of 3",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-01 execute 1 of 3: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-01 execute 1 of 3: the body is {role \\\"tool\\\", content \\\"hi\\\", tool_call_id \\\"c1\\\"}\", function () {",
+                      "  pm.expect(pm.response.json(), 'body: ' + pm.response.text()).to.eql({ role: 'tool', content: 'hi', tool_call_id: 'c1' });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn01-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-01 execute 2 of 3",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-01 execute 2 of 3: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-01 execute 2 of 3: the body is {role \\\"tool\\\", content \\\"hi\\\", tool_call_id \\\"c1\\\"}\", function () {",
+                      "  pm.expect(pm.response.json(), 'body: ' + pm.response.text()).to.eql({ role: 'tool', content: 'hi', tool_call_id: 'c1' });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn01-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-01 execute 3 of 3",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-01 execute 3 of 3: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-01 execute 3 of 3: the body is {role \\\"tool\\\", content \\\"hi\\\", tool_call_id \\\"c1\\\"}\", function () {",
+                      "  pm.expect(pm.response.json(), 'body: ' + pm.response.text()).to.eql({ role: 'tool', content: 'hi', tool_call_id: 'c1' });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn01-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-01 one session, three calls to echo_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-01 one session, three calls to echo_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-01 one session, three calls to echo_tool: counters.sessions is 1\", function () {",
+                      "  pm.expect(pm.response.json().counters[\"sessions\"], 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"CONN-01 one session, three calls to echo_tool: calls[echo_tool] is 3\", function () {",
+                      "  pm.expect((pm.response.json().counters.calls || {})[\"echo_tool\"] || 0, 'body: ' + pm.response.text()).to.equal(3);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "CONN-01 teardown: delete client conn01-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-01 teardown: delete client conn01-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn01-c"
+              }
+            }
+          ]
+        },
         {
           "name": "CONN-02 HTTP per call (default)",
           "description": "Setup: alpha (echo_tool, add_tool); an HTTP client on alpha, auth none, per call (needs_session_stickiness omitted), tools_to_execute [\"*\"].",
@@ -83222,6 +84112,771 @@
           ]
         },
         {
+          "name": "EP-52 Per-user OAuth tool through `/mcp`",
+          "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; mcp_oauth_private_allowlist [\"127.0.0.1\"], mcp_enable_temp_token_auth false; a fleet server po (echo_tool, add_tool) as an OAuth protected resource with dynamic registration; a per_user_oauth client po on it with tools_to_execute [\"*\"], verified as admin; a VK granted every tool of alpha, beta and po, with no po token.",
+          "item": [
+            {
+              "name": "EP-52 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: alpha serves echo, add",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: alpha serves echo, add: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: fresh mcpchaos server beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: fresh mcpchaos server beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"beta\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: beta serves echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: beta serves echo: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/beta/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-52-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: register client beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: register client beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"ep-52-beta\",\"name\":\"beta\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/beta/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"allow_by_default\":false}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "EP-52 setup: mcp_oauth_private_allowlist [\"127.0.0.1\"], mcp_enable_temp_token_auth false",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_oauth_private_allowlist = ['127.0.0.1'];",
+                      "cc.mcp_enable_temp_token_auth = false;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: mcp_oauth_private_allowlist [\\\"127.0.0.1\\\"], mcp_enable_temp_token_auth false: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: fresh mcpchaos server po",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: fresh mcpchaos server po: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"po\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: po serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: po serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/po/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: po is an OAuth protected resource with its own authorization server",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: po is an OAuth protected resource with its own authorization server: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/po/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"auth\":{\"oauth\":{}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: create the per-user OAuth client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: create the per-user OAuth client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('po_oc', pm.response.json().oauth_config_id);",
+                      "pm.collectionVariables.set('po_au', pm.response.json().authorize_url);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"po-u\",\"name\":\"po\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/po/mcp\",\"auth_type\":\"per_user_oauth\",\"oauth_config\":{},\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: consent for the per-user OAuth client as admin",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: consent for the per-user OAuth client as admin: status is 302\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(302);",
+                      "});",
+                      "pm.collectionVariables.set('po_cb', pm.response.headers.get('Location'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{po_au}}&login_hint=admin"
+              },
+              "protocolProfileBehavior": {
+                "followRedirects": false,
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "EP-52 setup: follow the callback for the per-user OAuth client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: follow the callback for the per-user OAuth client: status is 302\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(302);",
+                      "});",
+                      "pm.test(\"EP-52 setup: follow the callback for the per-user OAuth client: Location ends \\\"/workspace/mcp-registry/oauth-callback?status=success\\\"\", function () {",
+                      "  var loc = pm.response.headers.get('Location') || '';",
+                      "  pm.expect(loc.slice(-53), 'Location: ' + loc).to.equal(\"/workspace/mcp-registry/oauth-callback?status=success\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{po_cb}}"
+              },
+              "protocolProfileBehavior": {
+                "followRedirects": false,
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "EP-52 setup: complete the per-user OAuth client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: complete the per-user OAuth client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/{{po_oc}}/complete-oauth"
+              }
+            },
+            {
+              "name": "EP-52 setup: create the VK, granted alpha, beta and po",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: create the VK, granted alpha, beta and po: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set(\"ep52_vk_id\", pm.response.json().virtual_key.id);",
+                      "pm.collectionVariables.set(\"ep52_vk\", pm.response.json().virtual_key.value);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"EP-52 key\",\"mcp_configs\":[{\"mcp_client_name\":\"alpha\",\"tools_to_execute\":[\"*\"]},{\"mcp_client_name\":\"beta\",\"tools_to_execute\":[\"*\"]},{\"mcp_client_name\":\"po\",\"tools_to_execute\":[\"*\"]}]}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 setup: reset po's counters",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 setup: reset po's counters: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/po/counters/reset",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 tools/call po-echo_tool with the VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 tools/call po-echo_tool with the VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-52 tools/call po-echo_tool with the VK: isError true, text starts \\\"Authentication required for po. Open this URL to connect your account: \\\"\", function () {",
+                      "  var r = pm.response.json().result;",
+                      "  pm.expect(r && r.isError, 'body: ' + pm.response.text()).to.equal(true);",
+                      "  var text = r.content[0].text;",
+                      "  pm.expect(text.indexOf(\"Authentication required for po. Open this URL to connect your account: \"), 'text: ' + text).to.equal(0);",
+                      "});",
+                      "pm.test(\"EP-52 tools/call po-echo_tool with the VK: Bifrost's /workspace/mcp-sessions/auth?flow= link follows, not the authorization server's URL\", function () {",
+                      "  var r = pm.response.json().result;",
+                      "  pm.expect(r, 'body: ' + pm.response.text()).to.be.an('object');",
+                      "  var text = (r.content && r.content[0] && r.content[0].text) || '';",
+                      "  var rest = text.slice('Authentication required for po. Open this URL to connect your account: '.length);",
+                      "  var prefix = pm.variables.get('base_url') + '/workspace/mcp-sessions/auth?flow=';",
+                      "  pm.expect(rest.indexOf(prefix), 'text: ' + text).to.equal(0);",
+                      "  pm.expect(/^[0-9a-f-]{36}$/.test(rest.slice(prefix.length)), 'text: ' + text).to.equal(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep52_vk}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"po-echo_tool\",\"arguments\":{\"text\":\"hi\"}}}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 po received no call",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 po received no call: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-52 po received no call: calls is empty\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls || {}, 'body: ' + pm.response.text()).to.eql({});",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/po"
+              }
+            },
+            {
+              "name": "EP-52 teardown: delete client po-u",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 teardown: delete client po-u: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/po-u"
+              }
+            },
+            {
+              "name": "EP-52 teardown: delete the VK",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 teardown: delete the VK: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/governance/virtual-keys/{{ep52_vk_id}}"
+              }
+            },
+            {
+              "name": "EP-52 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-52 teardown: delete client ep-52-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 teardown: delete client ep-52-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-52-alpha"
+              }
+            },
+            {
+              "name": "EP-52 teardown: delete client ep-52-beta",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-52 teardown: delete client ep-52-beta: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/ep-52-beta"
+              }
+            }
+          ]
+        },
+        {
           "name": "EP-53 Log entry for a /mcp call",
           "description": "Setup: alpha (echo, add) and beta (echo) registered as HTTP clients alpha and beta, auth none, tools_to_execute [\"*\"], allow_by_default false; the full-access VK (every tool of alpha and beta); tools/call alpha-echo with x-request-id r1.",
           "item": [
@@ -100913,6 +102568,181 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/set-09-a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "SET-14 OAuth private allowlist validation",
+          "description": "Setup: PUT /api/config with admin credentials.",
+          "item": [
+            {
+              "name": "SET-14 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-14 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "SET-14 mcp_oauth_private_allowlist [\"169.254.169.254\"]",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_oauth_private_allowlist = ['169.254.169.254'];",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-14 mcp_oauth_private_allowlist [\\\"169.254.169.254\\\"]: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"SET-14 mcp_oauth_private_allowlist [\\\"169.254.169.254\\\"]: error message contains \\\"can never be allowlisted\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"can never be allowlisted\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "SET-14 mcp_oauth_private_allowlist [\"0.0.0.0/0\"]",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_oauth_private_allowlist = ['0.0.0.0/0'];",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-14 mcp_oauth_private_allowlist [\\\"0.0.0.0/0\\\"]: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"SET-14 mcp_oauth_private_allowlist [\\\"0.0.0.0/0\\\"]: error message contains \\\"can never be allowlisted\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"can never be allowlisted\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "SET-14 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"SET-14 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
               }
             }
           ]
@@ -123648,6 +125478,319 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/inf-31-alpha"
+              }
+            }
+          ]
+        },
+        {
+          "name": "INF-32 Disabled client",
+          "description": "Setup: the openai, anthropic and gemini providers point at the fleet's mock LLM (model mock-model), which answers each request with the turns scripted for its scenario and logs what it was sent; alpha (echo, add, greet) registered as client alpha, per call, tools_to_execute [\"*\"], then disabled with a PUT of disabled true.",
+          "item": [
+            {
+              "name": "INF-32 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "INF-32 setup: alpha serves echo, add, greet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 setup: alpha serves echo, add, greet: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo\"},{\"name\":\"add\"},{\"name\":\"greet\"}]}"
+                }
+              }
+            },
+            {
+              "name": "INF-32 setup: register client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 setup: register client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"inf-32-alpha\",\"name\":\"alpha\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "INF-32 setup: disable client alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 setup: disable client alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-32-alpha",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"disabled\":true}"
+                }
+              }
+            },
+            {
+              "name": "INF-32 setup: script the mock LLM for inf32",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 setup: script the mock LLM for inf32: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/llm/llm/script",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"scenario\":\"inf32\",\"then\":{\"text\":\"ok\"}}"
+                }
+              }
+            },
+            {
+              "name": "INF-32 chat",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 chat: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/chat/completions",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"model\":\"openai/mock-model\",\"messages\":[{\"role\":\"user\",\"content\":\"[scenario:inf32] hi\"}]}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-32 nothing is injected",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 nothing is injected: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-32 nothing is injected: 1 model request logged\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"INF-32 nothing is injected: request 1 declares exactly []\", function () {",
+                      "  var reqs = pm.response.json().requests || [];",
+                      "  pm.expect(reqs[0] && reqs[0].tools, 'body: ' + pm.response.text()).to.eql([]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/llm/llm/requests?scenario=inf32"
+              }
+            },
+            {
+              "name": "INF-32 execute alpha-echo",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 execute alpha-echo: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"INF-32 execute alpha-echo: error message contains \\\"is not permitted (client alpha is disabled)\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"is not permitted (client alpha is disabled)\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"alpha-echo\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "INF-32 alpha calls[echo] is 0",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 alpha calls[echo] is 0: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"INF-32 alpha calls[echo] is 0: calls[echo] is 0\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls[\"echo\"] || 0, 'body: ' + pm.response.text()).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "INF-32 teardown: delete client inf-32-alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"INF-32 teardown: delete client inf-32-alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/inf-32-alpha"
               }
             }
           ]
@@ -147790,6 +149933,70 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/log-31-a"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LOG-32 Filter data dimensions",
+          "description": "Setup: none.",
+          "item": [
+            {
+              "name": "LOG-32 dimensions=tool_names",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-32 dimensions=tool_names: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LOG-32 dimensions=tool_names: the body's keys are [\\\"tool_names\\\"]\", function () {",
+                      "  pm.expect(Object.keys(pm.response.json()).sort(), 'body: ' + pm.response.text()).to.eql([\"tool_names\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs/filterdata?dimensions=tool_names"
+              }
+            },
+            {
+              "name": "LOG-32 dimensions=bogus falls back to all five",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"LOG-32 dimensions=bogus falls back to all five: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"LOG-32 dimensions=bogus falls back to all five: the body's keys are [\\\"apps\\\",\\\"server_labels\\\",\\\"tool_names\\\",\\\"user_agents\\\",\\\"virtual_keys\\\"]\", function () {",
+                      "  pm.expect(Object.keys(pm.response.json()).sort(), 'body: ' + pm.response.text()).to.eql([\"apps\",\"server_labels\",\"tool_names\",\"user_agents\",\"virtual_keys\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp-logs/filterdata?dimensions=bogus"
               }
             }
           ]

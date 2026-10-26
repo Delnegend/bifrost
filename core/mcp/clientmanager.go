@@ -1871,7 +1871,7 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 	// released; connectToMCPClient acquires m.mu itself, so calling it while
 	// still holding the lock here would deadlock.
 	var newConfig *schemas.MCPClientConfig
-	var becamePerCall, becameSticky, rebuildOpenAPI, wasDisabled bool
+	var becamePerCall, becameSticky, rebuildOpenAPI, wasDisabled, perUserDiscoveryChanged bool
 	var clientName string
 	startPerCallChecker := false
 
@@ -1931,10 +1931,31 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 		// forward under the old name, a rename followed by a restore would reinstall
 		// tools the rebound ToolMap below no longer has. The name mapping is keyed by
 		// the unprefixed tool name and travels with the tools it describes.
+		//
+		// Turning per_user_discovery on or off is the exception: the store cleared
+		// the stored tools and reset the record of the admin step along with it,
+		// so the update carries both, read back from the store, and nothing is
+		// carried forward. An update that leaves the flag unset keeps the stored
+		// value, the same rule the store applies.
+		perUserDiscovery := updatedConfig.PerUserDiscovery
+		if perUserDiscovery == nil {
+			perUserDiscovery = client.ExecutionConfig.PerUserDiscovery
+		}
+		// Held to AddClient's rule on the config the update leaves, whose auth
+		// and connection types are the client's own.
+		if err := ValidatePerUserDiscovery(&schemas.MCPClientConfig{Name: updatedConfig.Name, AuthType: oldAuthType, ConnectionType: client.ExecutionConfig.ConnectionType, PerUserDiscovery: perUserDiscovery}); err != nil {
+			return fmt.Errorf("invalid MCP client configuration: %w", err)
+		}
+		wasPerUserDiscovery := perUserDiscoveryOn(client.ExecutionConfig)
+		perUserDiscoveryChanged = wasPerUserDiscovery != (perUserDiscovery != nil && *perUserDiscovery)
+		pendingVerification := client.ExecutionConfig.PendingVerification
+		if perUserDiscoveryChanged {
+			pendingVerification = updatedConfig.PendingVerification
+		}
 		discoveredTools := updatedConfig.DiscoveredTools
 		discoveredToolNameMapping := updatedConfig.DiscoveredToolNameMapping
 		discoveredInstructions := updatedConfig.DiscoveredInstructions
-		if discoveredTools == nil {
+		if discoveredTools == nil && !perUserDiscoveryChanged {
 			discoveredTools = client.ExecutionConfig.DiscoveredTools
 			discoveredToolNameMapping = client.ExecutionConfig.DiscoveredToolNameMapping
 			discoveredInstructions = client.ExecutionConfig.DiscoveredInstructions
@@ -1966,13 +1987,6 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 			}
 		}
 
-		// An update that leaves per_user_discovery unset keeps the stored value,
-		// the same rule the store applies.
-		perUserDiscovery := updatedConfig.PerUserDiscovery
-		if perUserDiscovery == nil {
-			perUserDiscovery = client.ExecutionConfig.PerUserDiscovery
-		}
-
 		// Create a new config struct (immutable pattern) to avoid race conditions
 		// with concurrent reads. Any snapshot holding the old ExecutionConfig pointer
 		// will continue to see consistent data.
@@ -2002,10 +2016,11 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 			IsPingAvailable:        updatedConfig.IsPingAvailable,
 			NeedsSessionStickiness: updatedConfig.NeedsSessionStickiness,
 			PerUserDiscovery:       perUserDiscovery,
-			// Changed only by the admin step itself, never by an update: an edit
-			// arrives without it, and taking that as "verified" un-parked a client
-			// still waiting for its step.
-			PendingVerification:   client.ExecutionConfig.PendingVerification,
+			// Changed by the admin step itself and by turning per_user_discovery
+			// on or off (see above), never by an ordinary edit: an edit arrives
+			// without it, and taking that as "verified" un-parked a client still
+			// waiting for its step.
+			PendingVerification:   pendingVerification,
 			ToolSyncInterval:      updatedConfig.ToolSyncInterval,
 			ToolExecutionTimeout:  updatedConfig.ToolExecutionTimeout,
 			MaxInstructionsLength: updatedConfig.MaxInstructionsLength,
@@ -2025,10 +2040,31 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 			rebuildOpenAPI = true
 		}
 		wasDisabled = client.State == schemas.MCPConnectionStateDisabled
+		oldConfig := client.ExecutionConfig
 
 		// Atomically replace the config pointer
 		client.ExecutionConfig = newConfig
 		clientName = updatedConfig.Name
+		client.Name = updatedConfig.Name
+
+		if perUserDiscoveryChanged {
+			// The shared tools were discovered with the admin credential, which a
+			// client with the flag on does not keep, and a client turning it off
+			// has none yet. A check already in flight belongs to the old setting:
+			// bumping ConnGeneration drops its result.
+			if !wasPerUserDiscovery {
+				m.discoveryStore.DeleteDiscovery(m.ctx, oldConfig)
+			}
+			client.ConnGeneration++
+			if client.State != schemas.MCPConnectionStateDisabled {
+				if newConfig.PendingVerification {
+					client.State = schemas.MCPConnectionStatePendingVerification
+				} else {
+					markClientHealthy(client)
+				}
+			}
+			return nil
+		}
 
 		// Rebind ToolMap keys (and inner Function.Name) to the current client name.
 		oldDiscovery := m.discoveryStore.GetDiscovery(m.ctx, newConfig)
@@ -2049,9 +2085,6 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 			newDiscovery.DiscoveredAt = oldDiscovery.DiscoveredAt
 		}
 		m.discoveryStore.SetDiscovery(m.ctx, newConfig, newDiscovery)
-
-		// Also update the client Name field
-		client.Name = updatedConfig.Name
 
 		// needs_session_stickiness just flipped: apply it now instead of
 		// leaving the live connection state stale until some unrelated event
@@ -2108,7 +2141,14 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 		return err
 	}
 
-	if becamePerCall {
+	if perUserDiscoveryChanged {
+		// A client with the flag on keeps no admin credential to check with, and
+		// one parked for its admin step has nothing to check until it passes.
+		m.checkerManager.StopChecking(id)
+		if !wasDisabled && !newConfig.PendingVerification {
+			m.startPerCallChecker(newConfig)
+		}
+	} else if becamePerCall {
 		if startPerCallChecker {
 			// The persistent connection is gone, but discovery must keep
 			// running: a per-call client relies on the checker's ephemeral

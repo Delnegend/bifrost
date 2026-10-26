@@ -2297,6 +2297,16 @@ func loadMCPConfig(ctx context.Context, config *Config, configData *ConfigData) 
 					continue
 				}
 			}
+			// Refused before anything is written: storing the flag on a client it
+			// cannot apply to would also apply what turning it on deletes.
+			if err := mcp.ValidatePerUserDiscovery(c); err != nil {
+				logger.Error("skipping MCP client config %q from config file: %v; an existing client keeps its stored configuration", c.Name, err)
+				if configData.rejectedMCPClients == nil {
+					configData.rejectedMCPClients = map[string]bool{}
+				}
+				configData.rejectedMCPClients[c.Name] = true
+				continue
+			}
 			// oauth_config_id is server-managed state — a credentials-row
 			// reference produced by admin authorization — not a declarative
 			// input. A file-supplied value is at best redundant (the sync
@@ -2393,6 +2403,21 @@ func loadMCPConfig(ctx context.Context, config *Config, configData *ConfigData) 
 			}
 		}
 	}
+}
+
+// pinnedPerUserDiscoveryError checks fileClient's per_user_discovery against the
+// auth and connection types its existing client keeps, which
+// pinMCPClientImmutableFields will pin it to. Loading checked it against the
+// types the file declares; a block that declares others would otherwise store
+// the flag on a client it cannot apply to, which then fails to load at every
+// boot. An unset flag stays valid: it keeps or clears the stored value.
+func pinnedPerUserDiscoveryError(fileClient, existing *schemas.MCPClientConfig) error {
+	return mcp.ValidatePerUserDiscovery(&schemas.MCPClientConfig{
+		Name:             fileClient.Name,
+		AuthType:         existing.AuthType,
+		ConnectionType:   existing.ConnectionType,
+		PerUserDiscovery: fileClient.PerUserDiscovery,
+	})
 }
 
 // pinMCPClientImmutableFields rewrites a file-declared client so that fields
@@ -2766,6 +2791,27 @@ func applyMCPClientPinnedStateToRow(row *configstoreTables.TableMCPClient, clien
 	row.PerUserDiscovery = clientConfig.PerUserDiscovery
 }
 
+// mcpClientPerUserDiscoveryOn reports whether c has per_user_discovery on.
+func mcpClientPerUserDiscoveryOn(c *schemas.MCPClientConfig) bool {
+	return c != nil && c.PerUserDiscovery != nil && *c.PerUserDiscovery
+}
+
+// readBackPerUserDiscoveryChange copies onto client what turning
+// per_user_discovery on or off reset in its stored row (see the store's
+// UpdateMCPClientConfig): the record of its admin step, and the stored tools it
+// no longer has.
+func readBackPerUserDiscoveryChange(ctx context.Context, store configstore.ConfigStore, client *schemas.MCPClientConfig) {
+	stored, err := store.GetMCPClientConfigByID(ctx, client.ID)
+	if err != nil {
+		logger.Warn("failed to read back MCP client %q after per_user_discovery changed: %v", client.Name, err)
+		return
+	}
+	client.PendingVerification = stored.PendingVerification
+	client.DiscoveredTools = stored.DiscoveredTools
+	client.DiscoveredToolNameMapping = stored.DiscoveredToolNameMapping
+	client.DiscoveredInstructions = stored.DiscoveredInstructions
+}
+
 // mcpClientStartsPendingVerification reports whether a client declared in
 // config.json, before any admin step ran for it, needs one: an OAuth sign-in,
 // or verification of per-user headers or a token exchange. An openapi client's
@@ -2790,6 +2836,7 @@ func mergeMCPConfig(ctx context.Context, config *Config, configData *ConfigData,
 	// Merge client configs by name with hash-based reconciliation.
 	clientConfigsToAdd := make([]*schemas.MCPClientConfig, 0)
 	clientConfigsToUpdate := make([]configstoreTables.TableMCPClient, 0)
+	perUserDiscoveryChanged := make(map[string]*schemas.MCPClientConfig)
 	for _, newClientConfig := range tempMCPConfig.ClientConfigs {
 		if newClientConfig == nil {
 			continue
@@ -2818,6 +2865,10 @@ func mergeMCPConfig(ctx context.Context, config *Config, configData *ConfigData,
 			if newClientConfig.Name != "" && existingClientConfig.Name == newClientConfig.Name {
 				found = true
 				if existingClientConfig.ConfigHash != fileHash {
+					if err := pinnedPerUserDiscoveryError(newClientConfig, existingClientConfig); err != nil {
+						logger.Error("skipping MCP client config %q from config file: %v; keeping the stored configuration", newClientConfig.Name, err)
+						break
+					}
 					logger.Debug("config hash mismatch for MCP client %q, syncing from config file", newClientConfig.Name)
 					noteConfigFileApplied("mcp_client", newClientConfig.Name)
 					newClientConfig.ID = existingClientConfig.ID
@@ -2833,6 +2884,9 @@ func mergeMCPConfig(ctx context.Context, config *Config, configData *ConfigData,
 					// per_user_discovery keeps the stored value.
 					if newClientConfig.PerUserDiscovery == nil {
 						newClientConfig.PerUserDiscovery = existingClientConfig.PerUserDiscovery
+					}
+					if mcpClientPerUserDiscoveryOn(newClientConfig) != mcpClientPerUserDiscoveryOn(existingClientConfig) {
+						perUserDiscoveryChanged[existingClientConfig.ID] = newClientConfig
 					}
 					applyMCPClientPinnedStateToRow(&fileClientRow, newClientConfig)
 					fileClientRow.ClientID = existingClientConfig.ID
@@ -2874,6 +2928,8 @@ func mergeMCPConfig(ctx context.Context, config *Config, configData *ConfigData,
 			update := clientConfigsToUpdate[i]
 			if err := config.ConfigStore.UpdateMCPClientConfig(ctx, update.ClientID, &update); err != nil {
 				logger.Warn("failed to update MCP client config %q: %v", update.Name, err)
+			} else if client := perUserDiscoveryChanged[update.ClientID]; client != nil {
+				readBackPerUserDiscoveryChange(ctx, config.ConfigStore, client)
 			}
 		}
 	}
@@ -3073,6 +3129,7 @@ func syncMCPConfigFromFile(ctx context.Context, config *Config, configData *Conf
 	}
 	updates := make([]configstoreTables.TableMCPClient, 0)
 	adds := make([]*schemas.MCPClientConfig, 0)
+	perUserDiscoveryChanged := make(map[string]*schemas.MCPClientConfig)
 	for _, fileClient := range fileMCPConfig.ClientConfigs {
 		if fileClient == nil {
 			continue
@@ -3091,6 +3148,13 @@ func syncMCPConfigFromFile(ctx context.Context, config *Config, configData *Conf
 				fileClient.ID = existing.ID
 			} else {
 				fileClient.ID = uuid.NewString()
+			}
+		}
+		if existing != nil {
+			if err := pinnedPerUserDiscoveryError(fileClient, existing); err != nil {
+				logger.Error("skipping MCP client config %q from config file: %v; keeping the stored configuration", fileClient.Name, err)
+				runtimeClients = append(runtimeClients, existing)
+				continue
 			}
 		}
 		fileRow, err := mcpClientConfigToTable(fileClient)
@@ -3146,6 +3210,9 @@ func syncMCPConfigFromFile(ctx context.Context, config *Config, configData *Conf
 			if fileClient.PerUserDiscovery == nil {
 				fileClient.PerUserDiscovery = schemas.Ptr(false)
 			}
+			if mcpClientPerUserDiscoveryOn(fileClient) != mcpClientPerUserDiscoveryOn(existing) {
+				perUserDiscoveryChanged[existing.ID] = fileClient
+			}
 			applyMCPClientPinnedStateToRow(&fileRow, fileClient)
 			fileRow.ClientID = existing.ID
 			updates = append(updates, fileRow)
@@ -3170,6 +3237,8 @@ func syncMCPConfigFromFile(ctx context.Context, config *Config, configData *Conf
 			update := updates[i]
 			if err := config.ConfigStore.UpdateMCPClientConfig(ctx, update.ClientID, &update); err != nil {
 				logger.Warn("failed to update MCP client config %q: %v", update.Name, err)
+			} else if client := perUserDiscoveryChanged[update.ClientID]; client != nil {
+				readBackPerUserDiscoveryChange(ctx, config.ConfigStore, client)
 			}
 		}
 	}
@@ -6704,22 +6773,22 @@ func ResolveFrameworkPricingConfig(
 	}
 
 	return &configstoreTables.TableFrameworkConfig{
-		ID:                     configID,
-		PricingURL:             resolvedPricingURL,
-		PricingSyncInterval:    resolvedSyncSeconds,
-		ModelParametersURL:     resolvedModelParametersURL,
-		MCPLibraryURL:          resolvedMCPLibraryURL,
-		MCPLibrarySyncInterval: resolvedMCPLibrarySyncInterval,
-		LiveModelsSyncInterval: resolvedLiveModelsSyncInterval,
-		ConfigHash:             persistedHash,
-	}, &modelcatalog.Config{
-		PricingURL:             resolvedPricingURL,
-		PricingSyncInterval:    resolvedSyncSeconds,
-		ModelParametersURL:     resolvedModelParametersURL,
-		MCPLibraryURL:          resolvedMCPLibraryURL,
-		MCPLibrarySyncInterval: resolvedMCPLibrarySyncInterval,
-		LiveModelsSyncInterval: resolvedLiveModelsSyncInterval,
-	}, needsDBUpdate
+			ID:                     configID,
+			PricingURL:             resolvedPricingURL,
+			PricingSyncInterval:    resolvedSyncSeconds,
+			ModelParametersURL:     resolvedModelParametersURL,
+			MCPLibraryURL:          resolvedMCPLibraryURL,
+			MCPLibrarySyncInterval: resolvedMCPLibrarySyncInterval,
+			LiveModelsSyncInterval: resolvedLiveModelsSyncInterval,
+			ConfigHash:             persistedHash,
+		}, &modelcatalog.Config{
+			PricingURL:             resolvedPricingURL,
+			PricingSyncInterval:    resolvedSyncSeconds,
+			ModelParametersURL:     resolvedModelParametersURL,
+			MCPLibraryURL:          resolvedMCPLibraryURL,
+			MCPLibrarySyncInterval: resolvedMCPLibrarySyncInterval,
+			LiveModelsSyncInterval: resolvedLiveModelsSyncInterval,
+		}, needsDBUpdate
 }
 
 // initFrameworkConfig initializes framework config and pricing manager from file

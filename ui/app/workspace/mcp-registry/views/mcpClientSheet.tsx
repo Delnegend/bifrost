@@ -50,6 +50,7 @@ import {
 import { VirtualMCP } from "@/lib/types/virtualMcps";
 import { parseArrayFromText } from "@/lib/utils/array";
 import { failureStageLabel, formatDurationSince, hasStateReason, stateReasonTitle } from "@/lib/utils/mcpConnectionFailure";
+import { perUserDiscoveryOn, supportsPerUserDiscovery, toolSubtitle } from "@/lib/utils/mcpPerUserDiscovery";
 import { titleCaseFromSnakeCase } from "@/lib/utils/strings";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { useGetSCIMProvidersQuery } from "@enterprise/lib/store/apis/scimApi";
@@ -105,6 +106,10 @@ interface MCPClientSheetProps {
 // recorded reason so the explanation sits next to the instruction.
 function stateDescription(mcpClient: MCPClient, isPerUserAuth: boolean): string {
 	const failure = mcpClient.last_failure;
+	if (perUserDiscoveryOn(mcpClient.config)) {
+		const perUserDescription = perUserDiscoveryStateDescription(mcpClient);
+		if (perUserDescription) return perUserDescription;
+	}
 	switch (mcpClient.state) {
 		case "pending_verification":
 			return mcpClient.config.auth_type === "token_exchange"
@@ -131,6 +136,28 @@ function stateDescription(mcpClient: MCPClient, isPerUserAuth: boolean): string 
 			return "Instances of this deployment disagree about this server's state. Tool calls are still attempted on every instance.";
 		default:
 			return "MCP server configuration and available tools";
+	}
+}
+
+// perUserDiscoveryStateDescription is the sentence for a server with
+// per_user_discovery on while it is pending or healthy: its admin step only
+// verifies the server, and each caller discovers tools with their own
+// credential. Other states keep their general wording.
+function perUserDiscoveryStateDescription(mcpClient: MCPClient): string | undefined {
+	switch (mcpClient.state) {
+		case "pending_verification":
+			switch (mcpClient.config.auth_type) {
+				case "token_exchange":
+					return "This server needs a one-time verification: Bifrost exchanges your signed-in identity token and tests the connection. Nothing from it is kept: each caller's tools are discovered with their own identity token.";
+				case "per_user_oauth":
+					return "An admin sign-in is needed once to verify the OAuth setup. Nothing from it is kept: each caller's tools are discovered when they sign in.";
+				default:
+					return "Verify this server once with sample header values to test the connection. Nothing from it is kept: each caller's tools are discovered with their own headers.";
+			}
+		case "healthy":
+			return "Each caller's tools are discovered with their own credential when they connect. This server keeps no admin credential.";
+		default:
+			return undefined;
 	}
 }
 
@@ -512,6 +539,7 @@ export default function MCPClientSheet({
 			is_code_mode_client: mcpClient.config.is_code_mode_client || false,
 			is_ping_available: mcpClient.config.is_ping_available === true || mcpClient.config.is_ping_available === undefined,
 			needs_session_stickiness: mcpClient.config.needs_session_stickiness === true,
+			per_user_discovery: mcpClient.config.per_user_discovery === true,
 			allow_by_default: mcpClient.config.allow_by_default || false,
 			disabled: mcpClient.config.disabled || false,
 			headers: mcpClient.config.headers,
@@ -579,6 +607,8 @@ export default function MCPClientSheet({
 	};
 	const isDisabled = form.watch("disabled");
 	const needsSessionStickiness = form.watch("needs_session_stickiness");
+	const perUserDiscovery = form.watch("per_user_discovery") === true;
+	const canUsePerUserDiscovery = supportsPerUserDiscovery(mcpClient.config.auth_type, mcpClient.config.connection_type);
 
 	// Reset form when mcpClient changes
 	useEffect(() => {
@@ -587,6 +617,7 @@ export default function MCPClientSheet({
 			is_code_mode_client: mcpClient.config.is_code_mode_client || false,
 			is_ping_available: mcpClient.config.is_ping_available === true || mcpClient.config.is_ping_available === undefined,
 			needs_session_stickiness: mcpClient.config.needs_session_stickiness === true,
+			per_user_discovery: mcpClient.config.per_user_discovery === true,
 			allow_by_default: mcpClient.config.allow_by_default || false,
 			disabled: mcpClient.config.disabled || false,
 			headers: mcpClient.config.headers,
@@ -687,6 +718,9 @@ export default function MCPClientSheet({
 	// backend applies a stickiness change live (opens or closes the shared
 	// connection) as part of the same update, not on some later reconnect.
 	const needsSessionStickinessDirty = !!form.formState.dirtyFields.needs_session_stickiness;
+	// Gates the warning below its toggle: turning per_user_discovery on or off
+	// deletes what the server keeps as part of the same update.
+	const perUserDiscoveryDirty = !!form.formState.dirtyFields.per_user_discovery;
 
 	const handleNavigate = useCallback(
 		(direction: "prev" | "next") => {
@@ -853,6 +887,9 @@ export default function MCPClientSheet({
 					// explicit false is rejected for sse/stdio, which always keep
 					// a persistent connection regardless of this field.
 					needs_session_stickiness: mcpClient.config.connection_type === "http" ? data.needs_session_stickiness : undefined,
+					// Sent only when changed: turning it on or off deletes what the
+					// server keeps, so it is never echoed back on an unrelated edit.
+					per_user_discovery: canUsePerUserDiscovery && perUserDiscoveryDirty ? data.per_user_discovery : undefined,
 					allow_by_default: data.allow_by_default,
 					disabled: data.disabled,
 					headers: data.headers ?? {},
@@ -1387,6 +1424,40 @@ export default function MCPClientSheet({
 															/>
 														</>
 													)}
+												{canUsePerUserDiscovery && (
+													<FormField
+														control={form.control}
+														name="per_user_discovery"
+														render={({ field }) => (
+															<FormItem className="flex flex-row items-center justify-between gap-4 px-4 py-3">
+																<div className="flex items-center gap-2">
+																	<FormLabel>Discover Tools Per Caller</FormLabel>
+																	<TooltipProvider>
+																		<Tooltip>
+																			<TooltipTrigger asChild>
+																				<Info className="text-muted-foreground h-4 w-4 cursor-help" />
+																			</TooltipTrigger>
+																			<TooltipContent className="max-w-xs">
+																				<p>
+																					Enable to discover each caller&apos;s tools with their own credential, so every caller sees the
+																					tools their account has, and keep no admin credential for this server. Disable to show every
+																					caller the tools found with the admin credential.
+																				</p>
+																			</TooltipContent>
+																		</Tooltip>
+																	</TooltipProvider>
+																</div>
+																<FormControl>
+																	<Switch
+																		checked={field.value === true}
+																		onCheckedChange={field.onChange}
+																		data-testid="mcpclient-per-user-discovery-switch"
+																	/>
+																</FormControl>
+															</FormItem>
+														)}
+													/>
+												)}
 											</div>
 											{/* Sits outside the bordered row group: it's a consequence of the
 											    toggle above, not another setting row. */}
@@ -1398,6 +1469,21 @@ export default function MCPClientSheet({
 														{needsSessionStickiness
 															? "the shared connection will be opened now."
 															: "the existing shared connection will be closed now."}
+													</p>
+												</div>
+											)}
+											{perUserDiscoveryDirty && (
+												<div
+													className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+													data-testid="mcpclient-per-user-discovery-warning"
+												>
+													<Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+													<p>
+														{perUserDiscovery
+															? "Saving deletes the admin credential and tool list Bifrost keeps for this server. Each caller's tools are discovered with their own credential when they next connect."
+															: mcpClient.config.auth_type === "per_user_oauth"
+																? "Saving deletes every caller's discovered tools. Use Refresh admin credential afterwards so Bifrost can discover tools with an admin sign-in again."
+																: "Saving deletes every caller's discovered tools, and the server goes back to pending verification until an admin verifies it again."}
 													</p>
 												</div>
 											)}
@@ -1436,13 +1522,24 @@ export default function MCPClientSheet({
 																			</Tooltip>
 																		</TooltipProvider>
 																	</div>
-																	<div>{isUsingGlobal && <p className="text-muted-foreground text-xs">Using global setting</p>}</div>
+																	<div>
+																		{perUserDiscovery ? (
+																			<p className="text-muted-foreground text-xs">
+																				Not used: this server keeps no tool list to sync. Each caller&apos;s tools are discovered when they
+																				connect.
+																			</p>
+																		) : (
+																			isUsingGlobal && <p className="text-muted-foreground text-xs">Using global setting</p>
+																		)}
+																	</div>
 																</div>
 																<FormControl>
 																	<Input
 																		type="number"
 																		className={`w-24 ${isUsingGlobal ? "text-muted-foreground" : ""}`}
 																		placeholder={String(globalToolSyncInterval)}
+																		disabled={perUserDiscovery}
+																		data-testid="mcpclient-tool-sync-interval-input"
 																		value={field.value === 0 || field.value === undefined ? "" : String(field.value)}
 																		onChange={(e) => {
 																			const val = e.target.value === "" ? undefined : parseInt(e.target.value);
@@ -1902,8 +1999,16 @@ export default function MCPClientSheet({
 										<div className="space-y-4">
 											<div className="flex items-start justify-between gap-4">
 												<SectionHeader
-													title={`Available Tools (${mcpClient.tools?.length || 0})`}
-													description="Enable, auto-execute, and price individual tools exposed by this server."
+													title={
+														perUserDiscoveryOn(mcpClient.config)
+															? `Tools Seen in Callers' Discoveries (${mcpClient.tools?.length || 0})`
+															: `Available Tools (${mcpClient.tools?.length || 0})`
+													}
+													description={
+														perUserDiscoveryOn(mcpClient.config)
+															? "Each caller's tools are discovered with their own credential; these are the names seen so far. Enable, auto-execute, and price them here."
+															: "Enable, auto-execute, and price individual tools exposed by this server."
+													}
 												/>
 												{mcpClient.tools && mcpClient.tools.length > 0 && (
 													<div className="flex items-center gap-4">
@@ -2075,8 +2180,8 @@ export default function MCPClientSheet({
 																			<TableCell className="max-w-[300px]">
 																				<div className="min-w-0">
 																					<div className="text-foreground truncate text-sm font-medium">{tool.name}</div>
-																					{tool.description && (
-																						<p className="text-muted-foreground mt-0.5 truncate text-xs">{tool.description}</p>
+																					{toolSubtitle(mcpClient, tool) && (
+																						<p className="text-muted-foreground mt-0.5 truncate text-xs">{toolSubtitle(mcpClient, tool)}</p>
 																					)}
 																				</div>
 																			</TableCell>
@@ -2158,7 +2263,11 @@ export default function MCPClientSheet({
 																				<td colSpan={5} className="p-0">
 																					<div className="bg-muted/30 border-b px-4 py-3">
 																						<div className="text-muted-foreground mb-2 text-xs font-medium">Parameters Schema</div>
-																						{tool.parameters ? (
+																						{perUserDiscoveryOn(mcpClient.config) ? (
+																							<div className="text-muted-foreground text-sm">
+																								Schemas can differ from one caller to another, so none is shown.
+																							</div>
+																						) : tool.parameters ? (
 																							<CodeEditor
 																								className="z-0 w-full rounded-sm border"
 																								shouldAdjustInitialHeight={true}
@@ -2189,7 +2298,11 @@ export default function MCPClientSheet({
 												</div>
 											) : (
 												<div className="text-muted-foreground rounded-sm border p-6 text-center">
-													<p className="text-sm">No tools available</p>
+													<p className="text-sm">
+														{perUserDiscoveryOn(mcpClient.config)
+															? "No caller has connected yet. Tools appear here once callers' tools are discovered."
+															: "No tools available"}
+													</p>
 												</div>
 											)}
 										</div>

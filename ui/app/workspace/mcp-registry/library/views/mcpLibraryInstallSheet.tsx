@@ -106,6 +106,7 @@ export function MCPLibraryInstallSheet({ server, open, onClose, onInstalled }: M
 		oauthConfigId: string;
 		mcpClientId: string;
 		isPerUserOauth?: boolean;
+		perUserDiscovery?: boolean;
 	} | null>(null);
 	const [headersFlow, setHeadersFlow] = useState<{ payload: CreateMCPClientRequest } | null>(null);
 
@@ -197,6 +198,7 @@ export function MCPLibraryInstallSheet({ server, open, onClose, onInstalled }: M
 					oauthConfigId: response.oauth_config_id,
 					mcpClientId: response.mcp_client_id,
 					isPerUserOauth: data.auth_type === "per_user_oauth",
+					perUserDiscovery: payload.per_user_discovery === true,
 				});
 				return;
 			}
@@ -364,6 +366,7 @@ export function MCPLibraryInstallSheet({ server, open, onClose, onInstalled }: M
 					oauthConfigId={oauthFlow.oauthConfigId}
 					mcpClientId={oauthFlow.mcpClientId}
 					isPerUserOauth={oauthFlow.isPerUserOauth}
+					perUserDiscovery={oauthFlow.perUserDiscovery}
 				/>
 			)}
 
@@ -385,6 +388,7 @@ export function MCPLibraryInstallSheet({ server, open, onClose, onInstalled }: M
 						setError("name", { message: error });
 					}}
 					perUserHeaderKeys={satellites.perUserHeaderKeys}
+					perUserDiscovery={headersFlow.payload.per_user_discovery === true}
 					submitHandler={async (values) => {
 						await createMCPClient({ ...headersFlow.payload, user_headers: values }).unwrap();
 					}}

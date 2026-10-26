@@ -38,6 +38,7 @@ import { getExternalBaseUrl } from "@/app/workspace/mcp-registry/views/mcpUsageG
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { MCPAuthType, MCPClient } from "@/lib/types/mcp";
 import { supportsClientReregistration } from "@/lib/utils/mcpCredential";
+import { perUserDiscoveryOn } from "@/lib/utils/mcpPerUserDiscovery";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { Link } from "@tanstack/react-router";
 import {
@@ -63,7 +64,7 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { IconWrap, InfoBox } from "./authorizerUi";
 import MCPClientSheet from "./mcpClientSheet";
 import { authScopeOf } from "./mcpClientFormFields";
-import { canReconnectMCPClient } from "./mcpClientsTable.utils";
+import { canReconnectMCPClient, exchangeVerifyCopy } from "./mcpClientsTable.utils";
 import { StateBadge } from "./mcpConnectionFailure";
 import { MCPHeadersAuthorizer } from "./mcpHeadersAuthorizer";
 import { MCPServersEmptyState } from "./mcpServersEmptyState";
@@ -110,6 +111,10 @@ function MCPClientActionsMenu({
 	onDelete: (client: MCPClient) => void;
 }) {
 	const [isOpen, setIsOpen] = useState(false);
+	// A server with per_user_discovery on keeps no admin credential and no tool
+	// list of its own, so the actions that refresh either do not apply.
+	// Reregistering still does: callers sign in through the client it registers.
+	const perUserDiscovery = perUserDiscoveryOn(client.config);
 
 	return (
 		<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -184,7 +189,7 @@ function MCPClientActionsMenu({
 						Reconnect
 					</DropdownMenuItem>
 				)}
-				{hasUpdateAccess && (
+				{hasUpdateAccess && !perUserDiscovery && (
 					<DropdownMenuItem
 						className="cursor-pointer"
 						disabled={
@@ -202,6 +207,7 @@ function MCPClientActionsMenu({
 					</DropdownMenuItem>
 				)}
 				{hasUpdateAccess &&
+					!perUserDiscovery &&
 					client.state !== "pending_verification" &&
 					client.state !== "disabled" &&
 					(client.config.auth_type === "oauth" || client.config.auth_type === "per_user_oauth") && (
@@ -241,6 +247,7 @@ function MCPClientActionsMenu({
 						</DropdownMenuItem>
 					)}
 				{hasUpdateAccess &&
+					!perUserDiscovery &&
 					client.state !== "pending_verification" &&
 					client.state !== "disabled" &&
 					client.config.auth_type === "per_user_headers" && (
@@ -258,6 +265,7 @@ function MCPClientActionsMenu({
 						</DropdownMenuItem>
 					)}
 				{hasUpdateAccess &&
+					!perUserDiscovery &&
 					client.state !== "pending_verification" &&
 					client.state !== "disabled" &&
 					client.config.auth_type === "token_exchange" && (
@@ -387,6 +395,7 @@ export default function MCPClientsTable({
 		oauthConfigId: string;
 		mcpClientId: string;
 		isPerUserOauth: boolean;
+		perUserDiscovery: boolean;
 	} | null>(null);
 	// Drives the MCPHeadersAuthorizer dialog for a config.json-bootstrapped
 	// per_user_headers client sitting in pending_verification, triggered from
@@ -401,6 +410,7 @@ export default function MCPClientsTable({
 		expiresAt?: string;
 		mcpClientId: string;
 		isPerUserOauth: boolean;
+		perUserDiscovery: boolean;
 	} | null>(null);
 	// Drives the MCPHeadersAuthorizer dialog for a per_user_headers client
 	// refreshing its admin discovery credential, triggered from the row
@@ -491,6 +501,7 @@ export default function MCPClientsTable({
 					oauthConfigId: response.oauth_config_id,
 					mcpClientId: client.config.client_id,
 					isPerUserOauth,
+					perUserDiscovery: perUserDiscoveryOn(client.config),
 				});
 			} else {
 				toast({
@@ -523,6 +534,7 @@ export default function MCPClientsTable({
 					expiresAt: response.expires_at,
 					mcpClientId: client.config.client_id,
 					isPerUserOauth: client.config.auth_type === "per_user_oauth",
+					perUserDiscovery: perUserDiscoveryOn(client.config),
 				});
 			} else {
 				toast({
@@ -690,6 +702,7 @@ export default function MCPClientsTable({
 	// draws nothing inline, and leaving it out drops the topbar to the
 	// route-derived fallback, which for this route reads "MCP Registry".
 	const pageTitle = <PageTitle title="MCP Server Catalog">Manage servers that can connect to the MCP Tools endpoint.</PageTitle>;
+	const exchangeCopy = exchangeVerifyCopy(exchangeVerifyClient);
 
 	// True empty state: no servers at all (not just filtered to zero)
 	if (totalCount === 0 && !hasActiveFilters) {
@@ -725,7 +738,9 @@ export default function MCPClientsTable({
 							{reregisterTarget?.config.auth_type === "per_user_oauth"
 								? " Every user of this server will be signed out and will have to authenticate again."
 								: " Every credential currently issued for this server will be signed out."}{" "}
-							Otherwise use Reauthorize, which keeps the current client.
+							{perUserDiscoveryOn(reregisterTarget?.config)
+								? "Your sign-in afterwards only verifies the new client; nothing from it is kept."
+								: "Otherwise use Reauthorize, which keeps the current client."}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -792,6 +807,7 @@ export default function MCPClientsTable({
 					oauthConfigId={bootstrapAuthorize.oauthConfigId}
 					mcpClientId={bootstrapAuthorize.mcpClientId}
 					isPerUserOauth={bootstrapAuthorize.isPerUserOauth}
+					perUserDiscovery={bootstrapAuthorize.perUserDiscovery}
 				/>
 			)}
 			{bootstrapHeadersClient && (
@@ -821,6 +837,7 @@ export default function MCPClientsTable({
 						}
 					}}
 					perUserHeaderKeys={bootstrapHeadersClient.config.per_user_header_keys ?? []}
+					perUserDiscovery={perUserDiscoveryOn(bootstrapHeadersClient.config)}
 					submitHandler={async (values) => {
 						await verifyMCPClientHeaders({
 							id: bootstrapHeadersClient.config.client_id,
@@ -863,36 +880,17 @@ export default function MCPClientsTable({
 								}
 							/>
 							<div className="min-w-0 space-y-0.5">
-								<DialogTitle className="text-sm leading-snug font-medium">
-									{exchangeVerifyClient?.state === "pending_verification" ? "Verify as me" : "Re-verify as me"}
-								</DialogTitle>
-								<DialogDescription className="text-xs leading-relaxed">
-									{exchangeVerifyClient?.state === "pending_verification"
-										? "Establish Bifrost's discovery credential using your identity."
-										: "Renew Bifrost's own discovery credential using your identity."}
-								</DialogDescription>
+								<DialogTitle className="text-sm leading-snug font-medium">{exchangeCopy.title}</DialogTitle>
+								<DialogDescription className="text-xs leading-relaxed">{exchangeCopy.description}</DialogDescription>
 							</div>
 						</div>
 					</DialogHeader>
 					<div className="space-y-3 px-5 py-4">
 						<InfoBox icon={<KeyRound className="size-4" />}>
 							<p>
-								This exchanges your own signed-in identity to{" "}
-								{exchangeVerifyClient?.state === "pending_verification" ? "establish" : "renew"} Bifrost&apos;s discovery credential for{" "}
-								<strong>{exchangeVerifyClient?.config.name}</strong>.
+								{exchangeCopy.lead} <strong>{exchangeVerifyClient?.config.name}</strong>.
 							</p>
-							{exchangeVerifyClient?.state === "pending_verification" ? (
-								<p className="text-muted-foreground/80 text-xs">
-									That credential is only used to periodically fetch this server&apos;s tool list, not for real user requests, whose tokens
-									are exchanged automatically on every request.
-								</p>
-							) : (
-								<p className="text-muted-foreground/80 text-xs">
-									That credential is only used to periodically fetch this server&apos;s tool list, not for real user requests, whose tokens
-									are exchanged automatically on every request. You only need this if the credential badge shows it&apos;s expired, but
-									running it any time is safe.
-								</p>
-							)}
+							<p className="text-muted-foreground/80 text-xs">{exchangeCopy.detail}</p>
 						</InfoBox>
 						<div className="flex justify-end gap-2">
 							<Button
@@ -958,36 +956,17 @@ export default function MCPClientsTable({
 								}
 							/>
 							<div className="min-w-0 space-y-0.5">
-								<DialogTitle className="text-sm leading-snug font-medium">
-									{exchangeVerifyClient?.state === "pending_verification" ? "Verify as me" : "Re-verify as me"}
-								</DialogTitle>
-								<DialogDescription className="text-xs leading-relaxed">
-									{exchangeVerifyClient?.state === "pending_verification"
-										? "Establish Bifrost's discovery credential using your identity."
-										: "Renew Bifrost's own discovery credential using your identity."}
-								</DialogDescription>
+								<DialogTitle className="text-sm leading-snug font-medium">{exchangeCopy.title}</DialogTitle>
+								<DialogDescription className="text-xs leading-relaxed">{exchangeCopy.description}</DialogDescription>
 							</div>
 						</div>
 					</DialogHeader>
 					<div className="space-y-3 px-5 py-4">
 						<InfoBox icon={<KeyRound className="size-4" />}>
 							<p>
-								This exchanges your own signed-in identity to{" "}
-								{exchangeVerifyClient?.state === "pending_verification" ? "establish" : "renew"} Bifrost&apos;s discovery credential for{" "}
-								<strong>{exchangeVerifyClient?.config.name}</strong>.
+								{exchangeCopy.lead} <strong>{exchangeVerifyClient?.config.name}</strong>.
 							</p>
-							{exchangeVerifyClient?.state === "pending_verification" ? (
-								<p className="text-muted-foreground/80 text-xs">
-									That credential is only used to periodically fetch this server&apos;s tool list, not for real user requests, whose tokens
-									are exchanged automatically on every request.
-								</p>
-							) : (
-								<p className="text-muted-foreground/80 text-xs">
-									That credential is only used to periodically fetch this server&apos;s tool list, not for real user requests, whose tokens
-									are exchanged automatically on every request. You only need this if the credential badge shows it&apos;s expired, but
-									running it any time is safe.
-								</p>
-							)}
+							<p className="text-muted-foreground/80 text-xs">{exchangeCopy.detail}</p>
 						</InfoBox>
 						<div className="flex justify-end gap-2">
 							<Button
@@ -1094,7 +1073,7 @@ export default function MCPClientsTable({
 													Bifrost's own connection checks to the server, not the results of tool calls made through it: it self-heals and
 													never blocks tool calls. For per-user clients (OAuth, headers, token exchange), this reflects Bifrost's own
 													retained admin credential (used only to periodically refresh the tool list), not any individual user's own
-													session, which is unaffected either way.
+													session, which is unaffected either way. A client that discovers tools per caller keeps no such credential.
 												</p>
 												<a
 													data-testid="mcp-client-state-link"
@@ -1173,7 +1152,7 @@ export default function MCPClientsTable({
 													className={
 														c.config.is_code_mode_client
 															? "bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300"
-															: "bg-gray-100 text-gray-800 dark:bg-muted dark:text-muted-foreground"
+															: "dark:bg-muted dark:text-muted-foreground bg-gray-100 text-gray-800"
 													}
 												>
 													{c.config.is_code_mode_client ? "Enabled" : "Disabled"}
@@ -1334,9 +1313,11 @@ export default function MCPClientsTable({
 					onSuccess={() => {
 						toast({
 							title: "Success",
-							description: reauthorizeFlow.isPerUserOauth
-								? "Admin discovery credential refreshed successfully."
-								: "MCP client re-authorized successfully",
+							description: reauthorizeFlow.perUserDiscovery
+								? "New OAuth client verified. Each user signs in again on their next call."
+								: reauthorizeFlow.isPerUserOauth
+									? "Admin discovery credential refreshed successfully."
+									: "MCP client re-authorized successfully",
 						});
 						setReauthorizeFlow(null);
 						if (refetch) void refetch();
@@ -1375,6 +1356,7 @@ export default function MCPClientsTable({
 					expiresAt={reauthorizeFlow.expiresAt}
 					mcpClientId={reauthorizeFlow.mcpClientId}
 					isPerUserOauth={reauthorizeFlow.isPerUserOauth}
+					perUserDiscovery={reauthorizeFlow.perUserDiscovery}
 					isReauthorize
 				/>
 			)}

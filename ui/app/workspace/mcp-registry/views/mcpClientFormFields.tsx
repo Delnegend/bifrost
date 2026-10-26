@@ -30,6 +30,7 @@ import {
 	SECRET_REQUIRED_FOR_METHOD_MESSAGE,
 } from "@/lib/types/schemas";
 import { parseArrayFromText } from "@/lib/utils/array";
+import { supportsPerUserDiscovery } from "@/lib/utils/mcpPerUserDiscovery";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { useGetSCIMProvidersQuery } from "@enterprise/lib/store/apis/scimApi";
 import { Info } from "lucide-react";
@@ -535,6 +536,9 @@ export function buildMCPClientPayload(data: CreateMCPClientRequest, satellites: 
 		// request headers to send.
 		headers: !isStdio && data.headers && Object.keys(data.headers).length > 0 ? data.headers : undefined,
 		per_user_header_keys: authType === "per_user_headers" ? effectivePerUserHeaderKeys(data, satellites) : undefined,
+		// The switch only renders where the flag applies; a value chosen before
+		// switching to an auth type it does not apply to is dropped here.
+		per_user_discovery: supportsPerUserDiscovery(authType, connectionType) ? data.per_user_discovery : undefined,
 		token_exchange:
 			authType === "token_exchange"
 				? {
@@ -1101,6 +1105,44 @@ export function MCPClientFormFields({ form, satellites, headersValidationError, 
 										</SelectContent>
 									</Select>
 								</FormItem>
+							)}
+
+							{supportsPerUserDiscovery(authType, connectionType) && (
+								<div className="rounded-md border">
+									<FormField
+										control={control}
+										name="per_user_discovery"
+										render={({ field }) => (
+											<FormItem className="flex flex-row items-center justify-between gap-4 px-4 py-3">
+												<div className="flex items-center gap-2">
+													<FormLabel htmlFor="per-user-discovery">Discover Tools Per Caller</FormLabel>
+													<TooltipProvider>
+														<Tooltip>
+															<TooltipTrigger asChild>
+																<Info className="text-muted-foreground h-4 w-4 cursor-help" />
+															</TooltipTrigger>
+															<TooltipContent className="max-w-xs">
+																<p>
+																	Enable to discover each caller&apos;s tools with their own credential, so every caller sees the tools
+																	their account has. The admin credential then only verifies the server once and is not kept. Disable to
+																	show every caller the tools found with the admin credential.
+																</p>
+															</TooltipContent>
+														</Tooltip>
+													</TooltipProvider>
+												</div>
+												<FormControl>
+													<Switch
+														id="per-user-discovery"
+														data-testid="mcp-per-user-discovery"
+														checked={field.value === true}
+														onCheckedChange={field.onChange}
+													/>
+												</FormControl>
+											</FormItem>
+										)}
+									/>
+								</div>
 							)}
 						</>
 					)}

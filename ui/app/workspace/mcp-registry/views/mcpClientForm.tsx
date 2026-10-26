@@ -57,6 +57,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 		oauthConfigId: string;
 		mcpClientId: string;
 		isPerUserOauth?: boolean;
+		perUserDiscovery?: boolean;
 	} | null>(null);
 
 	// Per-user-headers admin flow: admin declares the required key names, then
@@ -120,6 +121,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 					oauthConfigId: response.oauth_config_id,
 					mcpClientId: response.mcp_client_id,
 					isPerUserOauth: data.auth_type === "per_user_oauth",
+					perUserDiscovery: payload.per_user_discovery === true,
 				});
 			} else {
 				setIsLoading(false);
@@ -254,6 +256,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 					oauthConfigId={oauthFlow.oauthConfigId}
 					mcpClientId={oauthFlow.mcpClientId}
 					isPerUserOauth={oauthFlow.isPerUserOauth}
+					perUserDiscovery={oauthFlow.perUserDiscovery}
 				/>
 			)}
 
@@ -282,6 +285,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 						setError("name", { message: error });
 					}}
 					perUserHeaderKeys={satellites.perUserHeaderKeys}
+					perUserDiscovery={headersFlow.payload.per_user_discovery === true}
 					submitHandler={async (values) => {
 						await createMCPClient({ ...headersFlow.payload, user_headers: values }).unwrap();
 					}}

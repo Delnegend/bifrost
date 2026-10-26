@@ -24,6 +24,9 @@ interface MCPHeadersAuthorizerProps {
 	onConflict?: (error: string) => void;
 	// Required key schema, rendered as the form's input fields.
 	perUserHeaderKeys: string[];
+	// The client discovers tools per caller, so the sample values only verify
+	// it and are not kept.
+	perUserDiscovery?: boolean;
 	// Called with the collected sample values once the admin submits the
 	// form. The handler decides what endpoint to hit (Create flow's
 	// /api/mcp/client vs bootstrap's /api/mcp/client/{id}/verify-headers).
@@ -64,6 +67,7 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 	onError,
 	onConflict,
 	perUserHeaderKeys,
+	perUserDiscovery,
 	submitHandler,
 }) => {
 	const [status, setStatus] = useState<Status>("confirm");
@@ -158,9 +162,9 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 									To set up this MCP server, we need to verify that your header configuration is correct and discover the available tools.
 								</p>
 								<p className="text-muted-foreground/80 text-xs">
-									You will be asked to provide sample values for the required headers. Bifrost keeps these values on file to periodically
-									refresh the available tool list; they are never used for real end-user requests. Once verified, each user will submit
-									their own header values when they use this MCP server.
+									{perUserDiscovery
+										? "You will be asked to provide sample values for the required headers. They only verify the connection and are not kept. Once verified, each user submits their own header values and discovers their own tools when they use this MCP server."
+										: "You will be asked to provide sample values for the required headers. Bifrost keeps these values on file to periodically refresh the available tool list; they are never used for real end-user requests. Once verified, each user will submit their own header values when they use this MCP server."}
 								</p>
 							</InfoBox>
 							<div className="flex justify-end gap-2">
@@ -179,8 +183,9 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 						<>
 							<InfoBox icon={<KeyRound className="size-4" />}>
 								<p>
-									These values verify the connection now and are kept on file so Bifrost can periodically refresh the available tool list.
-									Each user still submits their own values when they use this server.
+									{perUserDiscovery
+										? "These values only verify the connection and are not kept. Each user submits their own values when they use this server."
+										: "These values verify the connection now and are kept on file so Bifrost can periodically refresh the available tool list. Each user still submits their own values when they use this server."}
 								</p>
 							</InfoBox>
 							<HeadersForm

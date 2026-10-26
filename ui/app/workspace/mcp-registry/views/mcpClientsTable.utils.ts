@@ -1,4 +1,43 @@
 import { MCPClient } from "@/lib/types/mcp";
+import { perUserDiscoveryOn } from "@/lib/utils/mcpPerUserDiscovery";
+
+/**
+ * exchangeVerifyCopy is the text of the token_exchange "Verify as me" dialog
+ * for client: lead is followed by the client's name. A server that discovers
+ * tools per caller keeps nothing from the exchange, so its text speaks of a
+ * verification only, never of a discovery credential.
+ */
+export function exchangeVerifyCopy(client: { state: MCPClient["state"]; config: Pick<MCPClient["config"], "per_user_discovery"> } | null): {
+	title: string;
+	description: string;
+	lead: string;
+	detail: string;
+} {
+	const pending = client?.state === "pending_verification";
+	const title = pending ? "Verify as me" : "Re-verify as me";
+	if (perUserDiscoveryOn(client?.config)) {
+		return {
+			title,
+			description: "Verify this server using your identity. Nothing is kept.",
+			lead: "This exchanges your own signed-in identity to verify",
+			detail:
+				"This server discovers tools per caller, so the exchanged credential only verifies it and is not kept. Each caller's token is exchanged automatically on every request.",
+		};
+	}
+	let detail =
+		"That credential is only used to periodically fetch this server's tool list, not for real user requests, whose tokens are exchanged automatically on every request.";
+	if (!pending) {
+		detail += " You only need this if the credential badge shows it's expired, but running it any time is safe.";
+	}
+	return {
+		title,
+		description: pending
+			? "Establish Bifrost's discovery credential using your identity."
+			: "Renew Bifrost's own discovery credential using your identity.",
+		lead: `This exchanges your own signed-in identity to ${pending ? "establish" : "renew"} Bifrost's discovery credential for`,
+		detail,
+	};
+}
 
 /**
  * canReconnectMCPClient reports whether the "Reconnect" action applies to

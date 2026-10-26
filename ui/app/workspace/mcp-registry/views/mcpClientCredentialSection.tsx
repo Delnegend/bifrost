@@ -19,6 +19,7 @@ import {
 	missingHeaderKeys,
 	shouldSuggestReplacementClient,
 } from "@/lib/utils/mcpCredential";
+import { perUserDiscoveryOn } from "@/lib/utils/mcpPerUserDiscovery";
 import { titleCaseFromSnakeCase } from "@/lib/utils/strings";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
@@ -34,9 +35,13 @@ interface Props {
  * auth type: the shared token (oauth), the retained admin token
  * (per_user_oauth, token_exchange), or the retained admin header values
  * (per_user_headers). Renders nothing for auth types without a self-held
- * credential.
+ * credential, and a note instead for a server with per_user_discovery on,
+ * which keeps none.
  */
 export function MCPClientCredentialSection({ mcpClient }: Props) {
+	if (perUserDiscoveryOn(mcpClient.config)) {
+		return <PerUserDiscoveryCredentialNote />;
+	}
 	switch (mcpClient.config.auth_type) {
 		case "oauth":
 		case "per_user_oauth":
@@ -59,6 +64,19 @@ export function MCPClientSessionsSection({ mcpClient }: Props) {
 	const authType = mcpClient.config.auth_type;
 	if (authType !== "per_user_oauth" && authType !== "per_user_headers") return null;
 	return <SessionsRow clientId={mcpClient.config.client_id} kind={authType === "per_user_oauth" ? "token" : "header"} />;
+}
+
+function PerUserDiscoveryCredentialNote() {
+	return (
+		<div className="space-y-4" data-testid="mcpclient-credential-section">
+			<SectionHeader
+				title="Admin Credential"
+				description="Not kept for this server: each caller's tools are discovered with their own credential."
+				testId="mcpclient-credential-heading"
+			/>
+			<EmptyCredential>The admin step only verifies this server, and nothing from it is kept.</EmptyCredential>
+		</div>
+	);
 }
 
 function OAuthCredentialBlock({ mcpClient }: Props) {

@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
+	"github.com/stretchr/testify/assert"
 )
 
 // sweepRecordingStore counts sweep invocations. It embeds the ConfigStore
@@ -76,4 +78,33 @@ func TestOAuth2SweepWorkerGateReevaluatedPerPass(t *testing.T) {
 	if store.calls != 3 {
 		t.Fatalf("re-gated-off pass made %d store calls, want 3 total", store.calls)
 	}
+}
+
+// staleOAuthRecorder records what dropStaleMCPOAuthState asks the server to drop.
+type staleOAuthRecorder struct {
+	evicted, closed []string
+	closeErr        error
+}
+
+func (r *staleOAuthRecorder) EvictOauthTokenCacheByMCPClient(_ context.Context, mcpClientID string) {
+	r.evicted = append(r.evicted, mcpClientID)
+}
+
+func (r *staleOAuthRecorder) CloseAndMarkNeedsReauth(_ context.Context, id string) error {
+	r.closed = append(r.closed, id)
+	return r.closeErr
+}
+
+// A sign-in that moves an MCP client to a new authorization server drops the client's cached tokens
+// and closes its shared connection, as a credential rotation does; a per-user client has no shared
+// connection to close.
+func TestDropStaleMCPOAuthState(t *testing.T) {
+	recorder := &staleOAuthRecorder{}
+	dropStaleMCPOAuthState(recorder)(context.Background(), "linear")
+	assert.Equal(t, []string{"linear"}, recorder.evicted)
+	assert.Equal(t, []string{"linear"}, recorder.closed)
+
+	perUser := &staleOAuthRecorder{closeErr: schemas.ErrMCPReconnectNotApplicable}
+	dropStaleMCPOAuthState(perUser)(context.Background(), "linear")
+	assert.Equal(t, []string{"linear"}, perUser.evicted)
 }

@@ -299,3 +299,82 @@ func TestIsClientMetadataURL(t *testing.T) {
 		assert.Equal(t, want, IsClientMetadataURL(clientID), clientID)
 	}
 }
+
+// RFC 8414 3.3: metadata naming another issuer than the one it was fetched for is not used.
+func TestDiscoverOAuthMetadata_RejectsMetadataNamingAnotherIssuer(t *testing.T) {
+	newDCRProvider(t) // sets the package logger
+	for _, tc := range []struct {
+		name    string
+		issuer  func(base string) string
+		wantErr bool
+	}{
+		{"identical", func(base string) string { return base }, false},
+		{"another issuer", func(string) string { return "https://honest.example" }, true},
+		{"trailing slash", func(base string) string { return base + "/" }, true},
+		{"missing", func(string) string { return "" }, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var server *httptest.Server
+			mux := http.NewServeMux()
+			mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+server.URL+`/.well-known/oauth-protected-resource"`)
+				w.WriteHeader(http.StatusUnauthorized)
+			})
+			mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{server.URL}})
+			})
+			mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"issuer":                 tc.issuer(server.URL),
+					"authorization_endpoint": server.URL + "/authorize",
+					"token_endpoint":         server.URL + "/token",
+
+					"authorization_response_iss_parameter_supported": true,
+				})
+			})
+			server = httptest.NewServer(mux)
+			t.Cleanup(server.Close)
+
+			metadata, err := DiscoverOAuthMetadata(context.Background(), server.URL+"/mcp")
+			if tc.wantErr {
+				require.ErrorIs(t, err, ErrIssuerMismatch)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, server.URL, metadata.Issuer)
+			assert.True(t, metadata.IssParameterSupported)
+		})
+	}
+}
+
+// RFC 9207 2.4 as the MCP authorization spec tabulates it.
+func TestCheckAuthorizationResponseIssuer(t *testing.T) {
+	const expected = "https://auth.example.com"
+	for _, tc := range []struct {
+		name     string
+		expected string
+		required bool
+		iss      string
+		hasIss   bool
+		wantErr  bool
+	}{
+		{"advertised, matching", expected, true, expected, true, false},
+		{"advertised, another issuer", expected, true, "https://attacker.example", true, true},
+		{"advertised, missing", expected, true, "", false, true},
+		{"not advertised, matching", expected, false, expected, true, false},
+		{"not advertised, another issuer", expected, false, "https://attacker.example", true, true},
+		{"not advertised, missing", expected, false, "", false, false},
+		{"no normalization", expected, false, expected + "/", true, true},
+		{"empty iss", expected, false, "", true, true},
+		{"no recorded issuer", "", true, "https://attacker.example", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkAuthorizationResponseIssuer(tc.expected, tc.required, tc.iss, tc.hasIss)
+			if tc.wantErr {
+				require.ErrorIs(t, err, ErrAuthorizationResponseIssuer)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

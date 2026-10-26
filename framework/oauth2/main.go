@@ -63,6 +63,9 @@ type OAuth2Provider struct {
 	// be prevented (a racing double refresh_token redemption, most upstreams
 	// reject the second as replay).
 	refreshGroup singleflight.Group
+	bindGroup    singleflight.Group // one authorization server check per oauth config at a time
+	// serverChanged runs after a sign-in rebinds a config to a new authorization server; see SetAuthorizationServerChangedHook.
+	serverChanged atomic.Pointer[func(ctx context.Context, mcpClientID string)]
 
 	// tempTokens, when non-nil and enabled in client config, is used by
 	// InitiateUserOAuthFlow to mint a short-lived mcp_auth temp token and
@@ -679,7 +682,7 @@ func (p *OAuth2Provider) InitiateOAuthFlow(ctx context.Context, config *schemas.
 	// 2. Provide some URLs manually (partial discovery for missing ones)
 	// 3. Provide no URLs (full discovery from server_url)
 	needsDiscovery := (authorizeURL == "" || tokenURL == "")
-	supportsClientMetadataDocument := false
+	var discovered *OAuthMetadata
 
 	if needsDiscovery {
 		if config.ServerURL == "" {
@@ -716,8 +719,11 @@ func (p *OAuth2Provider) InitiateOAuthFlow(ctx context.Context, config *schemas.
 			resource = metadata.Resource
 			logger.Debug("Discovered OAuth resource", "resource", resource)
 		}
-		// A hand-entered token endpoint may belong to another authorization server.
-		supportsClientMetadataDocument = cimdSupportedAt(metadata, tokenURL)
+		// A hand-entered token endpoint may belong to another authorization server, whose metadata
+		// (CIMD support, issuer) is not this one's.
+		if sameTokenEndpoint(metadata.TokenURL, tokenURL) {
+			discovered = metadata
+		}
 		// Merge scopes: use discovered scopes if user didn't provide any
 		if len(scopes) == 0 && len(metadata.ScopesSupported) > 0 {
 			scopes = metadata.ScopesSupported
@@ -740,10 +746,11 @@ func (p *OAuth2Provider) InitiateOAuthFlow(ctx context.Context, config *schemas.
 	clientID := config.ClientID // carries env./vault. reference metadata; resolved at use time
 	clientSecret := config.ClientSecret
 
-	// Hand-entered endpoints skip discovery; fetch the CIMD flag separately.
-	if !needsDiscovery && !clientID.IsSet() && config.ServerURL != "" && clientMetadataDocumentID(config.ClientMetadataURL, true) != "" {
-		supportsClientMetadataDocument = advertisesClientMetadataDocument(ctx, config.ServerURL, tokenURL)
+	// Hand-entered endpoints skip discovery; read the issuer and CIMD flag separately.
+	if !needsDiscovery && config.ServerURL != "" {
+		discovered = metadataForTokenURL(ctx, config.ServerURL, tokenURL)
 	}
+	supportsClientMetadataDocument := discovered != nil && discovered.ClientIDMetadataDocumentSupported
 
 	// Prefer CIMD over DCR (deprecated in 2026-07-28).
 	if documentID := clientMetadataDocumentID(config.ClientMetadataURL, supportsClientMetadataDocument); !clientID.IsSet() && documentID != "" {
@@ -752,7 +759,9 @@ func (p *OAuth2Provider) InitiateOAuthFlow(ctx context.Context, config *schemas.
 		logger.Debug("Using Bifrost's Client ID Metadata Document as client_id: %s", documentID)
 	}
 
+	dynamicallyRegistered := false
 	if !clientID.IsSet() {
+		dynamicallyRegistered = true
 		// Check if registration URL is available
 		if registrationURL == nil || *registrationURL == "" {
 			return nil, fmt.Errorf("client_id is required when the OAuth provider does not support dynamic client registration (RFC 7591). Please provide client_id manually or use an OAuth provider that supports dynamic registration")
@@ -803,6 +812,11 @@ func (p *OAuth2Provider) InitiateOAuthFlow(ctx context.Context, config *schemas.
 		Status:          "pending",
 		ServerURL:       config.ServerURL,
 		UseDiscovery:    config.UseDiscovery,
+
+		DynamicallyRegistered: dynamicallyRegistered,
+	}
+	if discovered != nil {
+		oauthConfigRecord.Issuer, oauthConfigRecord.IssParameterSupported = discovered.Issuer, discovered.IssParameterSupported
 	}
 
 	// MCPClientID: best-effort, same lookup CompleteOAuthFlow uses at
@@ -830,6 +844,9 @@ func (p *OAuth2Provider) InitiateOAuthFlow(ctx context.Context, config *schemas.
 		FlowMode:      "admin",
 		Status:        "pending",
 		ExpiresAt:     expiresAt,
+
+		Issuer:                oauthConfigRecord.Issuer,
+		IssParameterSupported: oauthConfigRecord.IssParameterSupported,
 	}
 
 	// Resolve env var reference to actual value for use in the authorize URL.
@@ -1108,15 +1125,27 @@ func (p *OAuth2Provider) buildUpstreamAuthorizeURLForFlow(ctx context.Context, f
 	if templateConfig, err = p.followClientMetadataDocument(ctx, templateConfig, redirectURI); err != nil {
 		return "", err
 	}
+	// Checked here, as the sign-in starts, not when the flow is created during a tool call.
+	if templateConfig, err = p.bindAuthorizationServer(ctx, templateConfig, flow.MCPClientID, redirectURI); err != nil {
+		return "", err
+	}
+	if flow.Issuer != templateConfig.Issuer || flow.IssParameterSupported != templateConfig.IssParameterSupported {
+		// Only the issuer is written: a renewal during discovery gave the row a new state and verifier.
+		recorded, err := p.configStore.RecordOAuthFlowIssuer(ctx, flow.ID, flow.State, templateConfig.Issuer, templateConfig.IssParameterSupported)
+		if err != nil {
+			return "", err
+		}
+		if !recorded {
+			return "", fmt.Errorf("oauth flow %s was renewed or completed during sign-in: %w", flow.ID, schemas.ErrOAuth2FlowNotPending)
+		}
+	}
 	// Recompute the PKCE challenge from the stored verifier (deterministic).
 	hash := sha256.Sum256([]byte(flow.CodeVerifier))
 	codeChallenge := base64.RawURLEncoding.EncodeToString(hash[:])
 
-	var scopes []string
-	if templateConfig.Scopes != "" {
-		if err := json.Unmarshal([]byte(templateConfig.Scopes), &scopes); err != nil {
-			return "", fmt.Errorf("failed to parse oauth scopes for flow %s: %w", flow.ID, err)
-		}
+	scopes, err := templateConfig.ScopeList()
+	if err != nil {
+		return "", fmt.Errorf("failed to parse oauth scopes for flow %s: %w", flow.ID, err)
 	}
 	return p.buildAuthorizeURLWithPKCE(
 		templateConfig.AuthorizeURL,
@@ -1588,6 +1617,7 @@ func (p *OAuth2Provider) InitiateUserOAuthFlow(ctx context.Context, oauthConfigI
 		existing.CodeVerifier = codeVerifier
 		existing.Status = "pending"
 		existing.ExpiresAt = expiresAt
+		existing.Issuer, existing.IssParameterSupported = templateConfig.Issuer, templateConfig.IssParameterSupported
 		if err := p.configStore.UpdateOauthUserSession(ctx, existing); err != nil {
 			return nil, "", fmt.Errorf("failed to update flow row for reauth: %w", err)
 		}
@@ -1610,6 +1640,9 @@ func (p *OAuth2Provider) InitiateUserOAuthFlow(ctx context.Context, oauthConfigI
 			FlowMode:      string(flowMode),
 			Status:        "pending",
 			ExpiresAt:     expiresAt,
+
+			Issuer:                templateConfig.Issuer,
+			IssParameterSupported: templateConfig.IssParameterSupported,
 		}
 		if err := p.configStore.CreateOauthUserSession(ctx, row); err != nil {
 			return nil, "", fmt.Errorf("failed to create flow row: %w", err)
@@ -1740,11 +1773,9 @@ func (p *OAuth2Provider) ReregisterDynamicClient(ctx context.Context, oauthConfi
 		return "", "", false, fmt.Errorf("%w: reauthorize with the stored client_id instead, or set a registration_url", ErrDynamicRegistrationUnavailable)
 	}
 
-	var scopes []string
-	if templateConfig.Scopes != "" {
-		if err := json.Unmarshal([]byte(templateConfig.Scopes), &scopes); err != nil {
-			return "", "", false, fmt.Errorf("failed to parse stored oauth scopes for config %s: %w", oauthConfigID, err)
-		}
+	scopes, err := templateConfig.ScopeList()
+	if err != nil {
+		return "", "", false, fmt.Errorf("failed to parse stored oauth scopes for config %s: %w", oauthConfigID, err)
 	}
 
 	// The URI the consent behind this registration will present, not the one
@@ -1771,6 +1802,10 @@ func (p *OAuth2Provider) ReregisterDynamicClient(ctx context.Context, oauthConfi
 		RegistrationURL: registrationURL,
 		Resource:        templateConfig.Resource,
 		Scopes:          scopes,
+
+		Issuer:                templateConfig.Issuer,
+		IssParameterSupported: templateConfig.IssParameterSupported,
+		DynamicallyRegistered: true,
 	}
 	rotated, err = p.configStore.RotateMCPOAuthConfig(ctx, templateConfig, fields)
 	if err != nil {
@@ -2048,6 +2083,7 @@ func (p *OAuth2Provider) followClientMetadataDocument(ctx context.Context, confi
 	if config.RegistrationURL != nil {
 		fields.RegistrationURL = *config.RegistrationURL
 	}
+	fields.KeepBinding(config) // the authorization server is unchanged
 	if _, err := p.configStore.RotateMCPOAuthConfig(ctx, config, fields); err != nil {
 		return nil, fmt.Errorf("failed to move oauth config %s to the current Client ID Metadata Document: %w", config.ID, err)
 	}

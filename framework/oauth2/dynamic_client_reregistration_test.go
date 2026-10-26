@@ -36,7 +36,8 @@ import (
 // value.
 type dcrConfigStore struct {
 	configstore.ConfigStore
-	db *gorm.DB
+	db           *gorm.DB
+	beforeRotate func() // runs as a rotation starts, standing in for a concurrent writer
 }
 
 func newDCRConfigStore(t *testing.T) *dcrConfigStore {
@@ -87,6 +88,18 @@ func (s *dcrConfigStore) RotateMCPOAuthConfig(ctx context.Context, existing *tab
 	if !fields.DiffersFrom(existing) {
 		return false, nil
 	}
+	if s.beforeRotate != nil {
+		s.beforeRotate()
+	}
+	if fields.ExpectedIssuer != nil {
+		stored, err := s.GetOauthConfigByID(ctx, existing.ID)
+		if err != nil {
+			return false, err
+		}
+		if stored == nil || stored.Issuer != *fields.ExpectedIssuer {
+			return false, configstore.ErrOAuthConfigChanged
+		}
+	}
 	existing.ClientID = fields.ClientID.Clone()
 	existing.ClientSecret = fields.ClientSecret.Clone()
 	existing.AuthorizeURL = fields.AuthorizeURL
@@ -97,6 +110,7 @@ func (s *dcrConfigStore) RotateMCPOAuthConfig(ctx context.Context, existing *tab
 		existing.RegistrationURL = bifrost.Ptr(fields.RegistrationURL)
 	}
 	existing.Resource = fields.Resource
+	existing.Issuer, existing.IssParameterSupported, existing.DynamicallyRegistered = fields.Issuer, fields.IssParameterSupported, fields.DynamicallyRegistered
 	if len(fields.Scopes) == 0 {
 		existing.Scopes = ""
 	} else {
@@ -113,6 +127,14 @@ func (s *dcrConfigStore) RotateMCPOAuthConfig(ctx context.Context, existing *tab
 		return false, err
 	}
 	return true, nil
+}
+
+// BindOAuthConfigIssuer mirrors RDBConfigStore's: only the binding columns, only while the row matches.
+func (s *dcrConfigStore) BindOAuthConfigIssuer(ctx context.Context, id, expectedIssuer, expectedTokenURL, issuer string, issParameterSupported bool) (bool, error) {
+	result := s.db.WithContext(ctx).Model(&tables.TableOauthConfig{}).
+		Where("id = ? AND issuer = ? AND token_url = ?", id, expectedIssuer, expectedTokenURL).
+		Updates(map[string]any{"issuer": issuer, "iss_parameter_supported": issParameterSupported})
+	return result.RowsAffected > 0, result.Error
 }
 
 func (s *dcrConfigStore) GetOauthTokenByID(ctx context.Context, id string) (*tables.TableMCPOauthToken, error) {
@@ -163,6 +185,25 @@ func (s *dcrConfigStore) CreateOauthUserSession(ctx context.Context, flow *table
 
 func (s *dcrConfigStore) UpdateOauthUserSession(ctx context.Context, flow *tables.TableMCPOauthFlow) error {
 	return s.db.WithContext(ctx).Save(flow).Error
+}
+
+// RecordOAuthFlowIssuer mirrors RDBConfigStore's: only the issuer, only while the flow is pending with state.
+func (s *dcrConfigStore) RecordOAuthFlowIssuer(ctx context.Context, id, state, issuer string, issParameterSupported bool) (bool, error) {
+	result := s.db.WithContext(ctx).Model(&tables.TableMCPOauthFlow{}).
+		Where("id = ? AND state = ? AND status = ?", id, state, "pending").
+		Updates(map[string]any{"issuer": issuer, "iss_parameter_supported": issParameterSupported})
+	return result.RowsAffected > 0, result.Error
+}
+
+func (s *dcrConfigStore) GetOauthUserSessionByState(ctx context.Context, state string) (*tables.TableMCPOauthFlow, error) {
+	var flow tables.TableMCPOauthFlow
+	if err := s.db.WithContext(ctx).Where("state = ?", state).First(&flow).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &flow, nil
 }
 
 func (s *dcrConfigStore) GetOauthFlowByID(ctx context.Context, id string) (*tables.TableMCPOauthFlow, error) {
@@ -786,10 +827,20 @@ func TestOAuthLoopbackProviderFollowsPrivateTargetAllowlist(t *testing.T) {
 }
 
 // discoverableAuthServer is a discoverable MCP server + authorization server that counts DCR calls.
+// authorizationServer, when set, is the authorization server its protected resource metadata names.
 type discoverableAuthServer struct {
-	server        *httptest.Server
-	registrations int
-	mu            sync.Mutex
+	server              *httptest.Server
+	registrations       int
+	redirectURIs        []string // from the last registration
+	mu                  sync.Mutex
+	authorizationServer string
+	onDiscover          func() // runs while the authorization server metadata is served, standing in for a concurrent writer
+}
+
+func (as *discoverableAuthServer) pointTo(issuer string) {
+	as.mu.Lock()
+	defer as.mu.Unlock()
+	as.authorizationServer = issuer
 }
 
 func newDiscoverableAuthServer(t *testing.T, supportsCIMD bool) *discoverableAuthServer {
@@ -801,9 +852,22 @@ func newDiscoverableAuthServer(t *testing.T, supportsCIMD bool) *discoverableAut
 		w.WriteHeader(http.StatusUnauthorized)
 	})
 	mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{"resource": as.server.URL + "/mcp", "authorization_servers": []string{as.server.URL}})
+		as.mu.Lock()
+		authorizationServer := as.authorizationServer
+		as.mu.Unlock()
+		if authorizationServer == "" {
+			authorizationServer = as.server.URL
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"resource": as.server.URL + "/mcp", "authorization_servers": []string{authorizationServer}})
 	})
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+		as.mu.Lock()
+		onDiscover := as.onDiscover
+		as.onDiscover = nil
+		as.mu.Unlock()
+		if onDiscover != nil {
+			onDiscover()
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"issuer":                                as.server.URL,
 			"authorization_endpoint":                as.server.URL + "/authorize",
@@ -811,11 +875,18 @@ func newDiscoverableAuthServer(t *testing.T, supportsCIMD bool) *discoverableAut
 			"registration_endpoint":                 as.server.URL + "/register",
 			"code_challenge_methods_supported":      []string{"S256"},
 			"client_id_metadata_document_supported": supportsCIMD,
+
+			"authorization_response_iss_parameter_supported": true,
 		})
 	})
 	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			RedirectURIs []string `json:"redirect_uris"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		as.mu.Lock()
 		as.registrations++
+		as.redirectURIs = body.RedirectURIs
 		n := as.registrations
 		as.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
@@ -947,6 +1018,7 @@ func TestSignIn_ClientIDMetadataDocumentFollowsBaseURL(t *testing.T) {
 			stored, err := store.GetOauthConfigByID(ctx, initiation.OauthConfigID)
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantClientID, stored.GetResolvedClientID())
+			assert.Equal(t, as.server.URL, stored.Issuer, "moving the document keeps the issuer binding")
 			token, err := store.GetOauthTokenByID(ctx, "cimd-token")
 			require.NoError(t, err)
 			wantStatus := "active"
@@ -956,4 +1028,296 @@ func TestSignIn_ClientIDMetadataDocumentFollowsBaseURL(t *testing.T) {
 			assert.Equal(t, wantStatus, token.Status, "tokens issued to the old client_id cannot be refreshed under the new one")
 		})
 	}
+}
+
+// The authorization server's issuer is recorded on the oauth config and on the flow, from discovery
+// or, for hand-entered endpoints, from a discovery that names the same token endpoint.
+func TestInitiateOAuthFlow_RecordsIssuer(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		endpoints  string // "" = discovered, "own" = entered by hand, "other" = another server's
+		wantIssuer bool
+	}{
+		{"discovered", "", true},
+		{"endpoints entered by hand", "own", true},
+		{"endpoints entered by hand for another authorization server", "other", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			as := newDiscoverableAuthServer(t, false)
+			provider, store := newDCRProvider(t)
+			config := &schemas.OAuth2Config{ServerURL: as.server.URL + "/mcp", RedirectURI: dcrRedirectURI}
+			switch tc.endpoints {
+			case "own":
+				config.AuthorizeURL, config.TokenURL = as.server.URL+"/authorize", as.server.URL+"/token"
+			case "other":
+				config.AuthorizeURL, config.TokenURL = "https://other.example.com/authorize", "https://other.example.com/token"
+			}
+			config.RegistrationURL = bifrost.Ptr(as.server.URL + "/register")
+			initiation, err := provider.InitiateOAuthFlow(context.Background(), config)
+			require.NoError(t, err)
+
+			stored, err := store.GetOauthConfigByID(context.Background(), initiation.OauthConfigID)
+			require.NoError(t, err)
+			flow, err := store.GetOauthUserSessionByState(context.Background(), initiation.State)
+			require.NoError(t, err)
+			want := ""
+			if tc.wantIssuer {
+				want = as.server.URL
+			}
+			assert.Equal(t, want, stored.Issuer)
+			assert.Equal(t, tc.wantIssuer, stored.IssParameterSupported)
+			assert.True(t, stored.DynamicallyRegistered)
+			assert.Equal(t, want, flow.Issuer, "the flow records the issuer its response must name")
+			assert.Equal(t, tc.wantIssuer, flow.IssParameterSupported)
+		})
+	}
+}
+
+// When the MCP server moves to another authorization server, the next sign-in moves a Client ID
+// Metadata Document id with it, registers dynamically registered credentials again there, and
+// refuses pre-registered ones. Creating the flow, which a tool call does, checks nothing.
+func TestSignIn_AuthorizationServerChanged(t *testing.T) {
+	const documentURL = "https://bifrost.example.com/api/oauth/client-metadata.json"
+	for _, tc := range []struct {
+		name         string
+		clientID     *schemas.SecretVar
+		documentURL  string
+		wantErr      bool
+		wantClientID string // "" = registered with the new server
+	}{
+		{"dynamically registered", nil, "", false, ""},
+		{"client id metadata document", nil, documentURL, false, documentURL},
+		{"pre-registered", schemas.NewSecretVar("preset"), "", true, "preset"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mcp := newDiscoverableAuthServer(t, true)
+			moved := newDiscoverableAuthServer(t, true)
+			provider, store := newDCRProvider(t)
+			ctx := context.Background()
+			initiation, err := provider.InitiateOAuthFlow(ctx, &schemas.OAuth2Config{
+				ClientID: tc.clientID, ClientMetadataURL: tc.documentURL,
+				ServerURL: mcp.server.URL + "/mcp", RedirectURI: dcrRedirectURI,
+			})
+			require.NoError(t, err)
+			before, err := store.GetOauthConfigByID(ctx, initiation.OauthConfigID)
+			require.NoError(t, err)
+			require.Equal(t, mcp.server.URL, before.Issuer)
+
+			var changed []string
+			provider.SetAuthorizationServerChangedHook(func(_ context.Context, mcpClientID string) { changed = append(changed, mcpClientID) })
+			mcp.pointTo(moved.server.URL)
+			_, flowID, err := provider.InitiateUserOAuthFlow(ctx, initiation.OauthConfigID, dcrMCPClientID, dcrRedirectURI, schemas.MCPAuthModeAdmin)
+			require.NoError(t, err)
+			untouched, err := store.GetOauthConfigByID(ctx, initiation.OauthConfigID)
+			require.NoError(t, err)
+			assert.Equal(t, mcp.server.URL, untouched.Issuer, "creating the flow does not run discovery")
+
+			authorizeURL, err := provider.BuildAdminUpstreamAuthorizeURL(ctx, flowID)
+			after, loadErr := store.GetOauthConfigByID(ctx, initiation.OauthConfigID)
+			require.NoError(t, loadErr)
+			if tc.wantErr {
+				require.ErrorIs(t, err, ErrAuthorizationServerChanged)
+				assert.Equal(t, mcp.server.URL, after.Issuer, "nothing is rebound")
+				assert.Equal(t, tc.wantClientID, after.GetResolvedClientID())
+				assert.Empty(t, changed, "a refused change drops nothing")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, moved.server.URL, after.Issuer)
+			assert.Equal(t, []string{dcrMCPClientID}, changed, "the client's cached tokens and connection are dropped once")
+			assert.Equal(t, moved.server.URL+"/token", after.TokenURL, "endpoints follow the new server")
+			if tc.wantClientID == "" {
+				assert.Equal(t, 1, moved.registrations, "registered again with the new server")
+				assert.Equal(t, "dyn-1", after.GetResolvedClientID())
+			} else {
+				assert.Zero(t, moved.registrations)
+				assert.Equal(t, tc.wantClientID, after.GetResolvedClientID())
+			}
+			assert.True(t, strings.HasPrefix(authorizeURL, moved.server.URL+"/authorize"), authorizeURL)
+			flow, err := store.GetOauthFlowByID(ctx, flowID)
+			require.NoError(t, err)
+			assert.Equal(t, moved.server.URL, flow.Issuer, "the flow expects the new server's iss")
+		})
+	}
+}
+
+// Registering again with a new authorization server uses the callback the sign-in will present, not
+// the one stored when the config was created: the external URL may have changed since.
+func TestSignIn_AuthorizationServerChanged_RegistersTheFlowsRedirectURI(t *testing.T) {
+	const currentRedirectURI = "https://gateway.example.com/api/oauth/callback"
+	mcp := newDiscoverableAuthServer(t, false)
+	moved := newDiscoverableAuthServer(t, false)
+	provider, _ := newDCRProvider(t)
+	ctx := context.Background()
+	initiation, err := provider.InitiateOAuthFlow(ctx, &schemas.OAuth2Config{ServerURL: mcp.server.URL + "/mcp", RedirectURI: dcrRedirectURI})
+	require.NoError(t, err)
+
+	mcp.pointTo(moved.server.URL)
+	_, flowID, err := provider.InitiateUserOAuthFlow(ctx, initiation.OauthConfigID, dcrMCPClientID, currentRedirectURI, schemas.MCPAuthModeAdmin)
+	require.NoError(t, err)
+	_, err = provider.BuildAdminUpstreamAuthorizeURL(ctx, flowID)
+	require.NoError(t, err)
+	require.Equal(t, 1, moved.registrations)
+	assert.Equal(t, []string{currentRedirectURI}, moved.redirectURIs)
+}
+
+// Two replicas moving one config at once: the one that stores second keeps the first one's
+// registration, so every sign-in uses one client_id, and only the winner drops cached state.
+func TestSignIn_AuthorizationServerChanged_LosesToConcurrentRebind(t *testing.T) {
+	mcp := newDiscoverableAuthServer(t, false)
+	moved := newDiscoverableAuthServer(t, false)
+	provider, store := newDCRProvider(t)
+	ctx := context.Background()
+	initiation, err := provider.InitiateOAuthFlow(ctx, &schemas.OAuth2Config{ServerURL: mcp.server.URL + "/mcp", RedirectURI: dcrRedirectURI})
+	require.NoError(t, err)
+
+	var changed []string
+	provider.SetAuthorizationServerChangedHook(func(_ context.Context, mcpClientID string) { changed = append(changed, mcpClientID) })
+	store.beforeRotate = func() {
+		store.beforeRotate = nil
+		winner, err := store.GetOauthConfigByID(ctx, initiation.OauthConfigID)
+		require.NoError(t, err)
+		winner.ClientID, winner.Issuer = schemas.NewSecretVar("winner-client"), moved.server.URL
+		winner.AuthorizeURL, winner.TokenURL = moved.server.URL+"/authorize", moved.server.URL+"/token"
+		require.NoError(t, store.UpdateOauthConfig(ctx, winner))
+	}
+	mcp.pointTo(moved.server.URL)
+	_, flowID, err := provider.InitiateUserOAuthFlow(ctx, initiation.OauthConfigID, dcrMCPClientID, dcrRedirectURI, schemas.MCPAuthModeAdmin)
+	require.NoError(t, err)
+	authorizeURL, err := provider.BuildAdminUpstreamAuthorizeURL(ctx, flowID)
+	require.NoError(t, err)
+
+	assert.Equal(t, "winner-client", authorizeURLClientID(t, authorizeURL))
+	stored, err := store.GetOauthConfigByID(ctx, initiation.OauthConfigID)
+	require.NoError(t, err)
+	assert.Equal(t, "winner-client", stored.GetResolvedClientID())
+	assert.Empty(t, changed, "the winning replica drops the cached state")
+}
+
+// A credential edit that lands while a sign-in checks its authorization server is neither undone by the
+// check's write nor ignored by the sign-in: only the binding is written, and the sign-in uses the
+// stored config as it is after the check, whether or not the check wrote anything.
+func TestSignIn_CredentialEditDuringCheckIsKept(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		issuer string // "" = unbound, so the check adopts the issuer; else already bound, so it writes nothing
+	}{
+		{"issuer adopted", ""},
+		{"nothing to write", "bound"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			as := newDiscoverableAuthServer(t, false)
+			provider, store := newDCRProvider(t)
+			ctx := context.Background()
+			issuer := ""
+			if tc.issuer != "" {
+				issuer = as.server.URL
+			}
+			require.NoError(t, store.db.Create(&tables.TableOauthConfig{
+				ID: "edited", ClientID: schemas.NewSecretVar("preset"), AuthorizeURL: as.server.URL + "/authorize", TokenURL: as.server.URL + "/token",
+				RedirectURI: dcrRedirectURI, ServerURL: as.server.URL + "/mcp", Status: "authorized", Issuer: issuer, IssParameterSupported: issuer != "",
+			}).Error)
+			as.onDiscover = func() {
+				edited, err := store.GetOauthConfigByID(ctx, "edited")
+				require.NoError(t, err)
+				edited.ClientID = schemas.NewSecretVar("entered-by-admin")
+				require.NoError(t, store.UpdateOauthConfig(ctx, edited))
+			}
+
+			authorizeURL, err := reauthorize(t, provider, "edited")
+			require.NoError(t, err)
+			stored, err := store.GetOauthConfigByID(ctx, "edited")
+			require.NoError(t, err)
+			assert.Equal(t, "entered-by-admin", stored.GetResolvedClientID(), "the check must not write back the credentials it read")
+			assert.Equal(t, as.server.URL, stored.Issuer)
+			assert.Equal(t, "entered-by-admin", authorizeURLClientID(t, authorizeURL), "the sign-in must use the stored credentials")
+		})
+	}
+}
+
+// A config stored before issuers were recorded adopts the discovered one at its next sign-in, but
+// only for the authorization server its token endpoint belongs to.
+func TestSignIn_AdoptsIssuerForUnboundConfig(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		tokenURL   string // "" = the discovered server's
+		wantIssuer bool
+	}{
+		{"same authorization server", "", true},
+		{"another token endpoint", "https://other.example.com/token", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			as := newDiscoverableAuthServer(t, false)
+			provider, store := newDCRProvider(t)
+			provider.SetAuthorizationServerChangedHook(func(context.Context, string) { t.Error("adopting an issuer is not a change of authorization server") })
+			ctx := context.Background()
+			tokenURL := tc.tokenURL
+			if tokenURL == "" {
+				tokenURL = as.server.URL + "/token"
+			}
+			require.NoError(t, store.db.Create(&tables.TableOauthConfig{
+				ID: "legacy", ClientID: schemas.NewSecretVar("preset"), AuthorizeURL: as.server.URL + "/authorize", TokenURL: tokenURL,
+				RedirectURI: dcrRedirectURI, ServerURL: as.server.URL + "/mcp", Status: "authorized",
+			}).Error)
+
+			_, err := reauthorize(t, provider, "legacy")
+			require.NoError(t, err)
+			stored, err := store.GetOauthConfigByID(ctx, "legacy")
+			require.NoError(t, err)
+			if tc.wantIssuer {
+				assert.Equal(t, as.server.URL, stored.Issuer)
+				assert.True(t, stored.IssParameterSupported)
+			} else {
+				assert.Empty(t, stored.Issuer)
+			}
+			assert.Equal(t, "preset", stored.GetResolvedClientID(), "adopting an issuer never rotates credentials")
+		})
+	}
+}
+
+// A sign-in renewed while the first one discovers its authorization server keeps the renewed state and
+// verifier; the first one is refused as no longer pending.
+func TestSignIn_RenewedDuringDiscoveryKeepsNewState(t *testing.T) {
+	as := newDiscoverableAuthServer(t, false)
+	provider, store := newDCRProvider(t)
+	ctx := context.Background()
+	require.NoError(t, store.db.Create(&tables.TableOauthConfig{
+		ID: "legacy", ClientID: schemas.NewSecretVar("preset"), AuthorizeURL: as.server.URL + "/authorize", TokenURL: as.server.URL + "/token",
+		RedirectURI: dcrRedirectURI, ServerURL: as.server.URL + "/mcp", Status: "authorized",
+	}).Error)
+	_, flowID, err := provider.InitiateUserOAuthFlow(ctx, "legacy", dcrMCPClientID, dcrRedirectURI, schemas.MCPAuthModeAdmin)
+	require.NoError(t, err)
+
+	var renewed tables.TableMCPOauthFlow
+	as.onDiscover = func() {
+		_, renewedID, err := provider.InitiateUserOAuthFlow(ctx, "legacy", dcrMCPClientID, dcrRedirectURI, schemas.MCPAuthModeAdmin)
+		require.NoError(t, err)
+		require.Equal(t, flowID, renewedID, "fixture check: the pending row is renewed in place")
+		require.NoError(t, store.db.Where("id = ?", flowID).First(&renewed).Error)
+	}
+	_, err = provider.BuildAdminUpstreamAuthorizeURL(ctx, flowID)
+	require.ErrorIs(t, err, schemas.ErrOAuth2FlowNotPending)
+
+	var stored tables.TableMCPOauthFlow
+	require.NoError(t, store.db.Where("id = ?", flowID).First(&stored).Error)
+	require.NotEmpty(t, renewed.State)
+	assert.Equal(t, renewed.State, stored.State, "the renewed state survives")
+	assert.Equal(t, renewed.CodeVerifier, stored.CodeVerifier)
+}
+
+// A config deleted while a sign-in discovers its authorization server ends that sign-in with not found.
+func TestSignIn_ConfigDeletedDuringDiscovery(t *testing.T) {
+	as := newDiscoverableAuthServer(t, false)
+	provider, store := newDCRProvider(t)
+	ctx := context.Background()
+	require.NoError(t, store.db.Create(&tables.TableOauthConfig{
+		ID: "legacy", ClientID: schemas.NewSecretVar("preset"), AuthorizeURL: as.server.URL + "/authorize", TokenURL: as.server.URL + "/token",
+		RedirectURI: dcrRedirectURI, ServerURL: as.server.URL + "/mcp", Status: "authorized",
+	}).Error)
+	_, flowID, err := provider.InitiateUserOAuthFlow(ctx, "legacy", dcrMCPClientID, dcrRedirectURI, schemas.MCPAuthModeAdmin)
+	require.NoError(t, err)
+
+	as.onDiscover = func() { require.NoError(t, store.db.Delete(&tables.TableOauthConfig{}, "id = ?", "legacy").Error) }
+	_, err = provider.BuildAdminUpstreamAuthorizeURL(ctx, flowID)
+	require.ErrorIs(t, err, schemas.ErrOAuth2ConfigNotFound)
 }

@@ -5054,6 +5054,28 @@ func TestMigrationAddMCPClientExposeListsColumns(t *testing.T) {
 	}
 }
 
+// TestMigrationAddOAuthIssuerBindingColumns adds the issuer columns to tables created without them,
+// keeps existing rows unbound, and is a no-op on a re-run.
+func TestMigrationAddOAuthIssuerBindingColumns(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("CREATE TABLE oauth_configs (id VARCHAR(255) PRIMARY KEY)").Error)
+	require.NoError(t, db.Exec("CREATE TABLE mcp_oauth_flows (id VARCHAR(255) PRIMARY KEY)").Error)
+	require.NoError(t, db.Exec("INSERT INTO oauth_configs (id) VALUES ('existing')").Error)
+	for range 2 {
+		require.NoError(t, migrationAddOAuthIssuerBindingColumns(context.Background(), db, testMigrationLogger))
+	}
+	for _, column := range []string{"issuer", "iss_parameter_supported", "dynamically_registered"} {
+		require.True(t, db.Migrator().HasColumn(&tables.TableOauthConfig{}, column), column)
+	}
+	for _, column := range []string{"issuer", "iss_parameter_supported"} {
+		require.True(t, db.Migrator().HasColumn(&tables.TableMCPOauthFlow{}, column), column)
+	}
+	var issuer *string
+	require.NoError(t, db.Table("oauth_configs").Select("issuer").Where("id = ?", "existing").Scan(&issuer).Error)
+	assert.True(t, issuer == nil || *issuer == "", "an existing config stays unbound")
+}
+
 // TestA2ARawCaptureSettingMigration defaults existing deployments to capture disabled.
 func TestA2ARawCaptureSettingMigration(t *testing.T) {
 	db := setupTestDB(t)

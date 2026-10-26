@@ -2865,6 +2865,23 @@ func (s *BifrostHTTPServer) notificationPublisher() schemas.NotificationPublishe
 	}
 }
 
+// staleMCPOAuthDropper is what dropStaleMCPOAuthState needs from the server.
+type staleMCPOAuthDropper interface {
+	EvictOauthTokenCacheByMCPClient(ctx context.Context, mcpClientID string)
+	CloseAndMarkNeedsReauth(ctx context.Context, id string) error
+}
+
+// dropStaleMCPOAuthState drops an MCP client's cached tokens and shared connection after a sign-in
+// moved it to a new authorization server. It goes through callbacks so enterprise peers drop theirs too.
+func dropStaleMCPOAuthState(callbacks staleMCPOAuthDropper) func(ctx context.Context, mcpClientID string) {
+	return func(ctx context.Context, mcpClientID string) {
+		callbacks.EvictOauthTokenCacheByMCPClient(ctx, mcpClientID)
+		if err := callbacks.CloseAndMarkNeedsReauth(ctx, mcpClientID); err != nil && !errors.Is(err, schemas.ErrMCPReconnectNotApplicable) {
+			logger.Warn("failed to close MCP client %s after its authorization server changed: %v", mcpClientID, err)
+		}
+	}
+}
+
 // RegisterAPIRoutes initializes the routes for the Bifrost HTTP server.
 func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks ServerCallbacks, middlewares ...schemas.BifrostHTTPMiddleware) error {
 	var err error
@@ -2988,6 +3005,9 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	providerHandler := handlers.NewProviderHandler(callbacks, s.Config, s.Client)
 	oauthHandler := handlers.NewOAuthHandler(s.Config.OAuthProvider, s.Client, s.Config)
 	mcpHandler := handlers.NewMCPHandler(callbacks, callbacks, s.Client, s.Config, oauthHandler, callbacks)
+	if s.Config.OAuthProvider != nil {
+		s.Config.OAuthProvider.SetAuthorizationServerChangedHook(dropStaleMCPOAuthState(callbacks))
+	}
 	// Virtual MCP routes read the config store on every call; skip them when persistence is disabled
 	// (nil ConfigStore) rather than nil-deref, like routingHandler below.
 	var virtualMCPHandler *handlers.VirtualMCPHandler

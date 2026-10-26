@@ -726,6 +726,93 @@ func TestMCPGateway_NarrowedCallerCannotReachPromptsOrResources(t *testing.T) {
 	}
 }
 
+// chartToolManager serves one tool, "gw-chart", that declares a title, an icon and an output schema,
+// and answers with text, an image and structured content. With {"rewrite": true} a plugin is taken to
+// have rewritten the answer and marked it failed.
+type chartToolManager struct {
+	fakeInstructionsToolManager
+}
+
+func (c *chartToolManager) GetAvailableMCPTools(context.Context) []schemas.ChatTool {
+	return []schemas.ChatTool{{
+		Type:     schemas.ChatToolTypeFunction,
+		Function: &schemas.ChatToolFunction{Name: "gw-chart"},
+		MCP: &schemas.MCPToolMetadata{
+			Title:        "Chart",
+			Icons:        []mcp.Icon{{Src: "https://example.com/chart.png", MIMEType: "image/png"}},
+			OutputSchema: json.RawMessage(`{"type":"object","properties":{"points":{"type":"number"}}}`),
+		},
+	}}
+}
+
+func (c *chartToolManager) ExecuteChatMCPTool(_ context.Context, call *schemas.ChatAssistantMessageToolCall) (*schemas.ChatMessage, *schemas.BifrostError) {
+	upstream := &mcp.CallToolResult{
+		Content:           []mcp.Content{mcp.NewTextContent("3 points"), mcp.NewImageContent("iVBORw0KGgo=", "image/png")},
+		StructuredContent: map[string]any{"points": 3},
+	}
+	text := "3 points"
+	content := &schemas.ChatMessageContent{ContentBlocks: []schemas.ChatContentBlock{
+		{Type: schemas.ChatContentBlockTypeText, Text: &text},
+		{Type: schemas.ChatContentBlockTypeImage, ImageURLStruct: &schemas.ChatInputImage{URL: "data:image/png;base64,iVBORw0KGgo="}},
+	}}
+	toolMessage := &schemas.ChatToolMessage{ToolCallID: call.ID}
+	toolMessage.SetMCPResult(upstream, content)
+	if strings.Contains(call.Function.Arguments, "rewrite") {
+		redacted := "[redacted]"
+		content.ContentBlocks[0].Text = &redacted
+		toolMessage.IsError = schemas.Ptr(true)
+	}
+	return &schemas.ChatMessage{Role: schemas.ChatMessageRoleTool, Content: content, ChatToolMessage: toolMessage}, nil
+}
+
+// The gateway lists a tool's title, icons and output schema, and answers with the upstream's own result
+// (images and structured content included); a result a plugin rewrote is rebuilt from the message
+// instead, and isError follows the message either way.
+func TestMCPGateway_ToolMetadataAndResultFidelity(t *testing.T) {
+	h, err := NewMCPServerHandler(context.Background(), &lib.Config{ClientConfig: &configstore.ClientConfig{}}, &chartToolManager{}, nil, nil, nil)
+	require.NoError(t, err)
+	baseURL := startGateway(t, h)
+	for _, version := range []string{mcp.ProtocolVersion20250618, mcp.ProtocolVersion20251125, mcp.ProtocolVersion20260728} {
+		t.Run(version, func(t *testing.T) {
+			ctx := context.Background()
+			tr, err := transport.NewStreamableHTTP(baseURL + "/mcp")
+			require.NoError(t, err)
+			c := client.NewClient(tr, client.WithProtocolVersion(version))
+			require.NoError(t, c.Start(ctx))
+			t.Cleanup(func() { _ = c.Close() })
+			init := mcp.InitializeRequest{}
+			init.Params.ProtocolVersion = version
+			_, err = c.Initialize(ctx, init)
+			require.NoError(t, err)
+
+			tools, err := c.ListTools(ctx, mcp.ListToolsRequest{})
+			require.NoError(t, err)
+			require.Len(t, tools.Tools, 1)
+			listed := tools.Tools[0]
+			assert.Equal(t, "Chart", listed.Title)
+			require.Len(t, listed.Icons, 1)
+			assert.Equal(t, "https://example.com/chart.png", listed.Icons[0].Src)
+			assert.Equal(t, "object", listed.OutputSchema.Type)
+
+			call := mcp.CallToolRequest{}
+			call.Params.Name = "gw-chart"
+			result, err := c.CallTool(ctx, call)
+			require.NoError(t, err)
+			assert.False(t, result.IsError)
+			require.Len(t, result.Content, 2)
+			assert.Equal(t, "image/png", result.Content[1].(mcp.ImageContent).MIMEType)
+			assert.Equal(t, map[string]any{"points": float64(3)}, result.StructuredContent)
+
+			call.Params.Arguments = map[string]any{"rewrite": true}
+			rewritten, err := c.CallTool(ctx, call)
+			require.NoError(t, err)
+			assert.True(t, rewritten.IsError, "a failed result is not reported as a success")
+			assert.Equal(t, "[redacted]", rewritten.Content[0].(mcp.TextContent).Text)
+			assert.Nil(t, rewritten.StructuredContent, "the raw result never reaches the caller once rewritten")
+		})
+	}
+}
+
 // BenchmarkMCPGateway drives the /mcp handler in process: admission, transport and the server,
 // tools only and with upstream prompts and resources served.
 func BenchmarkMCPGateway(b *testing.B) {

@@ -285213,6 +285213,163 @@
           }
         }
       ]
+    },
+    {
+      "name": "279. MCP tools carry what their server declares about them (mcp-tool-metadata)",
+      "description": "Bifrost keeps what an upstream MCP server declares about each tool besides its function definition: annotations, title, icons (2025-11-25) and output schema. They are persisted with the discovered tools (annotations were dropped on restore before), listed on GET /api/mcp/clients (title, icons, output_schema, annotations), and served on the /mcp gateway's tools/list. Pre-change the listing carried only name, description, parameters and strict. Tool results now keep images, audio, embedded resources and structured content: as content blocks on the LLM path (providers that cannot take media in a tool result get a placeholder naming it), and unchanged through the /mcp gateway, isError included. Execution is covered by Go tests (TestExecuteTool_MultiModalResultAndToolMetadata, TestMCPGateway_ToolMetadataAndResultFidelity, per-provider tool-result media tests) since the profile's sse_mcp only allows echo, add and greet. Uses the sse_mcp fixture's chart tool (examples/mcps/remote-test-server, mcp-go v0.43.2: annotation title and output schema, no tool-level title or icons); a stale fixture build or an older process on :3012 lists no chart tool. No provider calls; the openai keyword is a harness filter label. Run with FEATURE=mcp-tool-metadata.",
+      "item": [
+        {
+          "name": "[EXPECT-200] openai mcp-tool-metadata sse_mcp lists its chart tool's title and output schema",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('the chart tool carries the annotations and output schema its server declares', function () {",
+                  "  pm.expect(pm.response.code, 'expected 200, got: ' + pm.response.text()).to.equal(200);",
+                  "  var mine = (pm.response.json().clients || []).filter(function (c) { return c.config && c.config.name === 'sse_mcp'; })[0];",
+                  "  pm.expect(mine, 'sse_mcp is not registered: ' + pm.response.text()).to.be.an('object');",
+                  "  var chart = (mine.tools || []).filter(function (t) { return t.name === 'chart'; })[0];",
+                  "  pm.expect(chart, 'no chart tool (stale fixture on :3012?): ' + JSON.stringify((mine.tools || []).map(function (t) { return t.name; }))).to.be.an('object');",
+                  "  pm.expect(chart.annotations, 'annotations missing: ' + JSON.stringify(chart)).to.be.an('object');",
+                  "  pm.expect(chart.annotations.title).to.equal('Chart');",
+                  "  pm.expect(chart.output_schema, 'output_schema missing: ' + JSON.stringify(chart)).to.be.an('object');",
+                  "  pm.expect(chart.output_schema.properties, JSON.stringify(chart.output_schema)).to.have.property('points');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/mcp/clients?search=sse_mcp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "mcp",
+                "clients"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "sse_mcp"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "openai/gpt-4o-mini mcp-tool-metadata /v1/responses: a file an MCP tool returned is sent to OpenAI as a data URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('a tool output file with bare base64 and file_type reaches OpenAI as a data URL', function () {",
+                  "  pm.expect(pm.response.code, 'expected 200, got: ' + pm.response.text()).to.equal(200);",
+                  "  var j = pm.response.json();",
+                  "  pm.expect(j.output, 'expected an output array: ' + pm.response.text()).to.be.an('array').that.is.not.empty;",
+                  "});",
+                  "pm.test('the model read the file the tool returned', function () {",
+                  "  // Only the assistant's text: usage fields such as output_tokens can contain a 3 too.",
+                  "  var answer = (pm.response.json().output || []).reduce(function (acc, item) {",
+                  "    return acc.concat((item.content || []).filter(function (c) { return c.type === 'output_text'; }).map(function (c) { return c.text; }));",
+                  "  }, []).join('\\n');",
+                  "  pm.expect(answer, 'no output_text in: ' + pm.response.text()).to.not.equal('');",
+                  "  pm.expect(answer, answer).to.match(/\\b3\\b|three/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"model\":\"openai/gpt-4o-mini\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":\"Call report and tell me how many points it lists.\"},{\"type\":\"function_call\",\"call_id\":\"call_mcp_report\",\"name\":\"report\",\"arguments\":\"{}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_mcp_report\",\"output\":[{\"type\":\"input_file\",\"filename\":\"report.pdf\",\"file_type\":\"application/pdf\",\"file_data\":\"JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAzMDAgMTAwXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4gPj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0NiA+PgpzdHJlYW0KQlQgL0YxIDE4IFRmIDIwIDUwIFRkIChSZXBvcnQ6IDMgcG9pbnRzKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDMzNyAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjQwNwolJUVPRgo=\"}]}],\"max_output_tokens\":200}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/responses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "responses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "openai/gpt-4o-mini mcp-tool-metadata /v1/responses: a file an MCP tool returned without file_type is sent to OpenAI as a data URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('a tool output file with bare base64 and no file_type reaches OpenAI as a data URL', function () {",
+                  "  pm.expect(pm.response.code, 'expected 200, got: ' + pm.response.text()).to.equal(200);",
+                  "  var j = pm.response.json();",
+                  "  pm.expect(j.output, 'expected an output array: ' + pm.response.text()).to.be.an('array').that.is.not.empty;",
+                  "});",
+                  "pm.test('the model read the file the tool returned', function () {",
+                  "  // Only the assistant's text: usage fields such as output_tokens can contain a 3 too.",
+                  "  var answer = (pm.response.json().output || []).reduce(function (acc, item) {",
+                  "    return acc.concat((item.content || []).filter(function (c) { return c.type === 'output_text'; }).map(function (c) { return c.text; }));",
+                  "  }, []).join('\\n');",
+                  "  pm.expect(answer, 'no output_text in: ' + pm.response.text()).to.not.equal('');",
+                  "  pm.expect(answer, answer).to.match(/\\b3\\b|three/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"model\":\"openai/gpt-4o-mini\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":\"Call report and tell me how many points it lists.\"},{\"type\":\"function_call\",\"call_id\":\"call_mcp_report\",\"name\":\"report\",\"arguments\":\"{}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_mcp_report\",\"output\":[{\"type\":\"input_file\",\"filename\":\"report.pdf\",\"file_data\":\"JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAzMDAgMTAwXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4gPj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0NiA+PgpzdHJlYW0KQlQgL0YxIDE4IFRmIDIwIDUwIFRkIChSZXBvcnQ6IDMgcG9pbnRzKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDMzNyAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjQwNwolJUVPRgo=\"}]}],\"max_output_tokens\":200}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/responses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "responses"
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }

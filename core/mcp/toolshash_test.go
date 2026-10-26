@@ -34,6 +34,17 @@ func TestComputeToolsHash_DiffersOnContentChange(t *testing.T) {
 	assert.NotEqual(t, base, changedMapping)
 }
 
+// A tool's annotations and metadata are left out of ChatTool's JSON, so the hash covers them on its own:
+// an upstream that only retitles a tool still counts as a change.
+func TestComputeSnapshotHash_CoversToolMetadata(t *testing.T) {
+	hash := func(tool schemas.ChatTool) string {
+		return computeSnapshotHash(&schemas.MCPServerSnapshot{Tools: map[string]schemas.ChatTool{"echo": tool}})
+	}
+	base := hash(schemas.ChatTool{Type: "function"})
+	assert.NotEqual(t, base, hash(schemas.ChatTool{Type: "function", MCP: &schemas.MCPToolMetadata{Title: "Echo"}}))
+	assert.NotEqual(t, base, hash(schemas.ChatTool{Type: "function", Annotations: &schemas.MCPToolAnnotations{ReadOnlyHint: schemas.Ptr(true)}}))
+}
+
 // TestSetClientSnapshot_UnchangedTools_DoesNotFireCallback pins the funnel's
 // gating: rediscovering byte-identical tools must not re-notify — the
 // registered callback's whole purpose (persist to DB, resync the local MCP

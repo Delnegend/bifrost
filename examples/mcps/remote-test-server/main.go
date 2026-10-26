@@ -92,6 +92,28 @@ func main() {
 // specific tool semantics, but they do need every tool to carry a typed schema
 // (codemode_files_test.go asserts the generated servers/*.pyi files are
 // non-empty).
+// chartTool declares a title and an output schema and answers with structured content plus an image,
+// so results that are not plain text can be checked end to end.
+func chartTool() mcp.Tool {
+	return mcp.NewTool(
+		"chart",
+		mcp.WithDescription("Plot the points and return them with a chart image"),
+		mcp.WithTitleAnnotation("Chart"),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithOutputSchema[struct {
+			Points int `json:"points"`
+		}](),
+	)
+}
+
+func chartHandler(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	result := mcp.NewToolResultStructured(map[string]any{"points": 3}, "3 points")
+	// A 1x1 transparent PNG.
+	result.Content = append(result.Content, mcp.NewImageContent("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "image/png"))
+	return result, nil
+}
+
 func newMCPServer(instructions string) *server.MCPServer {
 	opts := []server.ServerOption{}
 	if instructions != "" {
@@ -110,6 +132,8 @@ func newMCPServer(instructions string) *server.MCPServer {
 		mcp.WithPromptDescription("Review a change"),
 		mcp.WithArgument("diff", mcp.ArgumentDescription("The change to review"), mcp.RequiredArgument()),
 	), reviewPromptHandler)
+
+	s.AddTool(chartTool(), chartHandler)
 
 	s.AddTool(mcp.NewTool(
 		"echo",

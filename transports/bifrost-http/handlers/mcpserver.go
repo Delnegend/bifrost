@@ -444,24 +444,7 @@ func (h *MCPServerHandler) serverTools(availableTools []schemas.ChatTool) []serv
 			}
 			logger.Debug("[mcp-server] tool handler success tool=%q", toolName)
 
-			// Extract content from tool message
-			var resultText string
-			if toolMessage != nil && toolMessage.Content != nil {
-				// Handle ContentStr (string content)
-				if toolMessage.Content.ContentStr != nil {
-					resultText = *toolMessage.Content.ContentStr
-				} else if toolMessage.Content.ContentBlocks != nil {
-					// Handle ContentBlocks (structured content)
-					for _, block := range toolMessage.Content.ContentBlocks {
-						if block.Type == schemas.ChatContentBlockTypeText && block.Text != nil {
-							resultText += *block.Text
-						}
-					}
-				}
-			}
-
-			// Return result using mcp-go helper
-			return mcp.NewToolResultText(resultText), nil
+			return gatewayToolResult(toolMessage), nil
 		}
 
 		// Convert description from *string to string
@@ -484,17 +467,78 @@ func (h *MCPServerHandler) serverTools(availableTools []schemas.ChatTool) []serv
 			}
 		}
 
-		tools = append(tools, server.ServerTool{
-			Tool: mcp.Tool{
-				Name:        toolName,
-				Description: description,
-				InputSchema: inputSchema,
-				Annotations: toolAnnotation,
-			},
-			Handler: handler,
-		})
+		serverTool := mcp.Tool{
+			Name:        toolName,
+			Description: description,
+			InputSchema: inputSchema,
+			Annotations: toolAnnotation,
+		}
+		if tool.MCP != nil {
+			serverTool.Title, serverTool.Icons, serverTool.RawOutputSchema = tool.MCP.Title, tool.MCP.Icons, tool.MCP.OutputSchema
+		}
+		tools = append(tools, server.ServerTool{Tool: serverTool, Handler: handler})
 	}
 	return tools
+}
+
+// gatewayToolResult is what /mcp answers for a tool message: the upstream's own result while no plugin
+// has rewritten the message, else a result rebuilt from it. isError always follows the message.
+func gatewayToolResult(message *schemas.ChatMessage) *mcp.CallToolResult {
+	if message == nil {
+		return mcp.NewToolResultText("")
+	}
+	isError := message.ChatToolMessage != nil && message.ChatToolMessage.IsError != nil && *message.ChatToolMessage.IsError
+	if upstream := message.ChatToolMessage.MCPResult(message.Content); upstream != nil {
+		result := *upstream
+		result.IsError = isError
+		return &result
+	}
+	result := &mcp.CallToolResult{IsError: isError, Content: []mcp.Content{}}
+	if message.Content == nil {
+		return result
+	}
+	if message.Content.ContentStr != nil {
+		result.Content = append(result.Content, mcp.NewTextContent(*message.Content.ContentStr))
+	}
+	for _, block := range message.Content.ContentBlocks {
+		if content := gatewayToolContent(block); content != nil {
+			result.Content = append(result.Content, content)
+		}
+	}
+	return result
+}
+
+// gatewayToolContent turns a tool message content block back into MCP content.
+func gatewayToolContent(block schemas.ChatContentBlock) mcp.Content {
+	switch {
+	case block.Text != nil:
+		return mcp.NewTextContent(*block.Text)
+	case block.ImageURLStruct != nil:
+		if mimeType, data, ok := schemas.SplitBase64DataURL(block.ImageURLStruct.URL); ok {
+			return mcp.NewImageContent(data, mimeType)
+		}
+		return mcp.NewTextContent(block.ImageURLStruct.URL)
+	case block.InputAudio != nil:
+		mimeType := "audio/wav"
+		if block.InputAudio.Format != nil {
+			mimeType = "audio/" + *block.InputAudio.Format
+		}
+		return mcp.NewAudioContent(block.InputAudio.Data, mimeType)
+	case block.File != nil && block.File.FileData != nil:
+		blob := mcp.BlobResourceContents{URI: "file:///" + derefOr(block.File.Filename, "file"), Blob: *block.File.FileData}
+		if block.File.FileType != nil {
+			blob.MIMEType = *block.File.FileType
+		}
+		return mcp.NewEmbeddedResource(blob)
+	}
+	return nil
+}
+
+func derefOr(value *string, fallback string) string {
+	if value == nil || *value == "" {
+		return fallback
+	}
+	return *value
 }
 
 // makeIncludeClientsFilter returns a ToolFilterFunc that narrows tools/list to what the request's

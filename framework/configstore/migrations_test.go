@@ -5076,6 +5076,22 @@ func TestMigrationAddOAuthIssuerBindingColumns(t *testing.T) {
 	assert.True(t, issuer == nil || *issuer == "", "an existing config stays unbound")
 }
 
+// TestMigrationAddMCPClientDiscoveredToolDetailsColumn adds the column on a table created without it,
+// keeps existing rows, and is a no-op on a re-run.
+func TestMigrationAddMCPClientDiscoveredToolDetailsColumn(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("CREATE TABLE config_mcp_clients (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id VARCHAR(255) NOT NULL UNIQUE)").Error)
+	require.NoError(t, db.Exec("INSERT INTO config_mcp_clients (client_id) VALUES ('existing')").Error)
+	for range 2 {
+		require.NoError(t, migrationAddMCPClientDiscoveredToolDetailsColumn(context.Background(), db, testMigrationLogger))
+	}
+	require.True(t, db.Migrator().HasColumn(&tables.TableMCPClient{}, "discovered_tool_details_json"))
+	var count int64
+	require.NoError(t, db.Table("config_mcp_clients").Count(&count).Error)
+	assert.Equal(t, int64(1), count)
+}
+
 // TestA2ARawCaptureSettingMigration defaults existing deployments to capture disabled.
 func TestA2ARawCaptureSettingMigration(t *testing.T) {
 	db := setupTestDB(t)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
 	"github.com/maximhq/bifrost/transports/v2/bifrost-http/lib"
@@ -12,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// recordingToolsConfigStore captures every UpdateMCPClientTools call for
+// recordingToolsConfigStore captures every UpdateMCPClientSnapshot call for
 // assertion, and can be made to fail once to exercise the error-logging path.
 type recordingToolsConfigStore struct {
 	configstore.ConfigStore
@@ -25,27 +26,29 @@ type toolsUpdateCall struct {
 	tools        map[string]schemas.ChatTool
 	mapping      map[string]string
 	instructions string
+	prompts      []mcp.Prompt
 }
 
-func (s *recordingToolsConfigStore) UpdateMCPClientTools(ctx context.Context, clientID string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string) error {
+func (s *recordingToolsConfigStore) UpdateMCPClientSnapshot(ctx context.Context, clientID string, snapshot *schemas.MCPServerSnapshot) error {
 	if s.failErr != nil {
 		return s.failErr
 	}
-	s.calls = append(s.calls, toolsUpdateCall{clientID: clientID, tools: tools, mapping: toolNameMapping, instructions: instructions})
+	s.calls = append(s.calls, toolsUpdateCall{clientID: clientID, tools: snapshot.Tools, mapping: snapshot.ToolNameMapping, instructions: snapshot.Instructions, prompts: snapshot.Prompts})
 	return nil
 }
 
-// TestPersistMCPClientTools_WritesThroughConfigStore pins the OSS side of the
+// TestPersistMCPClientSnapshot_WritesThroughConfigStore pins the OSS side of the
 // funnel: the tools-change callback registered on the MCP manager must
-// persist the fresh result via ConfigStore.UpdateMCPClientTools — the
+// persist the fresh result via ConfigStore.UpdateMCPClientSnapshot — the
 // targeted column update, not a full-row overwrite.
-func TestPersistMCPClientTools_WritesThroughConfigStore(t *testing.T) {
+func TestPersistMCPClientSnapshot_WritesThroughConfigStore(t *testing.T) {
 	store := &recordingToolsConfigStore{}
 	s := &BifrostHTTPServer{Config: &lib.Config{ConfigStore: store}}
 
 	tools := map[string]schemas.ChatTool{"echo": {Type: "function"}}
 	mapping := map[string]string{"echo": "echo-server"}
-	s.PersistMCPClientTools(context.Background(), "client-1", tools, mapping, "Use me carefully.")
+	prompts := []mcp.Prompt{mcp.NewPrompt("client-review")}
+	s.PersistMCPClientSnapshot(context.Background(), "client-1", &schemas.MCPServerSnapshot{Tools: tools, ToolNameMapping: mapping, Instructions: "Use me carefully.", Prompts: prompts})
 
 	require.Len(t, store.calls, 1)
 	assert.Equal(t, "client-1", store.calls[0].clientID)
@@ -54,23 +57,24 @@ func TestPersistMCPClientTools_WritesThroughConfigStore(t *testing.T) {
 	// The instructions must ride the same write: a per-call client holds no connection to
 	// re-read them from, so if they are dropped here they are lost across a restart.
 	assert.Equal(t, "Use me carefully.", store.calls[0].instructions)
+	assert.Equal(t, prompts, store.calls[0].prompts, "prompts ride the same write")
 }
 
-// TestPersistMCPClientTools_NilConfigStore_NoOp confirms the nil-guard
+// TestPersistMCPClientSnapshot_NilConfigStore_NoOp confirms the nil-guard
 // convention this package uses elsewhere (Config or ConfigStore not yet
 // wired) — must not panic.
-func TestPersistMCPClientTools_NilConfigStore_NoOp(t *testing.T) {
+func TestPersistMCPClientSnapshot_NilConfigStore_NoOp(t *testing.T) {
 	s := &BifrostHTTPServer{Config: &lib.Config{ConfigStore: nil}}
 	assert.NotPanics(t, func() {
-		s.PersistMCPClientTools(context.Background(), "client-1", map[string]schemas.ChatTool{}, map[string]string{}, "")
+		s.PersistMCPClientSnapshot(context.Background(), "client-1", &schemas.MCPServerSnapshot{Tools: map[string]schemas.ChatTool{}, ToolNameMapping: map[string]string{}})
 	})
 }
 
-// TestPersistMCPClientTools_StoreErrorLogsAndDoesNotPanic confirms a DB
+// TestPersistMCPClientSnapshot_StoreErrorLogsAndDoesNotPanic confirms a DB
 // failure is logged (best-effort — the periodic checker's own retry, or the
 // next discovery event, will try again) rather than propagated, since this
 // runs from a callback with no caller to return an error to.
-func TestPersistMCPClientTools_StoreErrorLogsAndDoesNotPanic(t *testing.T) {
+func TestPersistMCPClientSnapshot_StoreErrorLogsAndDoesNotPanic(t *testing.T) {
 	prevLogger := logger
 	logger = noopTestLogger{}
 	defer func() { logger = prevLogger }()
@@ -79,7 +83,7 @@ func TestPersistMCPClientTools_StoreErrorLogsAndDoesNotPanic(t *testing.T) {
 	s := &BifrostHTTPServer{Config: &lib.Config{ConfigStore: store}}
 
 	assert.NotPanics(t, func() {
-		s.PersistMCPClientTools(context.Background(), "client-1", map[string]schemas.ChatTool{}, map[string]string{}, "")
+		s.PersistMCPClientSnapshot(context.Background(), "client-1", &schemas.MCPServerSnapshot{Tools: map[string]schemas.ChatTool{}, ToolNameMapping: map[string]string{}})
 	})
 	assert.Empty(t, store.calls)
 }
@@ -88,7 +92,7 @@ func TestPersistMCPClientTools_StoreErrorLogsAndDoesNotPanic(t *testing.T) {
 // convention this package uses elsewhere — MCPServerHandler not yet wired
 // (e.g. in a partially-constructed test server) must not panic. The
 // underlying SyncMCPServer call itself is exercised the same way the
-// pre-existing SetClientTools wrapper's identical call already is: only via
+// pre-existing SetClientSnapshot wrapper's identical call already is: only via
 // full integration, since MCPServerHandler has no fake-able seam from this
 // package.
 func TestSyncMCPServersAfterToolsChange_NilHandler_NoOp(t *testing.T) {

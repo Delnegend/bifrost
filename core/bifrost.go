@@ -4554,16 +4554,13 @@ func (bifrost *Bifrost) SetMCPStateChangeCallback(cb func(clientID, name string,
 	bifrost.MCPManager.SetStateChangeCallback(cb)
 }
 
-// SetMCPToolsChangeCallback registers cb to be invoked whenever an MCP
-// client's tool map is freshly (re)discovered — connect/reconnect, per-call
-// discovery, and the periodic checker's own refresh. core/mcp has no DB
-// access; this is the seam the transport layer persists through. Pass nil to
-// clear a previously registered callback. A no-op if MCP is not configured.
-func (bifrost *Bifrost) SetMCPToolsChangeCallback(cb func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string)) {
+// SetMCPSnapshotChangeCallback registers cb to run whenever an MCP client's snapshot changes; the
+// transport persists through it. nil clears it. No-op without MCP.
+func (bifrost *Bifrost) SetMCPSnapshotChangeCallback(cb func(clientID, name string, snapshot *schemas.MCPServerSnapshot)) {
 	if bifrost.MCPManager == nil {
 		return
 	}
-	bifrost.MCPManager.SetToolsChangeCallback(cb)
+	bifrost.MCPManager.SetSnapshotChangeCallback(cb)
 }
 
 // GetMCPClients returns all MCP clients managed by the Bifrost instance.
@@ -4600,10 +4597,13 @@ func (bifrost *Bifrost) GetMCPClients() ([]schemas.MCPClient, error) {
 		})
 
 		clientsInConfig = append(clientsInConfig, schemas.MCPClient{
-			Config:      client.ExecutionConfig,
-			Tools:       tools,
-			State:       client.State,
-			LastFailure: client.LastFailure,
+			Config:            client.ExecutionConfig,
+			Tools:             tools,
+			State:             client.State,
+			LastFailure:       client.LastFailure,
+			Resources:         client.Resources,
+			ResourceTemplates: client.ResourceTemplates,
+			Prompts:           client.Prompts,
 		})
 	}
 
@@ -4890,11 +4890,11 @@ func (bifrost *Bifrost) EnableMCPClient(id string) error {
 // server using a temporary access token and discover available tools. The
 // connection is closed after verification. If the MCP manager is not yet
 // initialized, it is lazily created (same as AddMCPClient).
-func (bifrost *Bifrost) VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (map[string]schemas.ChatTool, map[string]string, string, error) {
+func (bifrost *Bifrost) VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (*schemas.MCPServerSnapshot, error) {
 	// Ensure MCP manager is initialized (lazy init, same pattern as AddMCPClient)
 	bifrost.ensureLazyMCPManager()
 	if bifrost.MCPManager == nil {
-		return nil, nil, "", fmt.Errorf("MCP manager is not initialized")
+		return nil, fmt.Errorf("MCP manager is not initialized")
 	}
 	return bifrost.MCPManager.VerifyPerUserOAuthConnection(ctx, config, accessToken)
 }
@@ -4903,19 +4903,18 @@ func (bifrost *Bifrost) VerifyPerUserOAuthConnection(ctx context.Context, config
 // server using caller-supplied header values (admin sample or user-submitted)
 // and discover available tools. Mirrors VerifyPerUserOAuthConnection's lazy
 // MCP-manager init.
-func (bifrost *Bifrost) VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (map[string]schemas.ChatTool, map[string]string, string, error) {
+func (bifrost *Bifrost) VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (*schemas.MCPServerSnapshot, error) {
 	bifrost.ensureLazyMCPManager()
 	if bifrost.MCPManager == nil {
-		return nil, nil, "", fmt.Errorf("MCP manager is not initialized")
+		return nil, fmt.Errorf("MCP manager is not initialized")
 	}
 	return bifrost.MCPManager.VerifyHeadersConnection(ctx, config, userHeaders)
 }
 
-// SetClientTools delegates to the MCP manager to update the tool map for an
-// existing MCP client.
-func (bifrost *Bifrost) SetClientTools(clientID string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string) {
+// SetClientSnapshot installs snapshot on an existing MCP client.
+func (bifrost *Bifrost) SetClientSnapshot(clientID string, snapshot *schemas.MCPServerSnapshot) {
 	if bifrost.MCPManager != nil {
-		bifrost.MCPManager.SetClientTools(clientID, tools, toolNameMapping, instructions)
+		bifrost.MCPManager.SetClientSnapshot(clientID, snapshot)
 	}
 }
 

@@ -309,7 +309,8 @@ func TestWriteBackInstructionsReplacesAndFiresCallback(t *testing.T) {
 	m.mu.Unlock()
 
 	var seen []string
-	m.SetToolsChangeCallback(func(_, _ string, _ map[string]schemas.ChatTool, _ map[string]string, instructions string) {
+	m.SetSnapshotChangeCallback(func(_, _ string, snapshot *schemas.MCPServerSnapshot) {
+		instructions := snapshot.Instructions
 		seen = append(seen, instructions)
 	})
 
@@ -334,7 +335,7 @@ func TestWriteBackInstructionsNoOpWhenUnchanged(t *testing.T) {
 	m.mu.Unlock()
 
 	fired := false
-	m.SetToolsChangeCallback(func(_, _ string, _ map[string]schemas.ChatTool, _ map[string]string, _ string) { fired = true })
+	m.SetSnapshotChangeCallback(func(_, _ string, _ *schemas.MCPServerSnapshot) { fired = true })
 
 	m.writeBackInstructions(config.ID, 0, "same")
 

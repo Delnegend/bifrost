@@ -960,13 +960,16 @@ func (m *MockConfigStore) UpdateMCPClientConfig(ctx context.Context, id string, 
 	return nil
 }
 
-func (m *MockConfigStore) UpdateMCPClientTools(ctx context.Context, clientID string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string) error {
+func (m *MockConfigStore) UpdateMCPClientSnapshot(ctx context.Context, clientID string, snapshot *schemas.MCPServerSnapshot) error {
 	if m.mcpConfig != nil {
 		for _, cfg := range m.mcpConfig.ClientConfigs {
 			if cfg.ID == clientID {
-				cfg.DiscoveredTools = tools
-				cfg.DiscoveredToolNameMapping = toolNameMapping
-				cfg.DiscoveredInstructions = instructions
+				cfg.DiscoveredTools = snapshot.Tools
+				cfg.DiscoveredToolNameMapping = snapshot.ToolNameMapping
+				cfg.DiscoveredInstructions = snapshot.Instructions
+				cfg.DiscoveredResources = snapshot.Resources
+				cfg.DiscoveredResourceTemplates = snapshot.ResourceTemplates
+				cfg.DiscoveredPrompts = snapshot.Prompts
 				return nil
 			}
 		}

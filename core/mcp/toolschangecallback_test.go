@@ -11,19 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// toolsChangeCall records one invocation of a registered SetToolsChangeCallback.
+// toolsChangeCall records one invocation of a registered SetSnapshotChangeCallback.
 type toolsChangeCall struct {
 	clientID, name  string
 	tools           map[string]schemas.ChatTool
 	toolNameMapping map[string]string
 }
 
-// TestSetClientTools_FiresToolsChangeCallback pins the funnel's simplest
-// entry point: SetClientTools (used by per-call clients' own AddClient/
+// TestSetClientSnapshot_FiresToolsChangeCallback pins the funnel's simplest
+// entry point: SetClientSnapshot (used by per-call clients' own AddClient/
 // UpdateClientCredentials discovery, and directly by admin-verify HTTP
 // handlers) must notify a registered callback with the fresh result so the
 // transport layer can persist it — core/mcp has no DB access of its own.
-func TestSetClientTools_FiresToolsChangeCallback(t *testing.T) {
+func TestSetClientSnapshot_FiresToolsChangeCallback(t *testing.T) {
 	m := NewMCPManager(context.Background(), schemas.MCPConfig{}, nil, &MockLogger{}, nil)
 	config := &schemas.MCPClientConfig{ID: "client-1", Name: "client-one"}
 	m.mu.Lock()
@@ -31,13 +31,14 @@ func TestSetClientTools_FiresToolsChangeCallback(t *testing.T) {
 	m.mu.Unlock()
 
 	var calls []toolsChangeCall
-	m.SetToolsChangeCallback(func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, _ string) {
+	m.SetSnapshotChangeCallback(func(clientID, name string, snapshot *schemas.MCPServerSnapshot) {
+		tools, toolNameMapping := snapshot.Tools, snapshot.ToolNameMapping
 		calls = append(calls, toolsChangeCall{clientID, name, tools, toolNameMapping})
 	})
 
 	tools := map[string]schemas.ChatTool{"echo": {Type: "function"}}
 	mapping := map[string]string{"echo": "echo-server"}
-	m.SetClientTools(config.ID, tools, mapping, "")
+	m.SetClientSnapshot(config.ID, &schemas.MCPServerSnapshot{Tools: tools, ToolNameMapping: mapping})
 
 	require.Len(t, calls, 1)
 	assert.Equal(t, config.ID, calls[0].clientID)
@@ -46,19 +47,19 @@ func TestSetClientTools_FiresToolsChangeCallback(t *testing.T) {
 	assert.Equal(t, mapping, calls[0].toolNameMapping)
 }
 
-// TestSetClientTools_UnknownClient_DoesNotFireCallback confirms the callback
-// only fires for a real mutation — calling SetClientTools for a client that
+// TestSetClientSnapshot_UnknownClient_DoesNotFireCallback confirms the callback
+// only fires for a real mutation — calling SetClientSnapshot for a client that
 // isn't (or is no longer) registered must not notify a stale/nonexistent
 // entry.
-func TestSetClientTools_UnknownClient_DoesNotFireCallback(t *testing.T) {
+func TestSetClientSnapshot_UnknownClient_DoesNotFireCallback(t *testing.T) {
 	m := NewMCPManager(context.Background(), schemas.MCPConfig{}, nil, &MockLogger{}, nil)
 
 	fired := false
-	m.SetToolsChangeCallback(func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, _ string) {
+	m.SetSnapshotChangeCallback(func(clientID, name string, snapshot *schemas.MCPServerSnapshot) {
 		fired = true
 	})
 
-	m.SetClientTools("does-not-exist", map[string]schemas.ChatTool{}, map[string]string{}, "")
+	m.SetClientSnapshot("does-not-exist", &schemas.MCPServerSnapshot{Tools: map[string]schemas.ChatTool{}, ToolNameMapping: map[string]string{}})
 
 	assert.False(t, fired)
 }
@@ -77,7 +78,8 @@ func TestConnectToMCPClient_SuccessfulDial_FiresToolsChangeCallback(t *testing.T
 	toolName := config.Name + "-echo"
 
 	var calls []toolsChangeCall
-	m.SetToolsChangeCallback(func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, _ string) {
+	m.SetSnapshotChangeCallback(func(clientID, name string, snapshot *schemas.MCPServerSnapshot) {
+		tools, toolNameMapping := snapshot.Tools, snapshot.ToolNameMapping
 		calls = append(calls, toolsChangeCall{clientID, name, tools, toolNameMapping})
 	})
 
@@ -109,7 +111,8 @@ func TestPerformCheck_PerCall_SuccessfulDiscovery_FiresToolsChangeCallback(t *te
 	manager.clientMap[config.ID] = state
 
 	var calls []toolsChangeCall
-	manager.SetToolsChangeCallback(func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, _ string) {
+	manager.SetSnapshotChangeCallback(func(clientID, name string, snapshot *schemas.MCPServerSnapshot) {
+		tools, toolNameMapping := snapshot.Tools, snapshot.ToolNameMapping
 		calls = append(calls, toolsChangeCall{clientID, name, tools, toolNameMapping})
 	})
 
@@ -132,7 +135,7 @@ func TestAddClient_RestoreFromConfig_DoesNotFireToolsChangeCallback(t *testing.T
 	t.Cleanup(func() { _ = m.Cleanup() })
 
 	fired := false
-	m.SetToolsChangeCallback(func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, _ string) {
+	m.SetSnapshotChangeCallback(func(clientID, name string, snapshot *schemas.MCPServerSnapshot) {
 		fired = true
 	})
 

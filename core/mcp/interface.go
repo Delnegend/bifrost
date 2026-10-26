@@ -82,12 +82,9 @@ type MCPManagerInterface interface {
 	// NeedsReauth. Pass nil to clear a previously registered callback.
 	SetStateChangeCallback(cb func(clientID, name string, oldState, newState schemas.MCPConnectionState))
 
-	// SetToolsChangeCallback registers cb to be invoked whenever a client's
-	// tool map is freshly (re)discovered — connect/reconnect, per-call
-	// discovery, and the periodic checker's own refresh. core/mcp has no DB
-	// access; this is the seam the transport layer persists through. Pass
-	// nil to clear a previously registered callback.
-	SetToolsChangeCallback(cb func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string))
+	// SetSnapshotChangeCallback registers cb to run whenever a client's snapshot changes; the
+	// transport layer persists through it. nil clears it.
+	SetSnapshotChangeCallback(cb func(clientID, name string, snapshot *schemas.MCPServerSnapshot))
 
 	// SetInProcessServerFactory replaces the factory that synthesizes
 	// in-process servers for openapi clients (see
@@ -135,15 +132,15 @@ type MCPManagerInterface interface {
 	// VerifyHeadersConnection creates a temporary MCP connection using a set of
 	// caller-supplied header values to verify connectivity and discover tools.
 	// The connection is closed after verification.
-	VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (map[string]schemas.ChatTool, map[string]string, string, error)
+	VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (*schemas.MCPServerSnapshot, error)
 
 	// VerifyPerUserOAuthConnection creates a temporary MCP connection using a
 	// test access token to verify connectivity and discover tools. The connection
 	// is closed after verification.
-	VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (map[string]schemas.ChatTool, map[string]string, string, error)
+	VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (*schemas.MCPServerSnapshot, error)
 
-	// SetClientTools updates the tool map, name mapping and server instructions for an existing client.
-	SetClientTools(clientID string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string)
+	// SetClientSnapshot installs snapshot on an existing client.
+	SetClientSnapshot(clientID string, snapshot *schemas.MCPServerSnapshot)
 
 	// Tool Registration
 	// RegisterTool registers a local tool with the MCP server

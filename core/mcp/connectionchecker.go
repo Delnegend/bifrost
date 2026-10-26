@@ -416,7 +416,9 @@ func (c *ClientConnectionChecker) checkLiveConnection(conn *client.Client, clien
 		return false
 	}
 
-	c.manager.writeBackDiscoveredTools(c.clientID, connGeneration, newTools, newMapping, nil)
+	snapshot := &schemas.MCPServerSnapshot{Tools: newTools, ToolNameMapping: newMapping}
+	c.manager.listResourcesAndPrompts(c.markAsCheck(context.Background()), c.timeout, conn, clientName, conn.GetServerCapabilities(), snapshot, c.manager.installedSnapshotByID(c.clientID))
+	c.manager.writeBackSnapshot(c.clientID, connGeneration, snapshot, false)
 	c.recordSuccess(clientName, connGeneration)
 	return true
 }
@@ -425,14 +427,12 @@ func (c *ClientConnectionChecker) checkLiveConnection(conn *client.Client, clien
 // with no persistent connection to ping or reconnect. Same
 // per-attempt-timeout reasoning as checkLiveConnection above.
 func (c *ClientConnectionChecker) checkPerCall(config *schemas.MCPClientConfig, connGeneration uint64) bool {
-	var newTools map[string]schemas.ChatTool
-	var newMapping map[string]string
-	var newInstructions string
+	var snapshot *schemas.MCPServerSnapshot
 	err := ExecuteWithRetry(context.Background(), func() error {
 		attemptCtx, cancel := context.WithTimeout(context.Background(), c.timeout)
 		defer cancel()
 		var innerErr error
-		newTools, newMapping, newInstructions, innerErr = c.manager.performAdminToolDiscovery(attemptCtx, config)
+		snapshot, innerErr = c.manager.performAdminToolDiscovery(attemptCtx, config)
 		return innerErr
 	}, ProbeRetryConfig, c.logger)
 	if err != nil {
@@ -440,7 +440,7 @@ func (c *ClientConnectionChecker) checkPerCall(config *schemas.MCPClientConfig, 
 		return false
 	}
 
-	c.manager.writeBackDiscoveredTools(c.clientID, connGeneration, newTools, newMapping, &newInstructions)
+	c.manager.writeBackSnapshot(c.clientID, connGeneration, snapshot, true)
 	c.recordSuccess(config.Name, connGeneration)
 	return true
 }

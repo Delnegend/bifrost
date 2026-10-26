@@ -342,14 +342,14 @@ func TestUpdateClientCredentials_PerCallShared_Healthy_RefreshesToolsSynchronous
 	assert.Contains(t, state.ToolMap, "shared-percall-client-refresh-echo", "tools must be refreshed synchronously, not deferred to the periodic checker")
 }
 
-// TestSetClientTools_ReplacesStaleTools pins SetClientTools' replace
+// TestSetClientSnapshot_ReplacesStaleTools pins SetClientSnapshot' replace
 // semantics: every caller passes a complete discovery result, so a tool the
 // upstream removed between discoveries must disappear from the in-memory
 // ToolMap. The old merge behavior kept such tools alive in memory (and on
 // the hosted MCP surface, which serves from ToolMap) while the DB, persisted
 // from the passed-in set via the tools-change callback, had already dropped
 // them.
-func TestSetClientTools_ReplacesStaleTools(t *testing.T) {
+func TestSetClientSnapshot_ReplacesStaleTools(t *testing.T) {
 	m := NewMCPManager(context.Background(), schemas.MCPConfig{}, nil, nil, nil)
 	config := &schemas.MCPClientConfig{ID: "client-replace-tools", Name: "replace-tools-client"}
 
@@ -365,11 +365,7 @@ func TestSetClientTools_ReplacesStaleTools(t *testing.T) {
 	}
 	m.mu.Unlock()
 
-	m.SetClientTools(config.ID,
-		map[string]schemas.ChatTool{"replace-tools-client-kept": {}},
-		map[string]string{"replace-tools-client-kept": "kept"},
-		"",
-	)
+	m.SetClientSnapshot(config.ID, &schemas.MCPServerSnapshot{Tools: map[string]schemas.ChatTool{"replace-tools-client-kept": {}}, ToolNameMapping: map[string]string{"replace-tools-client-kept": "kept"}})
 
 	m.mu.RLock()
 	state := *m.clientMap[config.ID]
@@ -438,7 +434,7 @@ func TestUpdateClientCredentials_PerCallPerUser_ReturnsReconnectNotApplicable(t 
 }
 
 // TestUpdateClientCredentials_PerCallShared_Disabled_SkipsRefresh pins the
-// Disabled guard on the per-call refresh: SetClientTools forces a client
+// Disabled guard on the per-call refresh: SetClientSnapshot forces a client
 // back to Healthy, so a disabled client must keep the sentinel (the fresh
 // credential is picked up when the client is re-enabled, which runs its own
 // discovery) rather than get resurrected by a credential update.
@@ -1031,16 +1027,16 @@ func TestMCPProxySelectorRequirePublicTargetRefusesPrivateLiteral(t *testing.T) 
 	require.Equal(t, proxyURL, got)
 }
 
-// SetClientTools carries the instructions from the same handshake that found the tools,
+// SetClientSnapshot carries the instructions from the same handshake that found the tools,
 // and records them on the config so a per-call client can restore them after a restart.
-func TestSetClientToolsRecordsInstructionsForRestart(t *testing.T) {
+func TestSetClientSnapshotRecordsInstructionsForRestart(t *testing.T) {
 	m := NewMCPManager(context.Background(), schemas.MCPConfig{}, nil, &MockLogger{}, nil)
 	config := &schemas.MCPClientConfig{ID: "per-call", Name: "per-call", ToolsToExecute: []string{"*"}}
 	m.mu.Lock()
 	m.clientMap[config.ID] = &schemas.MCPClientState{Name: config.Name, ExecutionConfig: config, ToolMap: map[string]schemas.ChatTool{}}
 	m.mu.Unlock()
 
-	m.SetClientTools(config.ID, map[string]schemas.ChatTool{"t": {Type: "function"}}, map[string]string{"t": "t"}, "Use me carefully.")
+	m.SetClientSnapshot(config.ID, &schemas.MCPServerSnapshot{Tools: map[string]schemas.ChatTool{"t": {Type: "function"}}, ToolNameMapping: map[string]string{"t": "t"}, Instructions: "Use me carefully."})
 
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1059,14 +1055,15 @@ func TestInstructionsOnlyChangeStillFiresToolsChangeCallback(t *testing.T) {
 	m.mu.Unlock()
 
 	var seen []string
-	m.SetToolsChangeCallback(func(_, _ string, _ map[string]schemas.ChatTool, _ map[string]string, instructions string) {
+	m.SetSnapshotChangeCallback(func(_, _ string, snapshot *schemas.MCPServerSnapshot) {
+		instructions := snapshot.Instructions
 		seen = append(seen, instructions)
 	})
 
 	tools := map[string]schemas.ChatTool{"echo": {Type: "function"}}
 	mapping := map[string]string{"echo": "echo"}
-	m.SetClientTools(config.ID, tools, mapping, "v1")
-	m.SetClientTools(config.ID, map[string]schemas.ChatTool{"echo": {Type: "function"}}, map[string]string{"echo": "echo"}, "v2")
+	m.SetClientSnapshot(config.ID, &schemas.MCPServerSnapshot{Tools: tools, ToolNameMapping: mapping, Instructions: "v1"})
+	m.SetClientSnapshot(config.ID, &schemas.MCPServerSnapshot{Tools: map[string]schemas.ChatTool{"echo": {Type: "function"}}, ToolNameMapping: map[string]string{"echo": "echo"}, Instructions: "v2"})
 
 	assert.Equal(t, []string{"v1", "v2"}, seen)
 }
@@ -1083,7 +1080,7 @@ func TestWriteBackDiscoveredToolsKeepsInstructionsWhenNotRediscovered(t *testing
 	}
 	m.mu.Unlock()
 
-	require.True(t, m.writeBackDiscoveredTools(config.ID, 0, map[string]schemas.ChatTool{"a": {Type: "function"}}, map[string]string{"a": "a"}, nil))
+	require.True(t, m.writeBackSnapshot(config.ID, 0, &schemas.MCPServerSnapshot{Tools: map[string]schemas.ChatTool{"a": {Type: "function"}}, ToolNameMapping: map[string]string{"a": "a"}}, false))
 
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1405,7 +1402,7 @@ func TestUpdateClient_OpenAPI_SpecChangeRebuildsServer(t *testing.T) {
 	t.Cleanup(func() { _ = m.RemoveClient(config.ID) })
 
 	var toolsChanges atomic.Int32
-	m.SetToolsChangeCallback(func(string, string, map[string]schemas.ChatTool, map[string]string, string) { toolsChanges.Add(1) })
+	m.SetSnapshotChangeCallback(func(string, string, *schemas.MCPServerSnapshot) { toolsChanges.Add(1) })
 
 	m.mu.RLock()
 	genBefore := m.clientMap[config.ID].ConnGeneration

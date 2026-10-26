@@ -18,6 +18,7 @@ import (
 
 	"github.com/fasthttp/router"
 	"github.com/google/uuid"
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	bifrost "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/mcp"
 	mcputils "github.com/maximhq/bifrost/core/mcp/utils"
@@ -53,14 +54,14 @@ type MCPManager interface {
 	EnableMCPClient(ctx context.Context, id string) error
 	// VerifyPerUserOAuthConnection verifies an MCP server using a temporary access
 	// token and discovers available tools. The connection is closed after verification.
-	VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (map[string]schemas.ChatTool, map[string]string, string, error)
+	VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (*schemas.MCPServerSnapshot, error)
 	// VerifyHeadersConnection verifies an MCP server using a caller-supplied set
 	// of header values (admin sample or user-submitted) and discovers available
 	// tools. The connection is closed after verification. Mirrors
 	// VerifyPerUserOAuthConnection's role for MCPAuthTypePerUserHeaders.
-	VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (map[string]schemas.ChatTool, map[string]string, string, error)
-	// SetClientTools updates the tool map for an existing client.
-	SetClientTools(clientID string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string)
+	VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (*schemas.MCPServerSnapshot, error)
+	// SetClientSnapshot installs snapshot on an existing client.
+	SetClientSnapshot(clientID string, snapshot *schemas.MCPServerSnapshot)
 	// RequiresPerCallConnection reports whether config resolves to a
 	// per-call connection (true) or a persistent shared one (false), taking
 	// auth type, connection type, and needs_session_stickiness into account
@@ -613,11 +614,12 @@ func (h *MCPHandler) verifyMCPClientHeaders(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	tools, toolNameMapping, serverInstructions, verifyErr := h.mcpManager.VerifyHeadersConnection(bifrostCtx, clientConfig, canonUserHeaders)
+	snapshot, verifyErr := h.mcpManager.VerifyHeadersConnection(bifrostCtx, clientConfig, canonUserHeaders)
 	if verifyErr != nil {
 		SendError(ctx, fasthttp.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: %v", verifyErr))
 		return
 	}
+	tools, toolNameMapping := snapshot.Tools, snapshot.ToolNameMapping
 
 	// Re-load the row before activating and persisting: discovery above
 	// holds an upstream network round-trip, and pushing the pre-discovery
@@ -658,6 +660,8 @@ func (h *MCPHandler) verifyMCPClientHeaders(ctx *fasthttp.RequestCtx) {
 	}
 	clientConfig.DiscoveredTools = tools
 	clientConfig.DiscoveredToolNameMapping = toolNameMapping
+	clientConfig.DiscoveredResources, clientConfig.DiscoveredResourceTemplates, clientConfig.DiscoveredPrompts = snapshot.Resources, snapshot.ResourceTemplates, snapshot.Prompts
+	clientConfig.DiscoveredInstructions = snapshot.Instructions
 
 	// Activate the runtime client BEFORE persisting so a partial failure
 	// can always be retried through this endpoint. The replay guard above
@@ -709,7 +713,7 @@ func (h *MCPHandler) verifyMCPClientHeaders(ctx *fasthttp.RequestCtx) {
 	}
 	if err := h.store.ConfigStore.UpdateMCPClientConfig(ctx, clientConfig.ID, updateReq); err != nil {
 		// NOTE: Partial success; the runtime client is activated (Healthy)
-		// but — since SetClientTools runs below, after this succeeds — has
+		// but — since SetClientSnapshot runs below, after this succeeds — has
 		// no tools live either, so runtime and DB agree (both empty) rather
 		// than drifting. The replay guard reads DiscoveredTools from the
 		// DB, so retrying this endpoint re-runs verification cleanly; a
@@ -723,11 +727,12 @@ func (h *MCPHandler) verifyMCPClientHeaders(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	// Set discovered tools on the client after persistence succeeds — not
-	// before. SetClientTools may propagate this update to other observers
+	// before. SetClientSnapshot may propagate this update to other observers
 	// of the DB row (deployment-specific), so it must run strictly after
 	// the write above lands — otherwise a propagated update could be read
 	// back before the row it depends on was actually written.
-	h.mcpManager.SetClientTools(clientConfig.ID, tools, toolNameMapping, serverInstructions)
+	h.persistMCPSnapshot(ctx, clientConfig.ID, snapshot)
+	h.mcpManager.SetClientSnapshot(clientConfig.ID, snapshot)
 
 	// Retain the admin's sample header values as the auth_mode='admin'
 	// credential so the periodic tool syncer (ClientToolSyncer.performSync)
@@ -838,11 +843,12 @@ func (h *MCPHandler) verifyMCPClientExchange(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	tools, toolNameMapping, serverInstructions, verifyErr := h.mcpManager.VerifyPerUserOAuthConnection(bifrostCtx, clientConfig, adminResponse.AccessToken)
+	snapshot, verifyErr := h.mcpManager.VerifyPerUserOAuthConnection(bifrostCtx, clientConfig, adminResponse.AccessToken)
 	if verifyErr != nil {
 		SendError(ctx, fasthttp.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: %v", verifyErr))
 		return
 	}
+	tools, toolNameMapping := snapshot.Tools, snapshot.ToolNameMapping
 
 	// Same reload-activate-persist ordering as verify-headers, for the same
 	// reasons: the reload narrows the concurrent-edit window opened by the
@@ -856,6 +862,8 @@ func (h *MCPHandler) verifyMCPClientExchange(ctx *fasthttp.RequestCtx) {
 	}
 	clientConfig.DiscoveredTools = tools
 	clientConfig.DiscoveredToolNameMapping = toolNameMapping
+	clientConfig.DiscoveredResources, clientConfig.DiscoveredResourceTemplates, clientConfig.DiscoveredPrompts = snapshot.Resources, snapshot.ResourceTemplates, snapshot.Prompts
+	clientConfig.DiscoveredInstructions = snapshot.Instructions
 
 	if err := h.updateMCPClientWithRetry(bifrostCtx, clientConfig.ID, clientConfig); err != nil {
 		logger.Error(fmt.Sprintf("Failed to update MCP client after exchange verification for client %s: %v", clientConfig.ID, err))
@@ -895,7 +903,7 @@ func (h *MCPHandler) verifyMCPClientExchange(ctx *fasthttp.RequestCtx) {
 	}
 	if err := h.store.ConfigStore.UpdateMCPClientConfig(ctx, clientConfig.ID, updateReq); err != nil {
 		// NOTE: Partial success; the runtime client is activated (Healthy)
-		// but — since SetClientTools runs below, after this succeeds — has
+		// but — since SetClientSnapshot runs below, after this succeeds — has
 		// no tools live either, so runtime and DB agree (both empty) rather
 		// than drifting. The replay guard reads DiscoveredTools from the
 		// DB, so retrying this endpoint re-runs verification cleanly; a
@@ -909,11 +917,12 @@ func (h *MCPHandler) verifyMCPClientExchange(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	// Set discovered tools on the client after persistence succeeds — not
-	// before. SetClientTools may propagate this update to other observers
+	// before. SetClientSnapshot may propagate this update to other observers
 	// of the DB row (deployment-specific), so it must run strictly after
 	// the write above lands — otherwise a propagated update could be read
 	// back before the row it depends on was actually written.
-	h.mcpManager.SetClientTools(clientConfig.ID, tools, toolNameMapping, serverInstructions)
+	h.persistMCPSnapshot(ctx, clientConfig.ID, snapshot)
+	h.mcpManager.SetClientSnapshot(clientConfig.ID, snapshot)
 
 	// Retain the admin credential for the periodic tool syncer and the
 	// refresh worker. Deliberately last, mirroring verify-headers: on a
@@ -966,6 +975,13 @@ type MCPClientResponse struct {
 	Tools     []schemas.ChatToolFunction `json:"tools"`
 	State     schemas.MCPConnectionState `json:"state"`
 	VKConfigs []MCPVKConfigResponse      `json:"vk_configs"`
+
+	// Resources, ResourceTemplates and Prompts are what the server offers besides tools, as last
+	// discovered (prompt names prefixed like tools). Empty when it offers none.
+	Resources         []mcpgo.Resource         `json:"resources"`
+	ResourceTemplates []mcpgo.ResourceTemplate `json:"resource_templates"`
+	Prompts           []mcpgo.Prompt           `json:"prompts"`
+
 	// LastFailure is the instance serving this request's own record of what
 	// its connection handling last failed with: the step, the error, when it
 	// last happened and when the current run began (see
@@ -988,6 +1004,23 @@ type MCPClientResponse struct {
 	// auth type has no such credential (none, headers) or when none has been
 	// issued yet (a client still pending its one-time authorization).
 	Credential *MCPClientCredentialResponse `json:"credential,omitempty"`
+}
+
+// setResourcesAndPrompts copies client's lists, empty rather than null when the server offers none.
+func (r *MCPClientResponse) setResourcesAndPrompts(client *schemas.MCPClient) {
+	r.Resources, r.ResourceTemplates, r.Prompts = []mcpgo.Resource{}, []mcpgo.ResourceTemplate{}, []mcpgo.Prompt{}
+	if client == nil {
+		return
+	}
+	if client.Resources != nil {
+		r.Resources = client.Resources
+	}
+	if client.ResourceTemplates != nil {
+		r.ResourceTemplates = client.ResourceTemplates
+	}
+	if client.Prompts != nil {
+		r.Prompts = client.Prompts
+	}
 }
 
 // MCPClientCredentialResponse describes the credential a client holds on its
@@ -1778,6 +1811,7 @@ func (h *MCPHandler) getMCPClientsPaginated(ctx *fasthttp.RequestCtx, params con
 				VKConfigs:   vkConfigs,
 				Credential:  credential,
 			}
+			resp.setResourcesAndPrompts(&connectedClient)
 			if aggregator, ok := h.mcpManager.(MCPClusterStateAggregator); ok {
 				local := schemas.MCPInstanceState{State: resolvedState, LastFailure: resp.LastFailure}
 				if aggState, nodeStates := aggregator.AggregateMCPClientState(clientConfig.ID, local); nodeStates != nil {
@@ -1787,13 +1821,15 @@ func (h *MCPHandler) getMCPClientsPaginated(ctx *fasthttp.RequestCtx, params con
 			}
 			clients = append(clients, resp)
 		} else {
-			clients = append(clients, MCPClientResponse{
+			resp := MCPClientResponse{
 				Config:     redactedConfig,
 				Tools:      []schemas.ChatToolFunction{},
 				State:      schemas.MCPConnectionStateError,
 				VKConfigs:  vkConfigs,
 				Credential: credential,
-			})
+			}
+			resp.setResourcesAndPrompts(nil)
+			clients = append(clients, resp)
 		}
 	}
 
@@ -2449,13 +2485,15 @@ func (h *MCPHandler) addMCPClient(ctx *fasthttp.RequestCtx) {
 		// persist so the DB row includes them from the start — same
 		// convention as the per-user OAuth branch below. Pass the canon
 		// form so the verify path sees the same keys the schema declares.
-		tools, toolNameMapping, serverInstructions, verifyErr := h.mcpManager.VerifyHeadersConnection(bifrostCtx, schemasConfig, canonUserHeaders)
+		snapshot, verifyErr := h.mcpManager.VerifyHeadersConnection(bifrostCtx, schemasConfig, canonUserHeaders)
 		if verifyErr != nil {
 			SendError(ctx, fasthttp.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: %v", verifyErr))
 			return
 		}
+		tools, toolNameMapping, serverInstructions := snapshot.Tools, snapshot.ToolNameMapping, snapshot.Instructions
 		schemasConfig.DiscoveredTools = tools
 		schemasConfig.DiscoveredToolNameMapping = toolNameMapping
+		schemasConfig.DiscoveredResources, schemasConfig.DiscoveredResourceTemplates, schemasConfig.DiscoveredPrompts = snapshot.Resources, snapshot.ResourceTemplates, snapshot.Prompts
 		schemasConfig.DiscoveredInstructions = serverInstructions
 
 		if err := h.store.ConfigStore.CreateMCPClientConfig(ctx, schemasConfig); err != nil {
@@ -2597,13 +2635,15 @@ func (h *MCPHandler) addMCPClient(ctx *fasthttp.RequestCtx) {
 			return
 		default:
 			adminResponse = response
-			tools, toolNameMapping, serverInstructions, verifyErr := h.mcpManager.VerifyPerUserOAuthConnection(bifrostCtx, schemasConfig, response.AccessToken)
+			snapshot, verifyErr := h.mcpManager.VerifyPerUserOAuthConnection(bifrostCtx, schemasConfig, response.AccessToken)
 			if verifyErr != nil {
 				SendError(ctx, fasthttp.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: %v", verifyErr))
 				return
 			}
+			tools, toolNameMapping, serverInstructions := snapshot.Tools, snapshot.ToolNameMapping, snapshot.Instructions
 			schemasConfig.DiscoveredTools = tools
 			schemasConfig.DiscoveredToolNameMapping = toolNameMapping
+			schemasConfig.DiscoveredResources, schemasConfig.DiscoveredResourceTemplates, schemasConfig.DiscoveredPrompts = snapshot.Resources, snapshot.ResourceTemplates, snapshot.Prompts
 			schemasConfig.DiscoveredInstructions = serverInstructions
 		}
 
@@ -3397,7 +3437,7 @@ func (h *MCPHandler) updateMCPClient(ctx *fasthttp.RequestCtx) {
 			}
 		}
 		bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.store)
-		_, _, _, verifyErr := h.mcpManager.VerifyHeadersConnection(bifrostCtx, &verifyConfig, verifyHeaders)
+		_, verifyErr := h.mcpManager.VerifyHeadersConnection(bifrostCtx, &verifyConfig, verifyHeaders)
 		cancel()
 		if verifyErr != nil {
 			SendError(ctx, fasthttp.StatusUnprocessableEntity, fmt.Sprintf("The new headers were rejected by the MCP server, so nothing was changed: %v", verifyErr))
@@ -3996,6 +4036,17 @@ func mergeMCPHeaders(incoming, rawExisting, redactedExisting map[string]schemas.
 	return merged
 }
 
+// persistMCPSnapshot stores a verified snapshot's resources, prompts and instructions; the full
+// config update leaves those columns alone.
+func (h *MCPHandler) persistMCPSnapshot(ctx context.Context, clientID string, snapshot *schemas.MCPServerSnapshot) {
+	if h.store.ConfigStore == nil || snapshot == nil {
+		return
+	}
+	if err := h.store.ConfigStore.UpdateMCPClientSnapshot(ctx, clientID, snapshot); err != nil {
+		logger.Warn(fmt.Sprintf("failed to persist discovered resources and prompts for MCP client %s: %v", clientID, err))
+	}
+}
+
 // updateMCPClientWithRetry calls mcpManager.UpdateMCPClient with a short retry loop
 func (h *MCPHandler) updateMCPClientWithRetry(ctx context.Context, id string, config *schemas.MCPClientConfig) error {
 	const maxAttempts = 3
@@ -4087,7 +4138,7 @@ func (h *MCPHandler) completePerUserOAuthAdminRepair(ctx *fasthttp.RequestCtx, b
 		return
 	}
 
-	tools, toolNameMapping, serverInstructions, err := h.mcpManager.VerifyPerUserOAuthConnection(bifrostCtx, clientConfig, accessToken)
+	snapshot, err := h.mcpManager.VerifyPerUserOAuthConnection(bifrostCtx, clientConfig, accessToken)
 	if err != nil {
 		// The fresh credential is unusable; revoke it so it isn't left
 		// behind as a dangling shared row. The existing admin row and the
@@ -4098,6 +4149,7 @@ func (h *MCPHandler) completePerUserOAuthAdminRepair(ctx *fasthttp.RequestCtx, b
 		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("OAuth configuration test failed: %v", err))
 		return
 	}
+	tools, toolNameMapping := snapshot.Tools, snapshot.ToolNameMapping
 
 	// Re-load the row before persisting: verification above holds an
 	// upstream network round-trip, and pushing the pre-verification snapshot
@@ -4125,6 +4177,8 @@ func (h *MCPHandler) completePerUserOAuthAdminRepair(ctx *fasthttp.RequestCtx, b
 
 	clientConfig.DiscoveredTools = tools
 	clientConfig.DiscoveredToolNameMapping = toolNameMapping
+	clientConfig.DiscoveredResources, clientConfig.DiscoveredResourceTemplates, clientConfig.DiscoveredPrompts = snapshot.Resources, snapshot.ResourceTemplates, snapshot.Prompts
+	clientConfig.DiscoveredInstructions = snapshot.Instructions
 
 	// Persist the refreshed tool set via UpdateMCPClientConfig. The store
 	// unconditionally writes every editable column from the given struct, so
@@ -4184,7 +4238,8 @@ func (h *MCPHandler) completePerUserOAuthAdminRepair(ctx *fasthttp.RequestCtx, b
 			clientConfig.ID, err,
 		))
 	}
-	h.mcpManager.SetClientTools(clientConfig.ID, tools, toolNameMapping, serverInstructions)
+	h.persistMCPSnapshot(ctx, clientConfig.ID, snapshot)
+	h.mcpManager.SetClientSnapshot(clientConfig.ID, snapshot)
 
 	h.recordMCPClientAction(ctx, "mcp_client.oauth_completed", clientConfig.ID, clientConfig.Name, map[string]any{
 		"auth_type":       clientConfig.AuthType,
@@ -4382,7 +4437,7 @@ func (h *MCPHandler) completeMCPClientOAuth(ctx *fasthttp.RequestCtx) {
 		defer h.oauthHandler.RemovePendingMCPClient(oauthConfigID)
 
 		// Verify connection and discover tools using admin's temp token
-		tools, toolNameMapping, serverInstructions, err := h.mcpManager.VerifyPerUserOAuthConnection(bifrostCtx, mcpClientConfig, accessToken)
+		snapshot, err := h.mcpManager.VerifyPerUserOAuthConnection(bifrostCtx, mcpClientConfig, accessToken)
 		if err != nil {
 			// Nothing worth retaining on a failed verification: revoke the
 			// admin's temp token immediately so it isn't left behind (it
@@ -4394,10 +4449,13 @@ func (h *MCPHandler) completeMCPClientOAuth(ctx *fasthttp.RequestCtx) {
 			SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("OAuth configuration test failed: %v", err))
 			return
 		}
+		tools, toolNameMapping := snapshot.Tools, snapshot.ToolNameMapping
 
 		// Attach discovered tools before persisting so the DB row includes them from the start.
 		mcpClientConfig.DiscoveredTools = tools
 		mcpClientConfig.DiscoveredToolNameMapping = toolNameMapping
+		mcpClientConfig.DiscoveredResources, mcpClientConfig.DiscoveredResourceTemplates, mcpClientConfig.DiscoveredPrompts = snapshot.Resources, snapshot.ResourceTemplates, snapshot.Prompts
+		mcpClientConfig.DiscoveredInstructions = snapshot.Instructions
 
 		if isUpdateFlow {
 			oldDBConfig := *existingDBConfig
@@ -4476,7 +4534,8 @@ func (h *MCPHandler) completeMCPClientOAuth(ctx *fasthttp.RequestCtx) {
 		}
 
 		// Set discovered tools on the client
-		h.mcpManager.SetClientTools(mcpClientConfig.ID, tools, toolNameMapping, serverInstructions)
+		h.persistMCPSnapshot(ctx, mcpClientConfig.ID, snapshot)
+		h.mcpManager.SetClientSnapshot(mcpClientConfig.ID, snapshot)
 
 		// Retain the admin's bootstrap-verification token instead of
 		// discarding it via RevokeToken: promote the row CompleteOAuthFlow

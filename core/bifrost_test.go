@@ -7904,11 +7904,11 @@ func TestLazyMCPManager_ConcurrentFirstCallersDoNotRace(t *testing.T) {
 		go func() { defer wg.Done(); _ = b.AddMCPClient(context.Background(), client("a")) }()
 		go func() {
 			defer wg.Done()
-			_, _, _, _ = b.VerifyHeadersConnection(context.Background(), client("b"), map[string]string{"X-Key": "v"})
+			_, _ = b.VerifyHeadersConnection(context.Background(), client("b"), map[string]string{"X-Key": "v"})
 		}()
 		go func() {
 			defer wg.Done()
-			_, _, _, _ = b.VerifyPerUserOAuthConnection(context.Background(), client("c"), "token")
+			_, _ = b.VerifyPerUserOAuthConnection(context.Background(), client("c"), "token")
 		}()
 		wg.Wait()
 		b.Shutdown()

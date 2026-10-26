@@ -162,11 +162,11 @@ type ServerCallbacks interface {
 	UpdateMCPClientCredentials(ctx context.Context, id string, newConfig *schemas.MCPClientConfig) error
 	UpdateMCPToolManagerConfig(ctx context.Context, maxAgentDepth int, toolExecutionTimeoutInSeconds int, codeModeBindingLevel string, disableAutoToolInject bool, maxInstructionsPerClient int, maxInstructionsTotal int, codeModeLimits *schemas.MCPCodeModeLimits) error
 	// VerifyPerUserOAuthConnection verifies an MCP server using a temporary token and discovers tools.
-	VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (map[string]schemas.ChatTool, map[string]string, string, error)
+	VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (*schemas.MCPServerSnapshot, error)
 	// VerifyHeadersConnection verifies an MCP server using user-supplied header values and discovers tools.
-	VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (map[string]schemas.ChatTool, map[string]string, string, error)
-	// SetClientTools updates the tool map and server instructions for an existing client.
-	SetClientTools(clientID string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string)
+	VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (*schemas.MCPServerSnapshot, error)
+	// SetClientSnapshot installs snapshot on an existing client.
+	SetClientSnapshot(clientID string, snapshot *schemas.MCPServerSnapshot)
 	// RequiresPerCallConnection reports whether config resolves to a
 	// per-call connection (true) or a persistent shared one (false), taking
 	// auth type, connection type, and needs_session_stickiness into account
@@ -491,30 +491,19 @@ func (s *BifrostHTTPServer) UpdateMCPClient(ctx context.Context, id string, upda
 	return nil
 }
 
-// PersistMCPClientTools writes a freshly (re)discovered tool set to the DB
-// via ConfigStore's targeted column update. core/mcp has no DB access of its
-// own; this is registered as the MCP manager's tools-change callback so
-// every discovery path — connect/reconnect, per-call discovery, and the
-// periodic checker's own refresh — persists uniformly. Best-effort: a
-// failure here is logged, not propagated, since this runs from a callback
-// with no caller to return an error to — the next discovery event (or the
-// periodic checker's own retry) tries again.
-func (s *BifrostHTTPServer) PersistMCPClientTools(ctx context.Context, clientID string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string) {
+// PersistMCPClientSnapshot is the MCP manager's snapshot-change callback: it writes the snapshot's
+// columns to the DB. Best-effort; a failure is logged and the next discovery retries.
+func (s *BifrostHTTPServer) PersistMCPClientSnapshot(ctx context.Context, clientID string, snapshot *schemas.MCPServerSnapshot) {
 	if s.Config == nil || s.Config.ConfigStore == nil {
 		return
 	}
-	if err := s.Config.ConfigStore.UpdateMCPClientTools(ctx, clientID, tools, toolNameMapping, instructions); err != nil {
-		logger.Error(fmt.Sprintf("Failed to persist discovered tools for MCP client %s: %v", clientID, err))
+	if err := s.Config.ConfigStore.UpdateMCPClientSnapshot(ctx, clientID, snapshot); err != nil {
+		logger.Error(fmt.Sprintf("Failed to persist discovery for MCP client %s: %v", clientID, err))
 	}
 }
 
-// SyncMCPServersAfterToolsChange re-syncs Bifrost's own hosted MCP server(s)
-// so a freshly (re)discovered tool list is immediately visible via /mcp.
-// SetClientTools (below) already does this for handler-driven updates
-// (verify-headers, complete-oauth, admin-repair) — this is the same resync,
-// reachable from the tools-change callback so periodic-checker refreshes and
-// sticky reconnects get it too, not just one-time admin actions. Best-effort,
-// same reasoning as PersistMCPClientTools.
+// SyncMCPServersAfterToolsChange re-syncs the hosted /mcp server after a snapshot change, so
+// checker refreshes and reconnects show up there like handler-driven updates. Best-effort.
 func (s *BifrostHTTPServer) SyncMCPServersAfterToolsChange(ctx context.Context, clientID string) {
 	if s.MCPServerHandler == nil {
 		return
@@ -579,20 +568,19 @@ func (s *BifrostHTTPServer) EnableMCPClient(ctx context.Context, id string) erro
 
 // VerifyHeadersConnection delegates to the Bifrost client to verify an MCP
 // server with caller-supplied header values and discover its tools.
-func (s *BifrostHTTPServer) VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (map[string]schemas.ChatTool, map[string]string, string, error) {
+func (s *BifrostHTTPServer) VerifyHeadersConnection(ctx context.Context, config *schemas.MCPClientConfig, userHeaders map[string]string) (*schemas.MCPServerSnapshot, error) {
 	return s.Client.VerifyHeadersConnection(ctx, config, userHeaders)
 }
 
 // VerifyPerUserOAuthConnection delegates to the Bifrost client to verify an MCP
 // server using a temporary access token and discover available tools.
-func (s *BifrostHTTPServer) VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (map[string]schemas.ChatTool, map[string]string, string, error) {
+func (s *BifrostHTTPServer) VerifyPerUserOAuthConnection(ctx context.Context, config *schemas.MCPClientConfig, accessToken string) (*schemas.MCPServerSnapshot, error) {
 	return s.Client.VerifyPerUserOAuthConnection(ctx, config, accessToken)
 }
 
-// SetClientTools delegates to the Bifrost client to update tool map for an existing MCP client,
-// then re-syncs the MCP server so the new tools are immediately visible via /mcp.
-func (s *BifrostHTTPServer) SetClientTools(clientID string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string) {
-	s.Client.SetClientTools(clientID, tools, toolNameMapping, instructions)
+// SetClientSnapshot installs snapshot on an existing MCP client and re-syncs /mcp.
+func (s *BifrostHTTPServer) SetClientSnapshot(clientID string, snapshot *schemas.MCPServerSnapshot) {
+	s.Client.SetClientSnapshot(clientID, snapshot)
 	if err := s.MCPServerHandler.SyncMCPServer(context.Background()); err != nil {
 		logger.Warn("failed to sync MCP servers after setting client tools: %v", err)
 	}
@@ -3644,8 +3632,8 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 	}
 	// Registered before ConnectConfiguredMCPClients so even the very first
 	// boot dial's discovered tools get persisted, not just later reconnects.
-	s.Client.SetMCPToolsChangeCallback(func(clientID, name string, tools map[string]schemas.ChatTool, toolNameMapping map[string]string, instructions string) {
-		go s.PersistMCPClientTools(s.Ctx, clientID, tools, toolNameMapping, instructions)
+	s.Client.SetMCPSnapshotChangeCallback(func(clientID, name string, snapshot *schemas.MCPServerSnapshot) {
+		go s.PersistMCPClientSnapshot(s.Ctx, clientID, snapshot)
 		go s.SyncMCPServersAfterToolsChange(s.Ctx, clientID)
 	})
 	// Dial configured MCP clients now that every plugin is registered in the core.

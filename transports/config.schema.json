@@ -9395,6 +9395,38 @@
               }
             }
           }
+        },
+        {
+          "$comment": "per_user_discovery discovers each caller's tools with their own credential, so it only applies to the per-user auth types, and not to an openapi client, whose tools come from its document.",
+          "if": {
+            "properties": {
+              "per_user_discovery": {
+                "const": true
+              }
+            },
+            "required": [
+              "per_user_discovery"
+            ]
+          },
+          "then": {
+            "required": [
+              "auth_type"
+            ],
+            "properties": {
+              "auth_type": {
+                "enum": [
+                  "per_user_oauth",
+                  "per_user_headers",
+                  "token_exchange"
+                ]
+              },
+              "connection_type": {
+                "not": {
+                  "const": "openapi"
+                }
+              }
+            }
+          }
         }
       ],
       "oneOf": [

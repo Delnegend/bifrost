@@ -87,8 +87,9 @@ func (m *MockClientManager) GetToolPerClient(ctx context.Context) map[string][]s
 	return make(map[string][]schemas.ChatTool)
 }
 
-func (m *MockClientManager) GetConnectTools(context.Context) []schemas.ChatTool {
-	return nil
+// GetCallerDiscovery serves the fake's tools, with no connect tools or instructions.
+func (m *MockClientManager) GetCallerDiscovery(ctx context.Context, _ bool) CallerDiscovery {
+	return CallerDiscovery{ToolsPerClient: m.GetToolPerClient(ctx)}
 }
 
 func (m *MockClientManager) ConnectToolClient(context.Context, string) *schemas.MCPClientState {
@@ -96,10 +97,6 @@ func (m *MockClientManager) ConnectToolClient(context.Context, string) *schemas.
 }
 
 func (m *MockClientManager) InstructionCaps() InstructionCaps { return InstructionCaps{} }
-
-func (m *MockClientManager) GetServerInstructions(_ context.Context) []schemas.MCPServerInstructions {
-	return nil
-}
 
 func (m *MockClientManager) GetPluginPipeline() PluginPipeline             { return nil }
 func (m *MockClientManager) ReleasePluginPipeline(pipeline PluginPipeline) {}
@@ -606,8 +603,9 @@ func (m *MockAutoClientManager) GetToolPerClient(ctx context.Context) map[string
 	return make(map[string][]schemas.ChatTool)
 }
 
-func (m *MockAutoClientManager) GetConnectTools(context.Context) []schemas.ChatTool {
-	return nil
+// GetCallerDiscovery serves the fake's tools, with no connect tools or instructions.
+func (m *MockAutoClientManager) GetCallerDiscovery(ctx context.Context, _ bool) CallerDiscovery {
+	return CallerDiscovery{ToolsPerClient: m.GetToolPerClient(ctx)}
 }
 
 func (m *MockAutoClientManager) ConnectToolClient(context.Context, string) *schemas.MCPClientState {
@@ -615,10 +613,6 @@ func (m *MockAutoClientManager) ConnectToolClient(context.Context, string) *sche
 }
 
 func (m *MockAutoClientManager) InstructionCaps() InstructionCaps { return InstructionCaps{} }
-
-func (m *MockAutoClientManager) GetServerInstructions(_ context.Context) []schemas.MCPServerInstructions {
-	return nil
-}
 
 func (m *MockAutoClientManager) GetPluginPipeline() PluginPipeline             { return nil }
 func (m *MockAutoClientManager) ReleasePluginPipeline(pipeline PluginPipeline) {}

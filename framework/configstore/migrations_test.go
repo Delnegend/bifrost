@@ -2435,6 +2435,60 @@ func TestMigrationAddMCPPerUserDiscoveries(t *testing.T) {
 	require.NoError(t, migrationAddMCPPerUserDiscoveries(ctx, db, testMigrationLogger))
 }
 
+// TestMigrationAddMCPClientPendingVerificationColumn backfills the record from
+// the signals it replaces, so no client changes state on upgrade: an OAuth
+// client still carrying its bootstrap stash, and a per_user_headers or
+// token_exchange client over a real upstream that never stored its tools.
+func TestMigrationAddMCPClientPendingVerificationColumn(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	ctx := context.Background()
+	mg := db.Migrator()
+
+	require.NoError(t, db.Exec(`CREATE TABLE IF NOT EXISTS migrations (id VARCHAR(255) PRIMARY KEY)`).Error)
+	require.NoError(t, db.AutoMigrate(&tables.TableMCPClient{}))
+	require.NoError(t, mg.DropColumn(&tables.TableMCPClient{}, "pending_verification"))
+
+	rows := []struct {
+		name, authType, connectionType string
+		stash, tools                   *string
+		want                           bool
+	}{
+		{name: "oauth_stashed", authType: "oauth", connectionType: "http", stash: schemas.Ptr(`{}`), want: true},
+		{name: "oauth_authorized", authType: "oauth", connectionType: "http"},
+		{name: "oauth_empty_stash", authType: "oauth", connectionType: "http", stash: schemas.Ptr("")},
+		{name: "per_user_oauth_stashed", authType: "per_user_oauth", connectionType: "http", stash: schemas.Ptr(`{}`), want: true},
+		{name: "headers_never_verified", authType: "per_user_headers", connectionType: "http", want: true},
+		{name: "headers_verified_no_tools", authType: "per_user_headers", connectionType: "http", tools: schemas.Ptr(`{}`)},
+		{name: "headers_openapi", authType: "per_user_headers", connectionType: "openapi"},
+		{name: "exchange_blank_tools", authType: "token_exchange", connectionType: "http", tools: schemas.Ptr(""), want: true},
+		{name: "exchange_null_tools", authType: "token_exchange", connectionType: "http", tools: schemas.Ptr("null"), want: true},
+		{name: "exchange_verified", authType: "token_exchange", connectionType: "http", tools: schemas.Ptr(`{"a":{}}`)},
+		{name: "shared_headers", authType: "headers", connectionType: "http"},
+	}
+	now := time.Now()
+	for _, row := range rows {
+		require.NoError(t, db.Exec(
+			`INSERT INTO config_mcp_clients (client_id, name, endpoint_slug, connection_type, auth_type, pending_oauth_config_json, discovered_tools_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			row.name, row.name, row.name, row.connectionType, row.authType, row.stash, row.tools, now, now).Error)
+	}
+
+	require.NoError(t, migrationAddMCPClientPendingVerificationColumn(ctx, db, testMigrationLogger))
+
+	require.True(t, mg.HasColumn(&tables.TableMCPClient{}, "pending_verification"))
+	for _, row := range rows {
+		var pending bool
+		require.NoError(t, db.Table("config_mcp_clients").Select("pending_verification").Where("client_id = ?", row.name).Scan(&pending).Error)
+		assert.Equal(t, row.want, pending, row.name)
+	}
+
+	// Idempotent: a re-run on an already-migrated schema is a no-op.
+	require.NoError(t, db.Exec("DELETE FROM migrations WHERE id = ?", "add_mcp_client_pending_verification_column").Error)
+	require.NoError(t, migrationAddMCPClientPendingVerificationColumn(ctx, db, testMigrationLogger))
+}
+
 func TestMigrationAddCompatForceReasoningOnlyModelsToResponsesColumn(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),

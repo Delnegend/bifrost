@@ -78695,6 +78695,48 @@
               }
             },
             {
+              "name": "EP-42 control: both mode, enforcement on: the VK in x-api-key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-42 control: both mode, enforcement on: the VK in x-api-key: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-42 control: both mode, enforcement on: the VK in x-api-key: tools/list names are exactly [\\\"alpha-add\\\",\\\"alpha-echo\\\",\\\"beta-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"alpha-add\",\"alpha-echo\",\"beta-echo\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-api-key",
+                    "value": "{{ep-42_full}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
               "name": "EP-42 setup: mcp_server_auth_mode oauth, enforce_auth_on_inference off, issuer_url set to the base URL, temp-token auth on",
               "event": [
                 {
@@ -78823,6 +78865,51 @@
                   {
                     "key": "Authorization",
                     "value": "Bearer {{ep-42_full}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-42 the VK in x-api-key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-42 the VK in x-api-key: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"EP-42 the VK in x-api-key: error message is \\\"this server requires OAuth JWT authentication; header credentials are not accepted in oauth mode\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"this server requires OAuth JWT authentication; header credentials are not accepted in oauth mode\");",
+                      "});",
+                      "pm.test(\"EP-42 the VK in x-api-key: WWW-Authenticate is present\", function () {",
+                      "  pm.expect(pm.response.headers.get('WWW-Authenticate'), 'body: ' + pm.response.text()).to.be.a('string').and.not.empty;",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-api-key",
+                    "value": "{{ep-42_full}}"
                   }
                 ],
                 "url": "{{base_url}}/mcp",
@@ -84195,6 +84282,38 @@
               }
             },
             {
+              "name": "EP-50 oauth: /api/config reads back mcp_server_auth_mode oauth",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 oauth: /api/config reads back mcp_server_auth_mode oauth: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-50 oauth: /api/config reads back mcp_server_auth_mode oauth: mcp_server_auth_mode is \\\"oauth\\\", issuer_url is the base URL\", function () {",
+                      "  var cc = pm.response.json().client_config || {};",
+                      "  pm.expect(cc.mcp_server_auth_mode, 'body: ' + pm.response.text()).to.equal(\"oauth\");",
+                      "  var iss = (cc.oauth2_server_config || {}).issuer_url;",
+                      "  pm.expect(iss !== null && typeof iss === 'object' ? iss.value : iss, 'oauth2_server_config: ' + JSON.stringify(cc.oauth2_server_config)).to.equal(pm.variables.get('base_url'));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
               "name": "EP-50 oauth: tools/list with x-bf-vk",
               "event": [
                 {
@@ -84314,6 +84433,36 @@
                   "mode": "raw",
                   "raw": "{{config_body}}"
                 }
+              }
+            },
+            {
+              "name": "EP-50 headers: /api/config reads back mcp_server_auth_mode headers",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 headers: /api/config reads back mcp_server_auth_mode headers: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-50 headers: /api/config reads back mcp_server_auth_mode headers: mcp_server_auth_mode is \\\"headers\\\"\", function () {",
+                      "  var cc = pm.response.json().client_config || {};",
+                      "  pm.expect(cc.mcp_server_auth_mode, 'body: ' + pm.response.text()).to.equal(\"headers\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
               }
             },
             {
@@ -84640,6 +84789,84 @@
               }
             },
             {
+              "name": "EP-50 setup: headers, issuer_url cleared",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = 'headers';",
+                      "cc.oauth2_server_config = { issuer_url: '' };",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 setup: headers, issuer_url cleared: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-50 headers: /api/config reads back no issuer_url",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 headers: /api/config reads back no issuer_url: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-50 headers: /api/config reads back no issuer_url: mcp_server_auth_mode is \\\"headers\\\" and issuer_url is empty\", function () {",
+                      "  var cc = pm.response.json().client_config || {};",
+                      "  pm.expect(cc.mcp_server_auth_mode, 'body: ' + pm.response.text()).to.equal('headers');",
+                      "  var iss = (cc.oauth2_server_config || {}).issuer_url;",
+                      "  pm.expect((iss !== null && typeof iss === 'object' ? iss.value : iss) || '', 'oauth2_server_config: ' + JSON.stringify(cc.oauth2_server_config)).to.equal('');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
               "name": "EP-50 setup: mcp_server_auth_mode both, enforce_auth_on_inference off, issuer_url set to the base URL, temp-token auth on",
               "event": [
                 {
@@ -84716,6 +84943,228 @@
                   {
                     "key": "Authorization",
                     "value": "Bearer {{ep50_f_at}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-50 both: /api/config reads back mcp_server_auth_mode both",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 both: /api/config reads back mcp_server_auth_mode both: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-50 both: /api/config reads back mcp_server_auth_mode both: mcp_server_auth_mode is \\\"both\\\", issuer_url is the base URL\", function () {",
+                      "  var cc = pm.response.json().client_config || {};",
+                      "  pm.expect(cc.mcp_server_auth_mode, 'body: ' + pm.response.text()).to.equal(\"both\");",
+                      "  var iss = (cc.oauth2_server_config || {}).issuer_url;",
+                      "  pm.expect(iss !== null && typeof iss === 'object' ? iss.value : iss, 'oauth2_server_config: ' + JSON.stringify(cc.oauth2_server_config)).to.equal(pm.variables.get('base_url'));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "EP-50 both: /.well-known/oauth-protected-resource is served again",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 both: /.well-known/oauth-protected-resource is served again: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/.well-known/oauth-protected-resource"
+              }
+            },
+            {
+              "name": "EP-50 both: tools/list with x-bf-vk",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 both: tools/list with x-bf-vk: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-50 both: tools/list with x-bf-vk: tools/list names are exactly [\\\"alpha-add\\\",\\\"alpha-echo\\\",\\\"beta-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"alpha-add\",\"alpha-echo\",\"beta-echo\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-50_full}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-50 setup: mcp_server_auth_mode both, enforce_auth_on_inference on, issuer_url set to the base URL, temp-token auth on",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = \"both\";",
+                      "cc.enforce_auth_on_inference = true;",
+                      "cc.oauth2_server_config = { issuer_url: pm.variables.get('base_url') };",
+                      "cc.mcp_enable_temp_token_auth = true;",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 setup: mcp_server_auth_mode both, enforce_auth_on_inference on, issuer_url set to the base URL, temp-token auth on: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "EP-50 both, enforcement on: tools/list with x-bf-vk",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 both, enforcement on: tools/list with x-bf-vk: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"EP-50 both, enforcement on: tools/list with x-bf-vk: tools/list names are exactly [\\\"alpha-add\\\",\\\"alpha-echo\\\",\\\"beta-echo\\\"]\", function () {",
+                      "  var names = pm.response.json().result.tools.map(function (t) { return t.name; });",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"alpha-add\",\"alpha-echo\",\"beta-echo\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
+                  },
+                  {
+                    "key": "x-bf-vk",
+                    "value": "{{ep-50_full}}"
+                  }
+                ],
+                "url": "{{base_url}}/mcp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"
+                }
+              }
+            },
+            {
+              "name": "EP-50 both, enforcement on: control: tools/list with no credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"EP-50 both, enforcement on: control: tools/list with no credential: status is 401\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(401);",
+                      "});",
+                      "pm.test(\"EP-50 both, enforcement on: control: tools/list with no credential: WWW-Authenticate is present\", function () {",
+                      "  pm.expect(pm.response.headers.get('WWW-Authenticate'), 'body: ' + pm.response.text()).to.be.a('string').and.not.empty;",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json, text/event-stream"
                   }
                 ],
                 "url": "{{base_url}}/mcp",
@@ -87469,7 +87918,7 @@
         },
         {
           "name": "OAS-03 Authorization server metadata",
-          "description": "Setup: mcp_server_auth_mode both with issuer_url https://issuer.mcp-harness.example (another origin than the requests).",
+          "description": "Setup: mcp_server_auth_mode both, then oauth, each with issuer_url https://issuer.mcp-harness.example (another origin than the requests) and read back from /api/config.",
           "item": [
             {
               "name": "OAS-03 setup: read the current client config",
@@ -87545,20 +87994,49 @@
               }
             },
             {
-              "name": "OAS-03 GET /.well-known/oauth-authorization-server",
+              "name": "OAS-03 both: /api/config reads back mcp_server_auth_mode both",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test(\"OAS-03 GET /.well-known/oauth-authorization-server: status is 200\", function () {",
+                      "pm.test(\"OAS-03 both: /api/config reads back mcp_server_auth_mode both: status is 200\", function () {",
                       "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
                       "});",
-                      "pm.test(\"OAS-03 GET /.well-known/oauth-authorization-server: Cache-Control is no-store\", function () {",
+                      "pm.test(\"OAS-03 both: /api/config reads back mcp_server_auth_mode both: mcp_server_auth_mode is \\\"both\\\"\", function () {",
+                      "  pm.expect(pm.response.json().client_config.mcp_server_auth_mode, 'body: ' + pm.response.text()).to.equal(\"both\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "OAS-03 both: GET /.well-known/oauth-authorization-server",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-03 both: GET /.well-known/oauth-authorization-server: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"OAS-03 both: GET /.well-known/oauth-authorization-server: Cache-Control is no-store\", function () {",
                       "  pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');",
                       "});",
-                      "pm.test(\"OAS-03 GET /.well-known/oauth-authorization-server: issuer, endpoints and supported values\", function () {",
+                      "pm.test(\"OAS-03 both: GET /.well-known/oauth-authorization-server: issuer, endpoints and supported values\", function () {",
                       "  var b = pm.response.json(); var iss = \"https://issuer.mcp-harness.example\";",
                       "  pm.expect(b.issuer, 'body: ' + pm.response.text()).to.equal(iss);",
                       "  pm.expect(b.authorization_endpoint).to.equal(iss + '/oauth2/authorize');",
@@ -87579,6 +88057,180 @@
                 "method": "GET",
                 "header": [],
                 "url": "{{base_url}}/.well-known/oauth-authorization-server"
+              }
+            },
+            {
+              "name": "OAS-03 both: GET /.well-known/jwks.json",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-03 both: GET /.well-known/jwks.json: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"OAS-03 both: GET /.well-known/jwks.json: Cache-Control is no-store\", function () {",
+                      "  pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');",
+                      "});",
+                      "pm.test(\"OAS-03 both: GET /.well-known/jwks.json: one RSA signing key, use sig, alg RS256\", function () {",
+                      "  var keys = pm.response.json().keys || [];",
+                      "  pm.expect(keys.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "  pm.expect(keys[0].kty).to.equal('RSA');",
+                      "  pm.expect(keys[0].use).to.equal('sig');",
+                      "  pm.expect(keys[0].alg).to.equal('RS256');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/.well-known/jwks.json"
+              }
+            },
+            {
+              "name": "OAS-03 setup: switch mcp_server_auth_mode to oauth with issuer_url set to https://issuer.mcp-harness.example",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_server_auth_mode = \"oauth\";",
+                      "cc.oauth2_server_config = { issuer_url: \"https://issuer.mcp-harness.example\" };",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-03 setup: switch mcp_server_auth_mode to oauth with issuer_url set to https://issuer.mcp-harness.example: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "OAS-03 oauth: /api/config reads back mcp_server_auth_mode oauth",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-03 oauth: /api/config reads back mcp_server_auth_mode oauth: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"OAS-03 oauth: /api/config reads back mcp_server_auth_mode oauth: mcp_server_auth_mode is \\\"oauth\\\"\", function () {",
+                      "  pm.expect(pm.response.json().client_config.mcp_server_auth_mode, 'body: ' + pm.response.text()).to.equal(\"oauth\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "OAS-03 oauth: GET /.well-known/oauth-authorization-server",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-03 oauth: GET /.well-known/oauth-authorization-server: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"OAS-03 oauth: GET /.well-known/oauth-authorization-server: Cache-Control is no-store\", function () {",
+                      "  pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');",
+                      "});",
+                      "pm.test(\"OAS-03 oauth: GET /.well-known/oauth-authorization-server: issuer, endpoints and supported values\", function () {",
+                      "  var b = pm.response.json(); var iss = \"https://issuer.mcp-harness.example\";",
+                      "  pm.expect(b.issuer, 'body: ' + pm.response.text()).to.equal(iss);",
+                      "  pm.expect(b.authorization_endpoint).to.equal(iss + '/oauth2/authorize');",
+                      "  pm.expect(b.token_endpoint).to.equal(iss + '/oauth2/token');",
+                      "  pm.expect(b.registration_endpoint).to.equal(iss + '/oauth2/register');",
+                      "  pm.expect(b.jwks_uri).to.equal(iss + '/.well-known/jwks.json');",
+                      "  pm.expect(b.response_types_supported).to.eql(['code']);",
+                      "  pm.expect(b.grant_types_supported).to.eql(['authorization_code', 'refresh_token']);",
+                      "  pm.expect(b.code_challenge_methods_supported).to.eql(['S256']);",
+                      "  pm.expect(b.token_endpoint_auth_methods_supported).to.eql(['none']);",
+                      "  pm.expect(b.authorization_response_iss_parameter_supported).to.equal(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/.well-known/oauth-authorization-server"
+              }
+            },
+            {
+              "name": "OAS-03 oauth: GET /.well-known/jwks.json",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"OAS-03 oauth: GET /.well-known/jwks.json: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"OAS-03 oauth: GET /.well-known/jwks.json: Cache-Control is no-store\", function () {",
+                      "  pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');",
+                      "});",
+                      "pm.test(\"OAS-03 oauth: GET /.well-known/jwks.json: one RSA signing key, use sig, alg RS256\", function () {",
+                      "  var keys = pm.response.json().keys || [];",
+                      "  pm.expect(keys.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "  pm.expect(keys[0].kty).to.equal('RSA');",
+                      "  pm.expect(keys[0].use).to.equal('sig');",
+                      "  pm.expect(keys[0].alg).to.equal('RS256');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/.well-known/jwks.json"
               }
             },
             {

@@ -35016,6 +35016,675 @@
           ]
         },
         {
+          "name": "AUTH-08 Secrets are masked on read",
+          "description": "Setup: admin credentials; a headers client on alpha with X-Api-Key abcdefghijklmnopqrstuvwxyz125678 (32 characters), X-Short abcde and a TLS CA certificate; mcp_oauth_private_allowlist [\"127.0.0.1\"]; a fleet server auth08 as an OAuth protected resource whose authorization server knows client auth08-preregistered-client-id with secret auth08-preregistered-client-secret, and a completed OAuth client on it with those credentials; an OpenAPI client from a Petstore document with an API key scheme and the credential auth08-openapi-credential-value.",
+          "item": [
+            {
+              "name": "AUTH-08 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-08 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-08 setup: create the headers client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: create the headers client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"auth08-h\",\"name\":\"auth08_h\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"headers\",\"headers\":{\"X-Api-Key\":\"abcdefghijklmnopqrstuvwxyz125678\",\"X-Short\":\"abcde\"},\"tls_config\":{\"ca_cert_pem\":\"-----BEGIN CERTIFICATE-----\\nMIIBkTCCATegAwIBAgIUZROfp1FT/MGjiBFcTf3zhEaKgNMwCgYIKoZIzj0EAwIw\\nHjEcMBoGA1UEAwwTbWNwLWhhcm5lc3MtdGVzdC1jYTAeFw0yNjEwMjUyMzA5MDJa\\nFw0zNjEwMjIyMzA5MDJaMB4xHDAaBgNVBAMME21jcC1oYXJuZXNzLXRlc3QtY2Ew\\nWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARbckzlpb3VR09T8jXCPvEDRctwmlBi\\ngzkZWU2PqXcLKCMyMEr1s+ij+FfctsklaHvpxlYPhym9I+CQrLbFKhJSo1MwUTAd\\nBgNVHQ4EFgQUJNqZG3I02VD1qGgtlL235Z7OGtQwHwYDVR0jBBgwFoAUJNqZG3I0\\n2VD1qGgtlL235Z7OGtQwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNIADBF\\nAiEAkwBWmRIr8IrZTC+kDv/6BqiadwMu2RjKXQBRKz6VCnECIFPD3vap9hqdyfUT\\nkAv7V2nFBQtLErA6WH/+5ADXZrHY\\n-----END CERTIFICATE-----\\n\"},\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-08 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "AUTH-08 setup: mcp_oauth_private_allowlist [\"127.0.0.1\"]",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.mcp_oauth_private_allowlist = ['127.0.0.1'];",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: mcp_oauth_private_allowlist [\\\"127.0.0.1\\\"]: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-08 setup: fresh mcpchaos server auth08",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: fresh mcpchaos server auth08: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"auth08\"}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-08 setup: auth08 serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: auth08 serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/auth08/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-08 setup: auth08 is an OAuth protected resource with its own authorization server ({\"clients\":[{\"client_id\":\"auth08-preregistered-client-id\",\"client_secret\":\"auth08-preregistered-client-secret\"}]})",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: auth08 is an OAuth protected resource with its own authorization server ({\\\"clients\\\":[{\\\"client_id\\\":\\\"auth08-preregistered-client-id\\\",\\\"client_secret\\\":\\\"auth08-preregistered-client-secret\\\"}]}): status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/auth08/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"auth\":{\"oauth\":{\"clients\":[{\"client_id\":\"auth08-preregistered-client-id\",\"client_secret\":\"auth08-preregistered-client-secret\"}]}}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-08 setup: create the OAuth client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: create the OAuth client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('auth08o_oc', pm.response.json().oauth_config_id);",
+                      "pm.collectionVariables.set('auth08o_au', pm.response.json().authorize_url);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"auth08-o\",\"name\":\"auth08_o\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/auth08/mcp\",\"auth_type\":\"oauth\",\"oauth_config\":{\"client_id\":\"auth08-preregistered-client-id\",\"client_secret\":\"auth08-preregistered-client-secret\",\"authorize_url\":\"{{chaos_url}}/s/auth08/as/authorize\",\"token_url\":\"{{chaos_url}}/s/auth08/as/token\"},\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-08 setup: consent for the OAuth client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: consent for the OAuth client: status is 302\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(302);",
+                      "});",
+                      "pm.collectionVariables.set('auth08o_cb', pm.response.headers.get('Location'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{auth08o_au}}"
+              },
+              "protocolProfileBehavior": {
+                "followRedirects": false,
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-08 setup: follow the callback for the OAuth client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: follow the callback for the OAuth client: status is 302\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(302);",
+                      "});",
+                      "pm.test(\"AUTH-08 setup: follow the callback for the OAuth client: Location ends \\\"/workspace/mcp-registry/oauth-callback?status=success\\\"\", function () {",
+                      "  var loc = pm.response.headers.get('Location') || '';",
+                      "  pm.expect(loc.slice(-53), 'Location: ' + loc).to.equal(\"/workspace/mcp-registry/oauth-callback?status=success\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{auth08o_cb}}"
+              },
+              "protocolProfileBehavior": {
+                "followRedirects": false,
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-08 setup: complete the OAuth client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: complete the OAuth client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/{{auth08o_oc}}/complete-oauth"
+              }
+            },
+            {
+              "name": "AUTH-08 setup: create the OpenAPI client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 setup: create the OpenAPI client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"auth08-q\",\"name\":\"auth08_q\",\"connection_type\":\"openapi\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"],\"openapi_config\":{\"spec\":\"{\\\"openapi\\\":\\\"3.0.3\\\",\\\"info\\\":{\\\"title\\\":\\\"Pets\\\",\\\"version\\\":\\\"1.0.0\\\"},\\\"paths\\\":{\\\"/pets\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"listPets\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"limit\\\",\\\"in\\\":\\\"query\\\",\\\"schema\\\":{\\\"type\\\":\\\"integer\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}},\\\"post\\\":{\\\"operationId\\\":\\\"createPet\\\",\\\"requestBody\\\":{\\\"required\\\":true,\\\"content\\\":{\\\"application/json\\\":{\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"name\\\":{\\\"type\\\":\\\"string\\\"}}}}}},\\\"responses\\\":{\\\"201\\\":{\\\"description\\\":\\\"created\\\"}}}},\\\"/pets/{petId}\\\":{\\\"get\\\":{\\\"operationId\\\":\\\"getPetById\\\",\\\"parameters\\\":[{\\\"name\\\":\\\"petId\\\",\\\"in\\\":\\\"path\\\",\\\"required\\\":true,\\\"schema\\\":{\\\"type\\\":\\\"string\\\"}}],\\\"responses\\\":{\\\"200\\\":{\\\"description\\\":\\\"ok\\\"}}}}},\\\"components\\\":{\\\"securitySchemes\\\":{\\\"KeyAuth\\\":{\\\"type\\\":\\\"apiKey\\\",\\\"in\\\":\\\"header\\\",\\\"name\\\":\\\"X-Key\\\"}}},\\\"security\\\":[{\\\"KeyAuth\\\":[]}]}\",\"base_url\":\"{{chaos_url}}/s/alpha/rest\",\"security_credentials\":{\"KeyAuth\":{\"value\":\"auth08-openapi-credential-value\"}}}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-08 header values are masked",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 header values are masked: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"AUTH-08 header values are masked: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"AUTH-08 header values are masked: X-Api-Key is abcd, 24 asterisks and 5678; X-Short is *****\", function () {",
+                      "  var h = pm.response.json().clients[0].config.headers;",
+                      "  pm.expect(h['X-Api-Key'].value, 'body: ' + pm.response.text()).to.equal('abcd' + new Array(25).join('*') + '5678');",
+                      "  pm.expect(h['X-Short'].value).to.equal('*****');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=auth08-h"
+              }
+            },
+            {
+              "name": "AUTH-08 no OpenAPI spec in the body; the credential is masked",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 no OpenAPI spec in the body; the credential is masked: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"AUTH-08 no OpenAPI spec in the body; the credential is masked: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"AUTH-08 no OpenAPI spec in the body; the credential is masked: openapi_config has no spec, and KeyAuth is abcd-style masked\", function () {",
+                      "  var oc = pm.response.json().clients[0].config.openapi_config;",
+                      "  pm.expect(oc, 'body: ' + pm.response.text()).to.not.have.property('spec');",
+                      "  pm.expect(oc.security_credentials.KeyAuth.value.value).to.match(/^.{4}\\*{24}.{4}$/);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=auth08-q"
+              }
+            },
+            {
+              "name": "AUTH-08 the OAuth client id and secret are masked",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 the OAuth client id and secret are masked: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"AUTH-08 the OAuth client id and secret are masked: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"AUTH-08 the OAuth client id and secret are masked: oauth_client_id and oauth_client_secret are four characters, 24 asterisks and four characters\", function () {",
+                      "  var c = pm.response.json().clients[0].config;",
+                      "  pm.expect(c.oauth_client_id && c.oauth_client_id.value, 'body: ' + pm.response.text()).to.match(/^.{4}\\*{24}.{4}$/);",
+                      "  pm.expect(c.oauth_client_secret && c.oauth_client_secret.value).to.match(/^.{4}\\*{24}.{4}$/);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=auth08-o"
+              }
+            },
+            {
+              "name": "AUTH-08 the full client list",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 the full client list: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"AUTH-08 the full client list: three clients\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(3);",
+                      "});",
+                      "pm.test(\"AUTH-08 the full client list: no raw secret anywhere in the body\", function () {",
+                      "  [\"abcdefghijklmnopqrstuvwxyz125678\",\"abcde\",\"auth08-preregistered-client-id\",\"auth08-preregistered-client-secret\",\"auth08-openapi-credential-value\",\"MIIBkTCCATegAwIBAgIUZROfp1FT/MGjiBFcTf3zhEaKgNMwCgYIKoZIzj0EAwIw\"].forEach(function (s) { pm.expect(pm.response.text().indexOf(s), 'raw secret in body: ' + s).to.equal(-1); });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?search=auth08"
+              }
+            },
+            {
+              "name": "AUTH-08 teardown: delete client auth08-q",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 teardown: delete client auth08-q: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/auth08-q"
+              }
+            },
+            {
+              "name": "AUTH-08 teardown: delete client auth08-o",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 teardown: delete client auth08-o: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/auth08-o"
+              }
+            },
+            {
+              "name": "AUTH-08 teardown: delete client auth08-h",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 teardown: delete client auth08-h: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/auth08-h"
+              }
+            },
+            {
+              "name": "AUTH-08 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-08 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        },
+        {
           "name": "AUTH-09 allowed_extra_headers is per client",
           "description": "Setup: alpha and beta (echo_tool, add_tool); the tenant client (auth09_a) on alpha with allowed_extra_headers [\"x-tenant-id\"], the plain client (auth09_b) on beta with none; both HTTP, auth none, per call, tools_to_execute [\"*\"]. Callers send X-Tenant-Id: tenant-1 and X-Other: other-1.",
           "item": [
@@ -35684,6 +36353,223 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/auth09-b"
+              }
+            }
+          ]
+        },
+        {
+          "name": "AUTH-10 A wildcard lets the caller's credential through",
+          "description": "Setup: alpha (echo_tool, add_tool) requires bearer T1 (auth-t1-token), which it maps to id1, and maps bearer CALLER to identity caller; an HTTP client on alpha with auth headers \"Authorization: Bearer T1\", per call, allowed_extra_headers [\"*\"], tools_to_execute [\"*\"]; the caller sends \"Authorization: Bearer CALLER\".",
+          "item": [
+            {
+              "name": "AUTH-10 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-10 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-10 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-10 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-10 setup: alpha requires a bearer, mapping T1 to id1 and CALLER to caller",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-10 setup: alpha requires a bearer, mapping T1 to id1 and CALLER to caller: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"auth\":{\"bearer\":{\"auth-t1-token\":\"id1\",\"CALLER\":\"caller\"},\"require\":true}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-10 setup: create the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-10 setup: create the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"auth10-c\",\"name\":\"auth10_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"headers\",\"headers\":{\"Authorization\":\"Bearer auth-t1-token\"},\"tools_to_execute\":[\"*\"],\"allowed_extra_headers\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-10 execute with Authorization: Bearer CALLER",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-10 execute with Authorization: Bearer CALLER: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer CALLER"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth10_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-10 the call is counted under the caller's identity",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-10 the call is counted under the caller's identity: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"AUTH-10 the call is counted under the caller's identity: calls_by_identity is {\\\"caller\\\":1}\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls_by_identity || {}, 'body: ' + pm.response.text()).to.eql({\"caller\":1});",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "AUTH-10 teardown: delete client auth10-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-10 teardown: delete client auth10-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/auth10-c"
               }
             }
           ]
@@ -49429,6 +50315,320 @@
           ]
         },
         {
+          "name": "AUTH-40 Auth-required with extra fields in headers",
+          "description": "Setup: alpha (echo_tool, add_tool) accepts only X-Api-Key: key-a and counts calls under the X-Api-Key value; a per_user_headers client on alpha with per_user_header_keys [\"x-api-key\"], sample key-a, tools_to_execute [\"*\"]; extra_fields_placement \"headers\". The caller sends x-bf-mcp-session-id auth40-sess1 and has no credential.",
+          "item": [
+            {
+              "name": "AUTH-40 setup: read the current client config",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-40 setup: read the current client config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('client_config', JSON.stringify(pm.response.json().client_config));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/config"
+              }
+            },
+            {
+              "name": "AUTH-40 setup: extra_fields_placement headers",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "cc.extra_fields_placement = 'headers';",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-40 setup: extra_fields_placement headers: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-40 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-40 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-40 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-40 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-40 setup: alpha accepts only X-Api-Key key-a and counts calls under it",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-40 setup: alpha accepts only X-Api-Key key-a and counts calls under it: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"auth\":{\"identity_header\":\"X-Api-Key\",\"require_headers\":{\"X-Api-Key\":\"key-a\"}}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-40 setup: create the per_user_headers client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-40 setup: create the per_user_headers client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"auth40-c\",\"name\":\"auth40_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"per_user_headers\",\"tools_to_execute\":[\"*\"],\"per_user_header_keys\":[\"x-api-key\"],\"user_headers\":{\"x-api-key\":\"key-a\"}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-40 execute as auth40-sess1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-40 execute as auth40-sess1: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"AUTH-40 execute as auth40-sess1: no extra_fields in the body; error.message has the submission URL\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b, 'body: ' + pm.response.text()).to.not.have.property('extra_fields');",
+                      "  pm.expect(b.error.message).to.include('/workspace/mcp-sessions/auth?flow=');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "auth40-sess1"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth40_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-40 teardown: delete client auth40-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-40 teardown: delete client auth40-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/auth40-c"
+              }
+            },
+            {
+              "name": "AUTH-40 teardown: restore the original config",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "var cc = JSON.parse(pm.collectionVariables.get('client_config'));",
+                      "pm.variables.set('config_body', JSON.stringify({ client_config: cc }));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-40 teardown: restore the original config: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/config",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{config_body}}"
+                }
+              }
+            }
+          ]
+        },
+        {
           "name": "AUTH-41 per_user_headers create",
           "description": "Setup: alpha (echo_tool, add_tool) accepts only X-Api-Key: key-a and counts calls under the X-Api-Key value; per_user_headers clients on alpha with tools_to_execute [\"*\"].",
           "item": [
@@ -50485,6 +51685,638 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/auth43-c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "AUTH-44 Isolation, revoke and a new required key",
+          "description": "Setup: alpha (echo_tool, add_tool) counts calls under the X-Api-Key value; a per_user_headers client on alpha with per_user_header_keys [\"x-api-key\"], tools_to_execute [\"*\"]; session auth44-sess1 submits key-1 and auth44-sess2 submits key-2.",
+          "item": [
+            {
+              "name": "AUTH-44 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-44 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-44 setup: alpha counts calls under X-Api-Key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 setup: alpha counts calls under X-Api-Key: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"auth\":{\"identity_header\":\"X-Api-Key\"}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-44 setup: create the per_user_headers client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 setup: create the per_user_headers client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"auth44-c\",\"name\":\"auth44_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"per_user_headers\",\"tools_to_execute\":[\"*\"],\"per_user_header_keys\":[\"x-api-key\"],\"user_headers\":{\"x-api-key\":\"sample\"}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-44 setup: execute as auth44-sess1 opens a header flow",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 setup: execute as auth44-sess1 opens a header flow: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"AUTH-44 setup: execute as auth44-sess1 opens a header flow: mcp_auth_required kind \\\"headers\\\", submit_url ...auth?flow=<flow id>&kind=headers\", function () {",
+                      "  var b = pm.response.json();",
+                      "  var r = b.extra_fields && b.extra_fields.mcp_auth_required;",
+                      "  pm.expect(r, 'body: ' + pm.response.text()).to.be.an('object');",
+                      "  pm.expect(r.kind).to.equal('headers');",
+                      "  var m = /auth\\?flow=([^&#]+)&kind=headers$/.exec(r.submit_url);",
+                      "  pm.expect(m, 'submit_url: ' + r.submit_url).to.not.equal(null);",
+                      "  pm.collectionVariables.set(\"auth44_fa\", m[1]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "auth44-sess1"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth44_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-44 setup: auth44-sess1 submits key-1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 setup: auth44-sess1 submits key-1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.collectionVariables.set('auth44_ca', pm.response.json().credential_id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/per-user-headers/flows/{{auth44_fa}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"headers\":{\"x-api-key\":\"key-1\"}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-44 setup: execute as auth44-sess2 opens a header flow",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 setup: execute as auth44-sess2 opens a header flow: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"AUTH-44 setup: execute as auth44-sess2 opens a header flow: mcp_auth_required kind \\\"headers\\\", submit_url ...auth?flow=<flow id>&kind=headers\", function () {",
+                      "  var b = pm.response.json();",
+                      "  var r = b.extra_fields && b.extra_fields.mcp_auth_required;",
+                      "  pm.expect(r, 'body: ' + pm.response.text()).to.be.an('object');",
+                      "  pm.expect(r.kind).to.equal('headers');",
+                      "  var m = /auth\\?flow=([^&#]+)&kind=headers$/.exec(r.submit_url);",
+                      "  pm.expect(m, 'submit_url: ' + r.submit_url).to.not.equal(null);",
+                      "  pm.collectionVariables.set(\"auth44_fb\", m[1]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "auth44-sess2"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth44_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-44 setup: auth44-sess2 submits key-2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 setup: auth44-sess2 submits key-2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/per-user-headers/flows/{{auth44_fb}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"headers\":{\"x-api-key\":\"key-2\"}}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-44 execute as auth44-sess1",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 execute as auth44-sess1: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "auth44-sess1"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth44_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-44 execute as auth44-sess2",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 execute as auth44-sess2: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "auth44-sess2"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth44_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-44 each call is counted under its own key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 each call is counted under its own key: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"AUTH-44 each call is counted under its own key: calls_by_identity is {\\\"key-1\\\":1,\\\"key-2\\\":1}\", function () {",
+                      "  pm.expect(pm.response.json().counters.calls_by_identity || {}, 'body: ' + pm.response.text()).to.eql({\"key-1\":1,\"key-2\":1});",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "AUTH-44 delete auth44-sess1's credential",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 delete auth44-sess1's credential: status is 204\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(204);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/per-user-headers/credential/{{auth44_ca}}"
+              }
+            },
+            {
+              "name": "AUTH-44 execute as auth44-sess1 after the delete",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 execute as auth44-sess1 after the delete: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"AUTH-44 execute as auth44-sess1 after the delete: mcp_auth_required kind \\\"headers\\\", submit_url ...auth?flow=<flow id>&kind=headers\", function () {",
+                      "  var b = pm.response.json();",
+                      "  var r = b.extra_fields && b.extra_fields.mcp_auth_required;",
+                      "  pm.expect(r, 'body: ' + pm.response.text()).to.be.an('object');",
+                      "  pm.expect(r.kind).to.equal('headers');",
+                      "  var m = /auth\\?flow=([^&#]+)&kind=headers$/.exec(r.submit_url);",
+                      "  pm.expect(m, 'submit_url: ' + r.submit_url).to.not.equal(null);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "auth44-sess1"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth44_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-44 execute as auth44-sess2 after the delete",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 execute as auth44-sess2 after the delete: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "auth44-sess2"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth44_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-44 add key x-org-id",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 add key x-org-id: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/auth44-c",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"per_user_header_keys\":[\"x-api-key\",\"x-org-id\"]}"
+                }
+              }
+            },
+            {
+              "name": "AUTH-44 execute as auth44-sess2 after the new key",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 execute as auth44-sess2 after the new key: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"AUTH-44 execute as auth44-sess2 after the new key: mcp_auth_required kind \\\"headers\\\", submit_url ...auth?flow=<flow id>&kind=headers\", function () {",
+                      "  var b = pm.response.json();",
+                      "  var r = b.extra_fields && b.extra_fields.mcp_auth_required;",
+                      "  pm.expect(r, 'body: ' + pm.response.text()).to.be.an('object');",
+                      "  pm.expect(r.kind).to.equal('headers');",
+                      "  var m = /auth\\?flow=([^&#]+)&kind=headers$/.exec(r.submit_url);",
+                      "  pm.expect(m, 'submit_url: ' + r.submit_url).to.not.equal(null);",
+                      "  pm.collectionVariables.set(\"auth44_fb2\", m[1]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-bf-mcp-session-id",
+                    "value": "auth44-sess2"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"auth44_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "AUTH-44 auth44-sess2's new flow",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 auth44-sess2's new flow: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"AUTH-44 auth44-sess2's new flow: submitted_keys [\\\"x-api-key\\\"]\", function () {",
+                      "  pm.expect(pm.response.json().submitted_keys, 'body: ' + pm.response.text()).to.eql(['x-api-key']);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/per-user-headers/flows/{{auth44_fb2}}"
+              }
+            },
+            {
+              "name": "AUTH-44 teardown: delete client auth44-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"AUTH-44 teardown: delete client auth44-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/auth44-c"
               }
             }
           ]
@@ -52385,6 +54217,309 @@
           ]
         },
         {
+          "name": "CONN-05 Execute validation",
+          "description": "Setup: alpha (echo_tool, add_tool); a sticky client conn05_c on alpha, auth none, tools_to_execute [\"echo_tool\"].",
+          "item": [
+            {
+              "name": "CONN-05 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-05 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-05 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-05 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-05 setup: create the sticky client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-05 setup: create the sticky client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn05-c\",\"name\":\"conn05_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"needs_session_stickiness\":true,\"tools_to_execute\":[\"echo_tool\"]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-05 ?format=xml",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-05 ?format=xml: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute?format=xml",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn05_c-echo_tool\",\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-05 no function.name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-05 no function.name: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"CONN-05 no function.name: error message is \\\"Tool function name is required\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.equal(\"Tool function name is required\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"arguments\":\"{}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-05 arguments \"not json\"",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-05 arguments \\\"not json\\\": status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"CONN-05 arguments \\\"not json\\\": error message contains \\\"failed to parse tool arguments for\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"failed to parse tool arguments for\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn05_c-echo_tool\",\"arguments\":\"not json\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-05 an unknown tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-05 an unknown tool: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn05_c-nope\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-05 add_tool, outside tools_to_execute",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-05 add_tool, outside tools_to_execute: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"CONN-05 add_tool, outside tools_to_execute: error message contains \\\"not in client's ToolsToExecute allow-list\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"not in client's ToolsToExecute allow-list\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn05_c-add_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-05 teardown: delete client conn05-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-05 teardown: delete client conn05-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn05-c"
+              }
+            }
+          ]
+        },
+        {
           "name": "CONN-06 Responses-format round trip",
           "description": "Setup: alpha (echo_tool replying \"hi\", add_tool); an HTTP client on alpha named conn06, auth none, needs_session_stickiness true, tools_to_execute [\"*\"]; execute in the Responses format with call_id c1.",
           "item": [
@@ -52542,6 +54677,277 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/conn06-c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "CONN-07 Result content types on execute",
+          "description": "Setup: alpha serves texts (two text blocks \"a\" and \"b\"), image (a PNG), structured (structuredContent {\"v\": 1} and no content) and empty (content []); a client conn07_c on alpha, auth none, tools_to_execute [\"*\"]. Joining text blocks with a separator and returning structuredContent alone are a known issue, so those checks are skipped.",
+          "item": [
+            {
+              "name": "CONN-07 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-07 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-07 setup: alpha serves texts, image, structured and empty",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-07 setup: alpha serves texts, image, structured and empty: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"texts\",\"reply\":{\"content\":[{\"type\":\"text\",\"text\":\"a\"},{\"type\":\"text\",\"text\":\"b\"}]}},{\"name\":\"image\",\"reply\":{\"content\":[{\"type\":\"image\",\"data\":\"QUJD\",\"mimeType\":\"image/png\"}]}},{\"name\":\"structured\",\"reply\":{\"content\":[],\"structuredContent\":{\"v\":1}}},{\"name\":\"empty\",\"reply\":{\"content\":[]}}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-07 setup: create the client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-07 setup: create the client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn07-c\",\"name\":\"conn07_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-07 texts",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-07 texts: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test.skip(\"CONN-07 texts: the two blocks are joined with a separator (skipped: known issue)\", function () {",
+                      "  var c = pm.response.json().content;",
+                      "  pm.expect(c, 'body: ' + pm.response.text()).to.match(/^a[\\s\\S]+b$/);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn07_c-texts\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-07 image",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-07 image: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-07 image: content is \\\"[Image Response: QUJD, MIME: image/png]\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"[Image Response: QUJD, MIME: image/png]\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn07_c-image\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-07 structured",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-07 structured: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test.skip(\"CONN-07 structured: the structuredContent comes back (skipped: known issue)\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.include('\"v\"');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn07_c-structured\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-07 empty",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-07 empty: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-07 empty: content is \\\"MCP tool 'conn07_c-empty' executed successfully\\\"\", function () {",
+                      "  pm.expect(pm.response.json().content, 'body: ' + pm.response.text()).to.equal(\"MCP tool 'conn07_c-empty' executed successfully\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn07_c-empty\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-07 teardown: delete client conn07-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-07 teardown: delete client conn07-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn07-c"
               }
             }
           ]
@@ -53367,6 +55773,233 @@
           ]
         },
         {
+          "name": "CONN-11 Per-call handshake and the tool timeout",
+          "description": "Setup: alpha (echo_tool, add_tool); a per-call client conn11_c on alpha, auth none, tool_execution_timeout 2, tools_to_execute [\"*\"]; alpha then hangs on initialize only. Each initialize attempt has its own 30s bound and failed attempts are retried, so the call fails after 30s or more.",
+          "item": [
+            {
+              "name": "CONN-11 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-11 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-11 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-11 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-11 setup: create the per-call client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-11 setup: create the per-call client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn11-c\",\"name\":\"conn11_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"tool_execution_timeout\":2,\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-11 setup: alpha hangs on initialize for 60s",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-11 setup: alpha hangs on initialize for 60s: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/faults",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"faults\":{\"hang\":\"60s\",\"methods\":[\"initialize\"]}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-11 execute",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-11 execute: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"CONN-11 execute: error message contains \\\"failed to establish ephemeral MCP connection\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"failed to establish ephemeral MCP connection\");",
+                      "});",
+                      "pm.test(\"CONN-11 execute: the response took at least 30s and under 120s\", function () {",
+                      "  pm.expect(pm.response.responseTime, 'ms').to.be.at.least(30000);",
+                      "  pm.expect(pm.response.responseTime, 'ms').to.be.below(120000);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn11_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-11 teardown: clear alpha's faults",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-11 teardown: clear alpha's faults: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/faults/clear",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "CONN-11 teardown: delete client conn11-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-11 teardown: delete client conn11-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn11-c"
+              }
+            }
+          ]
+        },
+        {
           "name": "CONN-12 Dead session (sticky)",
           "description": "Setup: alpha (echo_ro annotated readOnlyHint true, echo_tool unannotated); an HTTP client on alpha named conn12, auth none, needs_session_stickiness true, tools_to_execute [\"*\"]. alpha's sessions are killed before the read-only call and again before the two unannotated calls; the second unannotated call waits up to 10s for Bifrost's background reconnect to open a new session.",
           "item": [
@@ -53719,6 +56352,406 @@
                   }
                 ],
                 "url": "{{base_url}}/api/mcp/client/conn12-c"
+              }
+            }
+          ]
+        },
+        {
+          "name": "CONN-16 Tool list changes",
+          "description": "Setup: alpha (echo_tool, add_tool); a sticky client conn16_c on alpha, auth none, tools_to_execute [\"*\"]. Then alpha adds new_tool and pushes list_changed; the client is refreshed; alpha removes echo_tool; the client is refreshed again.",
+          "item": [
+            {
+              "name": "CONN-16 setup: fresh mcpchaos server alpha",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 setup: fresh mcpchaos server alpha: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"add\":\"alpha\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-16 setup: alpha serves echo_tool, add_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 setup: alpha serves echo_tool, add_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/set",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tools\":[{\"name\":\"echo_tool\"},{\"name\":\"add_tool\"}]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-16 setup: create the sticky client",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 setup: create the sticky client: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"client_id\":\"conn16-c\",\"name\":\"conn16_c\",\"connection_type\":\"http\",\"connection_string\":\"{{chaos_url}}/s/alpha/mcp\",\"auth_type\":\"none\",\"needs_session_stickiness\":true,\"tools_to_execute\":[\"*\"]}"
+                }
+              }
+            },
+            {
+              "name": "CONN-16 alpha adds new_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 alpha adds new_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/add",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"tool\":{\"name\":\"new_tool\"}}"
+                }
+              }
+            },
+            {
+              "name": "CONN-16 alpha pushes list_changed",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 alpha pushes list_changed: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/notify/tools-changed",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "CONN-16 the client's tools are unchanged",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 the client's tools are unchanged: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-16 the client's tools are unchanged: exactly one client is returned\", function () {",
+                      "  pm.expect(pm.response.json().clients.length, 'body: ' + pm.response.text()).to.equal(1);",
+                      "});",
+                      "pm.test(\"CONN-16 the client's tools are unchanged: tools are [\\\"add_tool\\\",\\\"echo_tool\\\"]\", function () {",
+                      "  var c = pm.response.json().clients[0];",
+                      "  var names = (c.tools || []).map(function (t) { return t.name; }).sort();",
+                      "  pm.expect(names, 'body: ' + pm.response.text()).to.eql([\"add_tool\",\"echo_tool\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/clients?server=conn16-c"
+              }
+            },
+            {
+              "name": "CONN-16 alpha has no open stream",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 alpha has no open stream: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-16 alpha has no open stream: counters.open_streams is 0\", function () {",
+                      "  pm.expect(pm.response.json().counters[\"open_streams\"], 'body: ' + pm.response.text()).to.equal(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{chaos_url}}/control/alpha"
+              }
+            },
+            {
+              "name": "CONN-16 refresh-tools",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 refresh-tools: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});",
+                      "pm.test(\"CONN-16 refresh-tools: tool_count is 3\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b[\"tool_count\"], 'body: ' + pm.response.text()).to.equal(3);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn16-c/refresh-tools"
+              }
+            },
+            {
+              "name": "CONN-16 execute conn16_c-new_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 execute conn16_c-new_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn16_c-new_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-16 alpha removes echo_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 alpha removes echo_tool: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{chaos_url}}/control/alpha/tools/remove",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"name\":\"echo_tool\"}"
+                }
+              }
+            },
+            {
+              "name": "CONN-16 refresh-tools again",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 refresh-tools again: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn16-c/refresh-tools"
+              }
+            },
+            {
+              "name": "CONN-16 execute conn16_c-echo_tool",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 execute conn16_c-echo_tool: status is 400\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(400);",
+                      "});",
+                      "pm.test(\"CONN-16 execute conn16_c-echo_tool: error message contains \\\"is not available or not permitted\\\"\", function () {",
+                      "  var b = pm.response.json();",
+                      "  pm.expect(b.error && b.error.message, 'body: ' + pm.response.text()).to.include(\"is not available or not permitted\");",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/v1/mcp/tool/execute",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"conn16_c-echo_tool\",\"arguments\":\"{\\\"text\\\":\\\"hi\\\"}\"}}"
+                }
+              },
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              }
+            },
+            {
+              "name": "CONN-16 teardown: delete client conn16-c",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"CONN-16 teardown: delete client conn16-c: status is 200\", function () {",
+                      "  pm.expect(pm.response.code, 'body: ' + pm.response.text()).to.equal(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{admin_auth_header}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/mcp/client/conn16-c"
               }
             }
           ]

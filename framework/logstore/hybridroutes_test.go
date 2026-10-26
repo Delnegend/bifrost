@@ -192,3 +192,40 @@ func TestNewLogStoreRoutesRequireObjectStorage(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "require object_storage")
 }
+
+// TestHybridRoutes_ExcludedRequestTypeIsMirrored checks that a request type
+// kept whole in the DB is still copied to a matching route, both when it is
+// created matching and when an update makes it match.
+func TestHybridRoutes_ExcludedRequestTypeIsMirrored(t *testing.T) {
+	hybrid, inner, primary, stores := newTestHybridWithRoutes(t, nil, map[string]ObjectStorageRouteMatch{
+		"flagged": {GuardrailOutcomes: []string{GuardrailOutcomeBlocked, GuardrailOutcomeDetected}},
+	})
+	hybrid.excludedRequestTypes = map[string]struct{}{"chat.completion": {}}
+	ctx := context.Background()
+	at := time.Now().UTC()
+
+	require.NoError(t, hybrid.Create(ctx, inputBlock(chatEntry("excluded-blocked", at, "error", "blocked question"))))
+	copied := routeCopy(t, stores["flagged"], "flagged", at, "excluded-blocked", func(map[string]string) bool { return true })
+	assert.Contains(t, copied["input_history"], "blocked question")
+	assert.Contains(t, copied["guardrail_debug"], "bedrock")
+
+	require.NoError(t, hybrid.BatchCreateIfNotExists(ctx, []*Log{chatEntry("excluded-late", at, "processing", "late question")}))
+	output := "flagged answer"
+	require.NoError(t, hybrid.BatchUpdate(ctx, []*Log{{
+		ID: "excluded-late", Status: "success",
+		OutputMessageParsed: &schemas.ChatMessage{Role: schemas.ChatMessageRoleAssistant, Content: &schemas.ChatMessageContent{ContentStr: &output}},
+		GuardrailDebugParsed: &schemas.BifrostGuardrailMetadata{Detections: []schemas.BifrostGuardrailDetection{
+			{Phase: "output", RuleName: "toxicity", GuardrailProvider: "azure", Action: schemas.GuardrailDetectionActionDetect},
+		}},
+	}}))
+	copied = routeCopy(t, stores["flagged"], "flagged", at, "excluded-late", func(map[string]string) bool { return true })
+	assert.Contains(t, copied["input_history"], "late question", "the stored row's input is in the copy")
+	assert.Contains(t, copied["output_message"], output)
+	assert.Equal(t, "success", copied["status"])
+
+	row, err := inner.FindByID(ctx, "excluded-late")
+	require.NoError(t, err)
+	assert.Contains(t, row.OutputMessage, output, "the excluded row stays whole in the DB")
+	hybrid.Close(ctx)
+	assert.Zero(t, primary.Len(), "excluded rows are still never offloaded")
+}

@@ -327,6 +327,25 @@ func (h *HybridLogStore) mirrorUpload(work *uploadWork) {
 	h.mirror.enqueue(routes, &candidate, full)
 }
 
+// mirrorDBRow hands a row that is stored whole in the DB, because its request
+// type is excluded from offload, to the routes it matches. The row alone is
+// the complete log, so its payload is the copy.
+func (h *HybridLogStore) mirrorDBRow(row *Log) {
+	routes := h.mirror.matching(row)
+	if len(routes) == 0 {
+		return
+	}
+	full := *row
+	if err := full.SerializeFields(); err != nil {
+		h.logger.Warn("objectstore mirror: failed to serialize log %s: %v", row.ID, err)
+		for _, route := range routes {
+			route.dropped.Add(1)
+		}
+		return
+	}
+	h.mirror.enqueue(routes, &full, ExtractPayload(&full))
+}
+
 // isPayloadEmpty returns true when the payload carries no offloadable content.
 // Only the large TEXT payload fields count: metadata like provider, model,
 // status and timestamp is populated on every entry (see ExtractPayload), so
@@ -734,7 +753,11 @@ func (h *HybridLogStore) skipsOffload(entry *Log) bool {
 
 func (h *HybridLogStore) Create(ctx context.Context, entry *Log) error {
 	if h.skipsOffload(entry) {
-		return h.inner.Create(ctx, entry)
+		if err := h.inner.Create(ctx, entry); err != nil {
+			return err
+		}
+		h.mirrorDBRow(entry)
+		return nil
 	}
 	if err := entry.SerializeFields(); err != nil {
 		return fmt.Errorf("logstore: serialize before extract: %w", err)
@@ -758,7 +781,11 @@ func (h *HybridLogStore) Create(ctx context.Context, entry *Log) error {
 // Same payload-stripping and shallow-copy semantics as Create.
 func (h *HybridLogStore) CreateIfNotExists(ctx context.Context, entry *Log) error {
 	if h.skipsOffload(entry) {
-		return h.inner.CreateIfNotExists(ctx, entry)
+		if err := h.inner.CreateIfNotExists(ctx, entry); err != nil {
+			return err
+		}
+		h.mirrorDBRow(entry)
+		return nil
 	}
 	if err := entry.SerializeFields(); err != nil {
 		return fmt.Errorf("logstore: serialize before extract: %w", err)
@@ -792,6 +819,7 @@ func (h *HybridLogStore) BatchCreateIfNotExists(ctx context.Context, entries []*
 		dbEntry   *Log
 	}
 	var uploads []pendingUpload
+	var dbOnly []*Log // excluded rows, written whole to the DB; mirrored directly
 
 	dbEntries := make([]*Log, 0, len(entries))
 	origEntries := make([]*Log, 0, len(entries))
@@ -802,6 +830,7 @@ func (h *HybridLogStore) BatchCreateIfNotExists(ctx context.Context, entries []*
 		if h.skipsOffload(entry) {
 			dbEntries = append(dbEntries, entry)
 			origEntries = append(origEntries, entry)
+			dbOnly = append(dbOnly, entry)
 			continue
 		}
 		if err := entry.SerializeFields(); err != nil {
@@ -837,6 +866,9 @@ func (h *HybridLogStore) BatchCreateIfNotExists(ctx context.Context, entries []*
 
 	for _, u := range uploads {
 		h.enqueueUpload(u.logID, u.timestamp, u.payload, u.tags, u.dbEntry)
+	}
+	for _, entry := range dbOnly {
+		h.mirrorDBRow(entry)
 	}
 	return nil
 }
@@ -1469,6 +1501,10 @@ func (h *HybridLogStore) BatchUpdate(ctx context.Context, entries []*Log) error 
 	}
 	uploadsByID := make(map[string]*pendingUpload)
 	var uploadOrder []string
+	// Excluded rows, as the batch leaves them, for the routes to match; only
+	// built when routes are configured.
+	dbOnlyByID := make(map[string]*Log)
+	var dbOnlyOrder []string
 	rowsByID := make(map[string]*Log)
 	dbEntries := make([]*Log, 0, len(entries))
 	for _, entry := range entries {
@@ -1496,6 +1532,16 @@ func (h *HybridLogStore) BatchUpdate(ctx context.Context, entries []*Log) error 
 		hidden := entry.ContentHidden
 		if _, excluded := h.excludedRequestTypes[row.Object]; excluded && !hidden {
 			dbEntries = append(dbEntries, entry)
+			if h.mirror != nil {
+				merged := dbOnlyByID[entry.ID]
+				if merged == nil {
+					copied := *row
+					merged = &copied
+					dbOnlyByID[entry.ID] = merged
+					dbOnlyOrder = append(dbOnlyOrder, entry.ID)
+				}
+				overlayNonZeroFields(merged, entry)
+			}
 			continue
 		}
 		if err := entry.SerializeFields(); err != nil {
@@ -1550,6 +1596,9 @@ func (h *HybridLogStore) BatchUpdate(ctx context.Context, entries []*Log) error 
 	}
 	if err := h.inner.BatchUpdate(ctx, dbEntries); err != nil {
 		return err
+	}
+	for _, id := range dbOnlyOrder {
+		h.mirrorDBRow(dbOnlyByID[id])
 	}
 	for _, id := range uploadOrder {
 		u := uploadsByID[id]

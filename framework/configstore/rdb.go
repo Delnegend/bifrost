@@ -1790,6 +1790,8 @@ func (s *RDBConfigStore) GetMCPConfig(ctx context.Context) (*schemas.MCPConfig, 
 					OauthConfigID:             dbClient.OauthConfigID,
 					ToolsToExecute:            dbClient.ToolsToExecute,
 					ToolsToAutoExecute:        dbClient.ToolsToAutoExecute,
+					PromptsToExpose:           dbClient.PromptsToExpose,
+					ResourcesToExpose:         dbClient.ResourcesToExpose,
 					Headers:                   dbClient.Headers,
 					AllowedExtraHeaders:       dbClient.AllowedExtraHeaders,
 					IsPingAvailable:           dbClient.IsPingAvailable,
@@ -1855,6 +1857,8 @@ func (s *RDBConfigStore) GetMCPConfig(ctx context.Context) (*schemas.MCPConfig, 
 			OauthConfigID:             dbClient.OauthConfigID,
 			ToolsToExecute:            dbClient.ToolsToExecute,
 			ToolsToAutoExecute:        dbClient.ToolsToAutoExecute,
+			PromptsToExpose:           dbClient.PromptsToExpose,
+			ResourcesToExpose:         dbClient.ResourcesToExpose,
 			Headers:                   dbClient.Headers,
 			AllowedExtraHeaders:       dbClient.AllowedExtraHeaders,
 			IsPingAvailable:           dbClient.IsPingAvailable,
@@ -2303,6 +2307,8 @@ func (s *RDBConfigStore) GetMCPClientConfigByID(ctx context.Context, id string) 
 		OauthConfigID:             dbClient.OauthConfigID,
 		ToolsToExecute:            dbClient.ToolsToExecute,
 		ToolsToAutoExecute:        dbClient.ToolsToAutoExecute,
+		PromptsToExpose:           dbClient.PromptsToExpose,
+		ResourcesToExpose:         dbClient.ResourcesToExpose,
 		Headers:                   dbClient.Headers,
 		AllowedExtraHeaders:       dbClient.AllowedExtraHeaders,
 		IsPingAvailable:           dbClient.IsPingAvailable,
@@ -2491,6 +2497,8 @@ func (s *RDBConfigStore) CreateMCPClientConfig(ctx context.Context, clientConfig
 			OauthConfigID:          clientConfigCopy.OauthConfigID,
 			ToolsToExecute:         clientConfigCopy.ToolsToExecute,
 			ToolsToAutoExecute:     clientConfigCopy.ToolsToAutoExecute,
+			PromptsToExpose:        clientConfigCopy.PromptsToExpose,
+			ResourcesToExpose:      clientConfigCopy.ResourcesToExpose,
 			Headers:                clientConfigCopy.Headers,
 			AllowedExtraHeaders:    clientConfigCopy.AllowedExtraHeaders,
 			IsPingAvailable:        clientConfigCopy.IsPingAvailable,
@@ -2609,6 +2617,14 @@ func (s *RDBConfigStore) UpdateMCPClientConfig(ctx context.Context, id string, c
 		if err != nil {
 			return fmt.Errorf("failed to marshal tools_to_auto_execute: %w", err)
 		}
+		promptsToExposeJSON, err := tables.EncodeExposeList("prompts_to_expose", clientConfigCopy.PromptsToExpose)
+		if err != nil {
+			return err
+		}
+		resourcesToExposeJSON, err := tables.EncodeExposeList("resources_to_expose", clientConfigCopy.ResourcesToExpose)
+		if err != nil {
+			return err
+		}
 		// Serialize headers to map[string]string matching BeforeSave logic
 		headersToSerialize := make(map[string]string)
 		if clientConfigCopy.Headers != nil {
@@ -2710,6 +2726,8 @@ func (s *RDBConfigStore) UpdateMCPClientConfig(ctx context.Context, id string, c
 			"is_code_mode_client":        clientConfigCopy.IsCodeModeClient,
 			"tools_to_execute_json":      string(toolsToExecuteJSON),
 			"tools_to_auto_execute_json": string(toolsToAutoExecuteJSON),
+			"prompts_to_expose_json":     promptsToExposeJSON,
+			"resources_to_expose_json":   resourcesToExposeJSON,
 			"headers_json":               headersJSONStr,
 			"allowed_extra_headers_json": string(allowedExtraHeadersJSON),
 			"tool_pricing_json":          string(toolPricingJSON),

@@ -5036,6 +5036,24 @@ func TestMigrationAddMCPClientDiscoveredResourcesPromptsColumns(t *testing.T) {
 	assert.Equal(t, int64(1), count)
 }
 
+// TestMigrationAddMCPClientExposeListsColumns adds both allow-list columns, leaving existing rows
+// empty (expose all), and is a no-op on a re-run.
+func TestMigrationAddMCPClientExposeListsColumns(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("CREATE TABLE config_mcp_clients (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id VARCHAR(255) NOT NULL UNIQUE)").Error)
+	require.NoError(t, db.Exec("INSERT INTO config_mcp_clients (client_id) VALUES ('existing')").Error)
+	for range 2 {
+		require.NoError(t, migrationAddMCPClientExposeListsColumns(context.Background(), db, testMigrationLogger))
+	}
+	for _, column := range []string{"prompts_to_expose_json", "resources_to_expose_json"} {
+		require.True(t, db.Migrator().HasColumn(&tables.TableMCPClient{}, column))
+		var value *string
+		require.NoError(t, db.Table("config_mcp_clients").Select(column).Where("client_id = 'existing'").Scan(&value).Error)
+		assert.True(t, value == nil || *value == "", "an existing client keeps exposing everything")
+	}
+}
+
 // TestA2ARawCaptureSettingMigration defaults existing deployments to capture disabled.
 func TestA2ARawCaptureSettingMigration(t *testing.T) {
 	db := setupTestDB(t)
@@ -5246,4 +5264,11 @@ func TestMigrationAddPassthroughJSONColumn_NonRollbackable(t *testing.T) {
 	var got tables.TableProvider
 	require.NoError(t, db.Where("name = ?", "openai").First(&got).Error)
 	assert.Equal(t, policy, got.Passthrough)
+}
+
+func TestMigrationAddMCPClientExposeListsColumns_RollbackRefuses(t *testing.T) {
+	m := mcpClientExposeListsColumnsMigration(context.Background(), "add_mcp_client_expose_lists_columns", testMigrationLogger)
+	err := m.Rollback(nil)
+	require.Error(t, err, "dropping the allow-lists would serve everything they restrict")
+	require.Contains(t, err.Error(), "non-rollbackable")
 }

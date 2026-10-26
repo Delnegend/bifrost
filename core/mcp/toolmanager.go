@@ -1087,6 +1087,13 @@ func (m *ToolsManager) attemptCallFailureRecovery(
 		// No client state means no connection to re-acquire: nothing to retry.
 		return nil, false, false
 	}
+	if state.ExecutionConfig == nil || state.ExecutionConfig.ID != executionConfig.ID {
+		// The tool name now resolves to another client: this one was deleted
+		// and re-added under the same name while the call was in flight. The
+		// call was permitted for the old client, so it is not retried against
+		// the new one (the shared branch guards the same way).
+		return nil, false, false
+	}
 
 	if retryOptedOut {
 		// No retry will use the refreshed credential, so the caller's error is

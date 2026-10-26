@@ -172,6 +172,70 @@ you rotate the virtual key, restart Codex. The desktop app needs the variable
 set on the app process itself.
 </Warning>
 
+### Sign in with your identity provider (Enterprise)
+
+Bifrost Enterprise also supports the guide's native gateway OAuth option. Each
+person signs in to your identity provider from Codex, so requests are
+attributed to them and their user budgets, rate limits and access profile
+apply. No virtual key is needed, and the token expires and refreshes like any
+other sign-in.
+
+Codex runs the whole sign-in against your identity provider. Bifrost takes no
+part in it and only validates the token Codex sends afterwards, against the
+SSO provider set up under **Governance → User Provisioning**.
+
+1. In your identity provider, register a public client with PKCE, such as an
+   Okta native app or an Entra public client, and add the loopback redirect
+   `http://127.0.0.1:43127/callback`. Use the port you set as `redirect_port`
+   below. Codex cannot hold a client secret, so identity providers that
+   require one on the token exchange, such as Google, do not work.
+2. Point Codex at that client in `requirements.toml`, using your identity
+   provider's authorize and token URLs:
+
+```toml
+model_provider = "bifrost"
+
+[model_providers.bifrost]
+name = "Bifrost"
+base_url = "https://gateway.example.com/chatgpt_passthrough/backend-api/codex"
+wire_api = "responses"
+requires_openai_auth = true
+supports_websockets = false
+
+[model_providers.bifrost.gateway_oauth]
+authorization_url = "https://your-org.okta.com/oauth2/default/v1/authorize"
+token_url = "https://your-org.okta.com/oauth2/default/v1/token"
+client_id = "your-codex-client-id"
+scopes = ["openid", "email", "profile", "offline_access"]
+delivery = { kind = "cookie", name = "auth-openid" }
+redirect_port = 43127
+```
+
+The example uses an Okta custom authorization server. Include the scopes your
+SSO login requests, and `offline_access` where your identity provider needs it
+to issue refresh tokens, so Codex can refresh instead of sending people back to
+the browser.
+
+Codex sends the identity provider's access token, not the ID token, so it has
+to pass the same checks as the SSO provider configured in Bifrost. The issuer
+must match the SSO provider's issuer URL, and when the SSO provider sets an
+audience, the token's `aud` must equal it. For an Okta custom authorization
+server that audience is usually `api://default`.
+
+Codex then sends two credentials on every request. The ChatGPT token stays in
+`Authorization` and reaches ChatGPT unchanged; Bifrost forwards it only when
+ChatGPT issued it. The identity provider token
+travels in the `auth-openid` cookie. Bifrost validates it, attributes the
+request to that user, and removes the cookie before forwarding. When
+inference authentication is enforced, a missing or invalid cookie returns
+`401`. The cookie name must be `auth-openid`.
+
+<Note>
+This option needs a Codex build with native gateway OAuth, a browser and a
+reachable loopback port. It covers model requests only, not MCP, plugins or
+voice.
+</Note>
+
 ## Select a model
 
 Pass the complete Bifrost model identifier when starting the session:

@@ -558,6 +558,7 @@ type PassthroughConfig struct {
 	// these method+path pairs instead of forwarding every request under StripPrefix.
 	AllowedRoutes []PassthroughRoute
 	StreamingPath func(method, path string) bool // optional: decides which requests stream, replacing the generic markers
+	PathModel     func(path string) string       // optional: the model a provider-shaped path addresses, used for key selection and governance
 }
 
 // streams reports whether a passthrough request is served by the streaming handler. When the provider
@@ -3705,6 +3706,9 @@ func (g *GenericRouter) handlePassthrough(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	resolvedModel := extractPassthroughModel(path, bodyModel)
+	if cfg.PathModel != nil {
+		resolvedModel = cfg.PathModel(path)
+	}
 	provider := cfg.Provider
 	if cfg.ProviderDetector != nil {
 		provider = cfg.ProviderDetector(ctx, bodyModel)

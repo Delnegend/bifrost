@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -75,4 +76,30 @@ func TestToolResultForResponses(t *testing.T) {
 	assert.Equal(t, ChatContentBlockTypeFile, adapted.Content.ContentBlocks[3].Type)
 	assert.Equal(t, ChatContentBlockTypeInputAudio, message.Content.ContentBlocks[2].Type, "the original message is untouched")
 	assert.Nil(t, ToolResultForResponses(nil))
+}
+
+// Logged prompt and resource reads name their media instead of carrying its base64, without
+// touching the result served to the caller.
+func TestPromptAndResourceForLog(t *testing.T) {
+	data := strings.Repeat("A", 4096)
+	resource := &mcp.ReadResourceResult{Contents: []mcp.ResourceContents{
+		mcp.TextResourceContents{URI: "file:///a.md", Text: "# A"},
+		mcp.BlobResourceContents{URI: "file:///a.png", MIMEType: "image/png", Blob: data},
+	}}
+	logged := ResourceContentsForLog(resource)
+	require.Len(t, logged, 2)
+	assert.Equal(t, "# A", logged[0].(mcp.TextResourceContents).Text)
+	assert.Equal(t, "[image/png, 3 KB returned by the tool, not shown]", logged[1].(mcp.BlobResourceContents).Blob)
+	assert.Equal(t, data, resource.Contents[1].(mcp.BlobResourceContents).Blob, "the served result is untouched")
+
+	prompt := &mcp.GetPromptResult{Messages: []mcp.PromptMessage{
+		mcp.NewPromptMessage(mcp.RoleUser, mcp.NewTextContent("look")),
+		mcp.NewPromptMessage(mcp.RoleUser, mcp.NewImageContent(data, "image/png")),
+	}}
+	loggedPrompt := PromptForLog(prompt)
+	assert.Equal(t, "look", loggedPrompt.Messages[0].Content.(mcp.TextContent).Text)
+	assert.Equal(t, "[image/png, 3 KB returned by the tool, not shown]", loggedPrompt.Messages[1].Content.(mcp.ImageContent).Data)
+	assert.Equal(t, data, prompt.Messages[1].Content.(mcp.ImageContent).Data, "the served result is untouched")
+	assert.Nil(t, PromptForLog(nil))
+	assert.Nil(t, ResourceContentsForLog(nil))
 }

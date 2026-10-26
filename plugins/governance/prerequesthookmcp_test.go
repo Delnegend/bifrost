@@ -622,3 +622,26 @@ func TestPreRequestHookMCP_ExplicitEmptyConfigBeatsAllowedByDefault(t *testing.T
 		assert.Equal(t, []string{}, stampedIncludeTools(t, p, newPreRequestCtx([]string{"youtube-*"}, []string{"youtube"}), newChatRequest()))
 	})
 }
+
+// A prompt or resource read is evaluated like a tool call (a credential that resolves to nothing is
+// refused) but not checked against the tool allow-list: core only routes it to servers the access reaches.
+func TestPreMCPHookEvaluatesPromptAndResourceReads(t *testing.T) {
+	vk := buildVKForMCPStamping([]string{"read_file"})
+	reads := map[string]*schemas.BifrostMCPRequest{
+		"prompt":   {RequestType: schemas.MCPRequestTypeGetPrompt, ClientName: "sentry", BifrostMCPGetPromptRequest: &schemas.BifrostMCPGetPromptRequest{Name: "sentry-triage"}},
+		"resource": {RequestType: schemas.MCPRequestTypeReadResource, ClientName: "sentry", BifrostMCPReadResourceRequest: &schemas.BifrostMCPReadResourceRequest{URI: "sentry://issues/1"}},
+	}
+	for name, req := range reads {
+		t.Run(name, func(t *testing.T) {
+			plugin := newAccessTestPlugin(t, vk, nil)
+			_, shortCircuit, err := plugin.PreMCPHook(newPreRequestCtx(nil, nil), req)
+			require.NoError(t, err)
+			assert.Nil(t, shortCircuit, "a granted caller's read is not refused by the tool allow-list")
+
+			_, shortCircuit, err = plugin.PreMCPHook(presentCtx("sk-bf-revoked"), req)
+			require.NoError(t, err)
+			require.NotNil(t, shortCircuit, "an unresolvable credential is refused by evaluation")
+			assert.Equal(t, string(DecisionAccessNotFound), *shortCircuit.Error.Type)
+		})
+	}
+}

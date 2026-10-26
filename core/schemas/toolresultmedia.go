@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/mark3labs/mcp-go/mcp"
 )
 
 // FlattenToolResultMedia replaces every block keep rejects with a placeholder naming it, for providers
@@ -184,4 +186,55 @@ func base64Size(n int) string {
 		return fmt.Sprintf("%d KB", size>>10)
 	}
 	return fmt.Sprintf("%d bytes", size)
+}
+
+// ResourceContentsForLog returns result's contents with every blob replaced by a placeholder.
+func ResourceContentsForLog(result *mcp.ReadResourceResult) []mcp.ResourceContents {
+	if result == nil {
+		return nil
+	}
+	contents := make([]mcp.ResourceContents, len(result.Contents))
+	for i, content := range result.Contents {
+		contents[i] = resourceContentsForLog(content)
+	}
+	return contents
+}
+
+// PromptForLog returns result with image, audio and blob data replaced by placeholders; result is not mutated.
+func PromptForLog(result *mcp.GetPromptResult) *mcp.GetPromptResult {
+	if result == nil {
+		return nil
+	}
+	logged := *result
+	logged.Messages = make([]mcp.PromptMessage, len(result.Messages))
+	for i, message := range result.Messages {
+		logged.Messages[i] = message
+		switch content := message.Content.(type) {
+		case mcp.ImageContent:
+			content.Data = MediaPlaceholder(content.MIMEType, len(content.Data))
+			logged.Messages[i].Content = content
+		case mcp.AudioContent:
+			content.Data = MediaPlaceholder(content.MIMEType, len(content.Data))
+			logged.Messages[i].Content = content
+		case mcp.EmbeddedResource:
+			content.Resource = resourceContentsForLog(content.Resource)
+			logged.Messages[i].Content = content
+		}
+	}
+	return &logged
+}
+
+func resourceContentsForLog(content mcp.ResourceContents) mcp.ResourceContents {
+	switch blob := content.(type) {
+	case mcp.BlobResourceContents:
+		blob.Blob = MediaPlaceholder(blob.MIMEType, len(blob.Blob))
+		return blob
+	case *mcp.BlobResourceContents:
+		if blob != nil {
+			logged := *blob
+			logged.Blob = MediaPlaceholder(blob.MIMEType, len(blob.Blob))
+			return logged
+		}
+	}
+	return content
 }

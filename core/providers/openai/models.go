@@ -33,12 +33,8 @@ func (response *OpenAIListModelsResponse) ToBifrostListModelsResponse(providerKe
 
 	for _, model := range response.Data {
 		for _, result := range pipeline.FilterModel(model.ID) {
-			entry := schemas.Model{
-				ID:            string(providerKey) + "/" + result.ResolvedID,
-				Created:       model.Created,
-				OwnedBy:       schemas.Ptr(model.OwnedBy),
-				ContextLength: model.ContextWindow,
-			}
+			entry := model.toBifrostModel(providerKey)
+			entry.ID = string(providerKey) + "/" + result.ResolvedID
 			if result.AliasValue != "" {
 				entry.Alias = schemas.Ptr(result.AliasValue)
 			}
@@ -53,21 +49,36 @@ func (response *OpenAIListModelsResponse) ToBifrostListModelsResponse(providerKe
 	return bifrostResponse
 }
 
+func (model *OpenAIModel) toBifrostModel(providerKey schemas.ModelProvider) schemas.Model {
+	contextLength := model.ContextWindow
+	if contextLength == nil {
+		contextLength = model.ContextLength
+	}
+	entry := schemas.Model{
+		ID:              string(providerKey) + "/" + model.ID,
+		Name:            model.Name,
+		Created:         model.Created,
+		OwnedBy:         schemas.Ptr(model.OwnedBy),
+		ContextLength:   contextLength,
+		MaxOutputTokens: model.MaxOutputTokens,
+		ShutdownDate:    model.ShutdownDate,
+	}
+	if len(model.SupportedReasoningEfforts) > 0 || model.DefaultReasoningEffort != nil {
+		entry.Reasoning = &schemas.ModelReasoning{
+			SupportedEfforts: model.SupportedReasoningEfforts,
+			DefaultEffort:    model.DefaultReasoningEffort,
+		}
+	}
+	return entry
+}
+
 // ToBifrostModelRetrieveResponse converts an OpenAI model object to a Bifrost model retrieve response
 func (model *OpenAIModel) ToBifrostModelRetrieveResponse(providerKey schemas.ModelProvider) *schemas.BifrostModelRetrieveResponse {
 	if model == nil {
 		return nil
 	}
 
-	return &schemas.BifrostModelRetrieveResponse{
-		Model: schemas.Model{
-			ID:            string(providerKey) + "/" + model.ID,
-			Created:       model.Created,
-			OwnedBy:       schemas.Ptr(model.OwnedBy),
-			ContextLength: model.ContextWindow,
-			ShutdownDate:  model.ShutdownDate,
-		},
-	}
+	return &schemas.BifrostModelRetrieveResponse{Model: model.toBifrostModel(providerKey)}
 }
 
 // ToOpenAIModelRetrieveResponse converts a Bifrost model retrieve response to an OpenAI model object.
@@ -78,10 +89,16 @@ func ToOpenAIModelRetrieveResponse(response *schemas.BifrostModelRetrieveRespons
 	}
 
 	openaiModel := &OpenAIModel{
-		ID:           response.ID,
-		Object:       "model",
-		Created:      response.Created,
-		ShutdownDate: response.ShutdownDate,
+		ID:              response.ID,
+		Object:          "model",
+		Created:         response.Created,
+		ShutdownDate:    response.ShutdownDate,
+		Name:            response.Name,
+		MaxOutputTokens: response.MaxOutputTokens,
+	}
+	if response.Reasoning != nil {
+		openaiModel.SupportedReasoningEfforts = response.Reasoning.SupportedEfforts
+		openaiModel.DefaultReasoningEffort = response.Reasoning.DefaultEffort
 	}
 	if response.OwnedBy != nil {
 		openaiModel.OwnedBy = *response.OwnedBy
@@ -104,8 +121,14 @@ func ToOpenAIListModelsResponse(response *schemas.BifrostListModelsResponse) *Op
 	}
 	for _, model := range response.Data {
 		openaiModel := OpenAIModel{
-			ID:     model.ID,
-			Object: "model",
+			ID:              model.ID,
+			Object:          "model",
+			Name:            model.Name,
+			MaxOutputTokens: model.MaxOutputTokens,
+		}
+		if model.Reasoning != nil {
+			openaiModel.SupportedReasoningEfforts = model.Reasoning.SupportedEfforts
+			openaiModel.DefaultReasoningEffort = model.Reasoning.DefaultEffort
 		}
 		if model.Created != nil {
 			openaiModel.Created = model.Created

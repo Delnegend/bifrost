@@ -1637,9 +1637,14 @@ type OpenAIModel struct {
 	// Retirement date announced by the provider, returned by model retrieve
 	ShutdownDate *string `json:"shutdown_date,omitempty"`
 
-	// GROQ specific fields
-	Active        *bool `json:"active,omitempty"`
-	ContextWindow *int  `json:"context_window,omitempty"`
+	// Fields used by OpenAI-compatible providers.
+	Active                    *bool    `json:"active,omitempty"`
+	ContextWindow             *int     `json:"context_window,omitempty"`
+	ContextLength             *int     `json:"context_length,omitempty"`
+	Name                      *string  `json:"name,omitempty"`
+	MaxOutputTokens           *int     `json:"max_output_tokens,omitempty"`
+	SupportedReasoningEfforts []string `json:"supported_reasoning_efforts,omitempty"`
+	DefaultReasoningEffort    *string  `json:"default_reasoning_effort,omitempty"`
 }
 
 // OpenAIListModelsResponse represents an OpenAI list models response
@@ -1659,8 +1664,7 @@ func (response *OpenAIListModelsResponse) UnmarshalJSON(data []byte) error {
 
 	var models []struct {
 		OpenAIModel
-		Organization  string `json:"organization"`
-		ContextLength *int   `json:"context_length,omitempty"`
+		Organization string `json:"organization"`
 	}
 	if err := sonic.Unmarshal(trimmed, &models); err != nil {
 		return err
